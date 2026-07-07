@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nurseconnect-frontend",
+  "compatibility_date": "2025-09-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "dist/server/server.js",
+  "assets": {
+    "directory": "./dist/client"
+  },
+  "alias": {
+    "tanstack-start-manifest:v": "./dist/server/assets/_app.tanstack-start-manifest_v-C3GXsVoft.js",
+    "#tanstack-router-entry": "./src/router.tsx",
+    "#tanstack-start-entry": "./src/start.ts"
+  },
+  "vars": {
+   "VITE_API_URL": "https://d1km44yxgw1fc.cloudfront.net"
+  }
+}
