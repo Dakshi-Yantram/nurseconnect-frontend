@@ -270,7 +270,7 @@ function LoginPage() {
                     onClick={() => switchMode(m)}
                     className={`flex-1 px-3 py-1.5 rounded-md transition ${mode === m ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
                   >
-                    {mode === "signin" ? "Sign in" : "Register"}
+                    {m === "signin" ? "Sign in" : "Register"}
                   </button>
                 ))}
               </div>
@@ -322,7 +322,7 @@ function LoginPage() {
                     </div>
                   )}
 
-                  {m === "signin" && (
+                  {mode === "signin" && (
                     <div className="text-right -mt-2 mb-1">
                       <Link to="/auth/forgot-password" className="text-[12px] text-primary hover:underline">Forgot password?</Link>
                     </div>
