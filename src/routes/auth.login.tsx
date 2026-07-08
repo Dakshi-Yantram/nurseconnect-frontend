@@ -270,7 +270,7 @@ function LoginPage() {
                     onClick={() => switchMode(m)}
                     className={`flex-1 px-3 py-1.5 rounded-md transition ${mode === m ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
                   >
-                    {m === "signin" ? "Sign in" : "Register"}
+                    {mode === "signin" ? "Sign in" : "Register"}
                   </button>
                 ))}
               </div>
