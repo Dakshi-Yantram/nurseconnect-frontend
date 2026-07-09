@@ -75,17 +75,38 @@ function NurseApproval() {
 
   useEffect(() => { loadQueue(); }, []);
 
+  // Extracted so `act()` can call the exact same detail-fetch logic after a
+  // mutation, not just on ticket selection change.
+  const loadDetail = useCallback(async (ticket: TicketEntry | null) => {
+    if (!ticket) { setDetail(null); return; }
+    try {
+      const rows: WorkerDetail[] = await apiFetch("/api/admin/workers/pending");
+      setDetail(rows.find((r) => r.worker_id === ticket.nurse_id) ?? null);
+    } catch {
+      setDetail(null);
+    }
+  }, []);
+
   useEffect(() => {
     if (!selectedTicket) { setDetail(null); return; }
     setLoadingDetail(true);
-    apiFetch("/api/admin/workers/pending")
-      .then((rows: WorkerDetail[]) => setDetail(rows.find((r) => r.worker_id === selectedTicket.nurse_id) ?? null))
-      .finally(() => setLoadingDetail(false));
-  }, [selectedTicket]);
+    loadDetail(selectedTicket).finally(() => setLoadingDetail(false));
+  }, [selectedTicket, loadDetail]);
 
   async function act(fn: () => Promise<any>) {
     setError(null); setBusy(true);
-    try { await fn(); await loadQueue(); }
+    try {
+      await fn();
+      await loadQueue();
+      // Document/tier/background/approve/reject actions all mutate the worker's
+      // profile, but the `detail` state only refetches when `selectedTicket`
+      // itself changes reference — which loadQueue() does NOT do (it preserves
+      // the existing selection: `prev ?? all[0]`). Without this explicit
+      // refetch, the PATCH/POST succeeds in the backend (confirmed 200 OK) but
+      // the UI keeps showing the old "pending" status forever, because nothing
+      // ever re-triggers the effect that loads `detail.documents`.
+      await loadDetail(selectedTicket);
+    }
     catch (e: any) {
       let msg = String(e?.message ?? e);
       try { const j = JSON.parse(msg); msg = j.detail?.message ?? j.detail ?? msg; } catch {}
