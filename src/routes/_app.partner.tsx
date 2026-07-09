@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { ShieldCheck, Upload, Clock, XCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { WorkerServiceAreaForm } from "@/components/WorkerServiceAreaForm";
-
+import { WorkerCredentialsForm } from "@/components/WorkerCredentialsForm";
 export const Route = createFileRoute("/_app/partner")({
   component: PartnerGate,
 });
@@ -160,6 +160,19 @@ function Onboarding({ statusHint, onApproved }: { statusHint: string | null; onA
       {snap?.missing_profile_fields?.includes("base_city") && (
         <WorkerServiceAreaForm initialCity={undefined} onSaved={refresh} />
       )}
+      {(snap?.missing_profile_fields?.includes("date_of_birth") ||
+        snap?.missing_profile_fields?.includes("registration_no") ||
+        snap?.missing_profile_fields?.includes("registration_authority") ||
+        snap?.missing_profile_fields?.includes("registration_valid_until") ||
+        // Backend appends this DISTINCT key when registration_valid_until is
+        // set but has already lapsed (as opposed to being empty). Without
+        // this check, an expired registration date never renders the form
+        // that lets the worker fix it — they're stuck seeing only the
+        // generic "Complete your profile first" banner below with no way
+        // to act on it.
+        snap?.missing_profile_fields?.includes("registration_valid_until_not_expired")) && (
+          <WorkerCredentialsForm onSaved={refresh} />
+        )}
       {snap?.missing_profile_fields && snap.missing_profile_fields.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-4 text-[13px] text-amber-800">
           Complete your profile first (missing: {snap.missing_profile_fields.join(", ")}).
