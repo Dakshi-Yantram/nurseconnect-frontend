@@ -55,6 +55,7 @@ import { Route as AppPatientsPatientIdRouteImport } from './routes/_app.patients
 import { Route as AppPartnerVisitsRouteImport } from './routes/_app.partner.visits'
 import { Route as AppPartnerTrainingRouteImport } from './routes/_app.partner.training'
 import { Route as AppPartnerServicesRouteImport } from './routes/_app.partner.services'
+import { Route as AppPartnerProfileRouteImport } from './routes/_app.partner.profile'
 import { Route as AppPartnerNotificationsRouteImport } from './routes/_app.partner.notifications'
 import { Route as AppPartnerEarningsRouteImport } from './routes/_app.partner.earnings'
 import { Route as AppPartnerDocumentationRouteImport } from './routes/_app.partner.documentation'
@@ -321,6 +322,11 @@ const AppPartnerServicesRoute = AppPartnerServicesRouteImport.update({
   path: '/services',
   getParentRoute: () => AppPartnerRoute,
 } as any)
+const AppPartnerProfileRoute = AppPartnerProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
 const AppPartnerNotificationsRoute = AppPartnerNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -559,6 +565,7 @@ export interface FileRoutesByFullPath {
   '/partner/documentation': typeof AppPartnerDocumentationRoute
   '/partner/earnings': typeof AppPartnerEarningsRoute
   '/partner/notifications': typeof AppPartnerNotificationsRoute
+  '/partner/profile': typeof AppPartnerProfileRoute
   '/partner/services': typeof AppPartnerServicesRoute
   '/partner/training': typeof AppPartnerTrainingRoute
   '/partner/visits': typeof AppPartnerVisitsRouteWithChildren
@@ -637,6 +644,7 @@ export interface FileRoutesByTo {
   '/partner/documentation': typeof AppPartnerDocumentationRoute
   '/partner/earnings': typeof AppPartnerEarningsRoute
   '/partner/notifications': typeof AppPartnerNotificationsRoute
+  '/partner/profile': typeof AppPartnerProfileRoute
   '/partner/services': typeof AppPartnerServicesRoute
   '/partner/training': typeof AppPartnerTrainingRoute
   '/patients/$patientId': typeof AppPatientsPatientIdRoute
@@ -718,6 +726,7 @@ export interface FileRoutesById {
   '/_app/partner/documentation': typeof AppPartnerDocumentationRoute
   '/_app/partner/earnings': typeof AppPartnerEarningsRoute
   '/_app/partner/notifications': typeof AppPartnerNotificationsRoute
+  '/_app/partner/profile': typeof AppPartnerProfileRoute
   '/_app/partner/services': typeof AppPartnerServicesRoute
   '/_app/partner/training': typeof AppPartnerTrainingRoute
   '/_app/partner/visits': typeof AppPartnerVisitsRouteWithChildren
@@ -801,6 +810,7 @@ export interface FileRouteTypes {
     | '/partner/documentation'
     | '/partner/earnings'
     | '/partner/notifications'
+    | '/partner/profile'
     | '/partner/services'
     | '/partner/training'
     | '/partner/visits'
@@ -879,6 +889,7 @@ export interface FileRouteTypes {
     | '/partner/documentation'
     | '/partner/earnings'
     | '/partner/notifications'
+    | '/partner/profile'
     | '/partner/services'
     | '/partner/training'
     | '/patients/$patientId'
@@ -959,6 +970,7 @@ export interface FileRouteTypes {
     | '/_app/partner/documentation'
     | '/_app/partner/earnings'
     | '/_app/partner/notifications'
+    | '/_app/partner/profile'
     | '/_app/partner/services'
     | '/_app/partner/training'
     | '/_app/partner/visits'
@@ -1316,6 +1328,13 @@ declare module '@tanstack/react-router' {
       path: '/services'
       fullPath: '/partner/services'
       preLoaderRoute: typeof AppPartnerServicesRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/profile': {
+      id: '/_app/partner/profile'
+      path: '/profile'
+      fullPath: '/partner/profile'
+      preLoaderRoute: typeof AppPartnerProfileRouteImport
       parentRoute: typeof AppPartnerRoute
     }
     '/_app/partner/notifications': {
@@ -1764,6 +1783,7 @@ interface AppPartnerRouteChildren {
   AppPartnerDocumentationRoute: typeof AppPartnerDocumentationRoute
   AppPartnerEarningsRoute: typeof AppPartnerEarningsRoute
   AppPartnerNotificationsRoute: typeof AppPartnerNotificationsRoute
+  AppPartnerProfileRoute: typeof AppPartnerProfileRoute
   AppPartnerServicesRoute: typeof AppPartnerServicesRoute
   AppPartnerTrainingRoute: typeof AppPartnerTrainingRoute
   AppPartnerVisitsRoute: typeof AppPartnerVisitsRouteWithChildren
@@ -1776,6 +1796,7 @@ const AppPartnerRouteChildren: AppPartnerRouteChildren = {
   AppPartnerDocumentationRoute: AppPartnerDocumentationRoute,
   AppPartnerEarningsRoute: AppPartnerEarningsRoute,
   AppPartnerNotificationsRoute: AppPartnerNotificationsRoute,
+  AppPartnerProfileRoute: AppPartnerProfileRoute,
   AppPartnerServicesRoute: AppPartnerServicesRoute,
   AppPartnerTrainingRoute: AppPartnerTrainingRoute,
   AppPartnerVisitsRoute: AppPartnerVisitsRouteWithChildren,
