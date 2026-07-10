@@ -86,6 +86,16 @@ function Onboarding({ statusHint, onApproved }: { statusHint: string | null; onA
 
   async function uploadDoc(type: string, file: File) {
     setError(null);
+
+    // ✅ File size check before upload
+    const MAX_SIZE_MB = 5;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      const message = `File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size is ${MAX_SIZE_MB}MB.`;
+      setError(message);
+      alert(message);
+      return;
+    }
+
     setBusy(type);
     try {
       const dataUrl: string = await new Promise((resolve, reject) => {
@@ -101,7 +111,12 @@ function Onboarding({ statusHint, onApproved }: { statusHint: string | null; onA
       });
       await refresh();
     } catch (e: any) {
-      setError(String(e?.message ?? e));
+      // ✅ Clear alert instead of silent "Failed to fetch"
+      const message = e?.message?.includes("fetch")
+        ? "Upload failed. Please check your internet connection or try a smaller file."
+        : String(e?.message ?? e);
+      setError(message);
+      alert(message);
     } finally {
       setBusy(null);
     }
