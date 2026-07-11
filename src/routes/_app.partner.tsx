@@ -206,6 +206,11 @@ function Onboarding({ statusHint, onApproved }: { statusHint: string | null; onA
                 <p className="text-[11.5px] text-muted-foreground">
                   {uploaded ? "Uploaded" : rejected ? "Rejected — please re-upload" : "Not uploaded"}
                 </p>
+                {!uploaded && (
+                  <p className="mt-0.5 text-[10.5px] text-muted-foreground">
+                    Allowed formats: PDF, DOC, DOCX, JPG, PNG
+                  </p>
+                )}
               </div>
               {uploaded ? (
                 <CheckCircle2 className="text-emerald-600" size={18} />
@@ -215,7 +220,7 @@ function Onboarding({ statusHint, onApproved }: { statusHint: string | null; onA
                   Upload
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept=".png,.jpg,.jpeg,application/pdf,.doc,.docx"
                     className="hidden"
                     disabled={busy !== null}
                     onChange={(e) => e.target.files?.[0] && uploadDoc(doc.type, e.target.files[0])}
