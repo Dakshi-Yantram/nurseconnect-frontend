@@ -48,8 +48,13 @@ const CHECKLIST_ITEMS = [
 
 function PartnerVisitDetail() {
   const { visitId } = Route.useParams();
-  useLocationPublisher(visitId, ["assigned","worker_en_route","worker_arrived"].includes(b?.status ?? "")); // booking id
+  // NOTE: `b` (the booking state) must be declared BEFORE it's referenced
+  // below in useLocationPublisher. The previous version referenced `b` in
+  // that call before the `useState` line that creates it, which threw
+  // "ReferenceError: Cannot access 'b' before initialization" on every load
+  // of this page (visible after accepting a booking).
   const [b, setB] = useState<Booking | null>(null);
+  useLocationPublisher(visitId, ["assigned","worker_en_route","worker_arrived"].includes(b?.status ?? "")); // booking id
   const [vitals, setVitals] = useState<Vital[]>([]);
   const [loading, setLoading] = useState(true);
   const [otp, setOtp] = useState("");
