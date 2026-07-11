@@ -358,6 +358,7 @@ export function useConsumerCareSnapshot(ownerId?: string | null) {
       : all;
     const upcoming = scoped.filter(r =>
       r.state === "pending" ||
+      r.state === "confirmed" ||
       r.state === "claimed" ||
       r.state === "pending_payment"
     );
