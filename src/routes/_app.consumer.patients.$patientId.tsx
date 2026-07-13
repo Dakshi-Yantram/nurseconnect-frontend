@@ -28,8 +28,13 @@ function PatientDetail() {
   // sync in the path, so this can't go stale if the sync effect misses.
   const ledger: BookingEntity[] = usePatientVisitsById(patientId);
 
-  const inCare    = ledger.filter(r => r.rawStatus === "active" || r.rawStatus === "in_progress");
-  const upcoming  = ledger.filter(r => r.rawStatus === "pending" || r.rawStatus === "claimed");
+  const inCare = ledger.filter(r => r.rawStatus === "active" || r.rawStatus === "in_progress");
+  const upcoming = ledger.filter(r =>
+    r.rawStatus === "pending" ||
+    r.rawStatus === "claimed" ||
+    r.rawStatus === "confirmed" ||
+    r.rawStatus === "pending_payment"
+  );
   const completed = ledger.filter(r => r.rawStatus === "completed");
 
   if (!patient) {
@@ -53,9 +58,9 @@ function PatientDetail() {
 
       <Card title={`${patient.name} · ${patient.plan}`}>
         <div className="space-y-1 text-[13px]">
-          {patient.age   && <div><span className="text-muted-foreground">Age:</span> {patient.age}</div>}
+          {patient.age && <div><span className="text-muted-foreground">Age:</span> {patient.age}</div>}
           {patient.gender && <div><span className="text-muted-foreground">Gender:</span> {patient.gender}</div>}
-          {patient.city  && <div><span className="text-muted-foreground">City:</span> {patient.city}</div>}
+          {patient.city && <div><span className="text-muted-foreground">City:</span> {patient.city}</div>}
           <div><span className="text-muted-foreground">Last visit:</span> {patient.lastVisit ?? "—"}</div>
         </div>
       </Card>
