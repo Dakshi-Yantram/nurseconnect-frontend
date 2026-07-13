@@ -72,6 +72,7 @@ export type Permission =
   // Consumer
   | "consumer.home" | "consumer.bookings" | "consumer.patients"
   | "consumer.payments" | "consumer.consents" | "consumer.notifications" | "consumer.profile"
+  | "consumer.care_packages"
   // Partner
   | "partner.home" | "partner.assignments" | "partner.visits" | "partner.documentation"
   | "partner.earnings" | "partner.training" | "partner.availability"
@@ -102,6 +103,7 @@ const REVIEWER_PERMISSIONS: Permission[] = [
 const CONSUMER_ALL: Permission[] = [
   "consumer.home", "consumer.bookings", "consumer.patients",
   "consumer.payments", "consumer.consents", "consumer.notifications", "consumer.profile", "consumer.addresses",
+  "consumer.care_packages",
 ];
 
 const PARTNER_ALL: Permission[] = [
@@ -178,6 +180,7 @@ export const NAV_REGISTRY: NavItem[] = [
 
     // ---------- CONSUMER ----------
   { to: "/consumer",                label: "Home",               icon: LayoutDashboard, section: "My Care",        permission: "consumer.home",             portal: "consumer" },
+  { to: "/consumer/care-packages",  label: "Care Packages",      icon: Package,         section: "My Care",        permission: "consumer.care_packages",    portal: "consumer" },
   { to: "/consumer/bookings",       label: "Bookings",           icon: CalendarCheck,   section: "My Care",        permission: "consumer.bookings",         portal: "consumer" },
   { to: "/consumer/patients",       label: "Patients",           icon: HeartHandshake,  section: "My Care",        permission: "consumer.patients",         portal: "consumer" },
   { to: "/consumer/payments",       label: "Payments",           icon: CreditCard,      section: "Account",        permission: "consumer.payments",         portal: "consumer" },

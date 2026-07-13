@@ -73,6 +73,7 @@ import { Route as AppConsumerPaymentsRouteImport } from './routes/_app.consumer.
 import { Route as AppConsumerPatientsRouteImport } from './routes/_app.consumer.patients'
 import { Route as AppConsumerNotificationsRouteImport } from './routes/_app.consumer.notifications'
 import { Route as AppConsumerConsentsRouteImport } from './routes/_app.consumer.consents'
+import { Route as AppConsumerCarePackagesRouteImport } from './routes/_app.consumer.care-packages'
 import { Route as AppConsumerBookingsRouteImport } from './routes/_app.consumer.bookings'
 import { Route as AppConsumerAddressesRouteImport } from './routes/_app.consumer.addresses'
 import { Route as AppComplaintsComplaintIdRouteImport } from './routes/_app.complaints.$complaintId'
@@ -416,6 +417,12 @@ const AppConsumerConsentsRoute = AppConsumerConsentsRouteImport.update({
   path: '/consents',
   getParentRoute: () => AppConsumerRoute,
 } as any)
+const AppConsumerCarePackagesRoute =
+  AppConsumerCarePackagesRouteImport.update({
+    id: '/care-packages',
+    path: '/care-packages',
+    getParentRoute: () => AppConsumerRoute,
+  } as any)
 const AppConsumerBookingsRoute = AppConsumerBookingsRouteImport.update({
   id: '/bookings',
   path: '/bookings',
@@ -1668,6 +1675,7 @@ const AppConsumerProfileRouteWithChildren =
 interface AppConsumerRouteChildren {
   AppConsumerAddressesRoute: typeof AppConsumerAddressesRoute
   AppConsumerBookingsRoute: typeof AppConsumerBookingsRouteWithChildren
+  AppConsumerCarePackagesRoute: typeof AppConsumerCarePackagesRoute
   AppConsumerConsentsRoute: typeof AppConsumerConsentsRoute
   AppConsumerNotificationsRoute: typeof AppConsumerNotificationsRoute
   AppConsumerPatientsRoute: typeof AppConsumerPatientsRouteWithChildren
@@ -1679,6 +1687,7 @@ interface AppConsumerRouteChildren {
 const AppConsumerRouteChildren: AppConsumerRouteChildren = {
   AppConsumerAddressesRoute: AppConsumerAddressesRoute,
   AppConsumerBookingsRoute: AppConsumerBookingsRouteWithChildren,
+  AppConsumerCarePackagesRoute: AppConsumerCarePackagesRoute,
   AppConsumerConsentsRoute: AppConsumerConsentsRoute,
   AppConsumerNotificationsRoute: AppConsumerNotificationsRoute,
   AppConsumerPatientsRoute: AppConsumerPatientsRouteWithChildren,
