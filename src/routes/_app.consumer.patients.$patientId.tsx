@@ -23,7 +23,7 @@ function PatientDetail() {
   const ownerId = user?.id ?? null;
 
   const patients = useConsumerPatients(ownerId);
-  const care = useConsumerCareSnapshot(ownerId);
+  const care = useConsumerCareSnapshot();
 
   const patient = patients.find(p => p.id === patientId);
 
