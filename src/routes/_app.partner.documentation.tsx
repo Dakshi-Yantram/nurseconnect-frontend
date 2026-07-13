@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_app/partner/documentation")({
 const DOC_LABELS: Record<string, string> = {
   aadhaar: "Aadhaar Card",
   nursing_license: "Nursing Registration / License",
-  education_certificate: "Education Certificate",
+  degree_certificate: "Education Certificate",
   police_verification: "Police Verification",
 };
 const REQUIRED = Object.keys(DOC_LABELS);
