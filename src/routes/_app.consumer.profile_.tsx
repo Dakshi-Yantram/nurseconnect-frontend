@@ -313,7 +313,7 @@ if (page === "theme") return (
   if (page === "preferences") return (
     <div className="space-y-4 max-w-md mx-auto">
       <BackBtn onClick={() => go(null)} />
-      <Card title="App Preferences" padded={false}>
+      <Card title="Account Preferences" padded={false}>
         <SettingRow icon={<Globe className="h-4 w-4 text-blue-500" />}   label="Language"      sub={lang}   onClick={() => go("language")} />
         <SettingRow icon={<Bell className="h-4 w-4 text-amber-500" />}   label="Notifications" sub={`${[notifs.email && "Email", notifs.sms && "SMS", notifs.push && "Push"].filter(Boolean).join(", ") || "All off"}`} onClick={() => go("notifications")} />
         <SettingRow icon={<Moon className="h-4 w-4 text-violet-500" />}  label="Theme"         sub={theme}  onClick={() => go("theme")} />
@@ -355,7 +355,7 @@ if (page === "theme") return (
         {[
           { label: "Personal Information", icon: UserCircle,        key: "personal",    color: "text-blue-500" },
           { label: "Account Settings",     icon: Settings,          key: "settings",    color: "text-violet-500" },
-          { label: "App Preferences",      icon: SlidersHorizontal, key: "preferences", color: "text-emerald-500" },
+          { label: "Account Preferences",  icon: SlidersHorizontal, key: "preferences", color: "text-emerald-500" },
           { label: "Help & Support",       icon: HelpCircle,        key: "help",        color: "text-amber-500" },
         ].map(({ label, icon: Icon, key, color }) => (
           <button key={key} onClick={() => go(key as Page)}
