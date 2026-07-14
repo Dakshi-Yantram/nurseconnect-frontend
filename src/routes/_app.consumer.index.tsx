@@ -230,17 +230,21 @@ function PackageLifecycleRow({
   const pct       = planned === 0 ? 0 : Math.min(100, Math.round((delivered / planned) * 100));
 
   return (
-    <div className="px-4 py-3 border-b border-border last:border-0">
+    <Link
+      to="/consumer/care-packages"
+      className="block px-4 py-3 border-b border-border last:border-0 hover:bg-muted/30"
+    >
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium truncate">{pkg.name}</div>
           <div className="text-[11.5px] text-muted-foreground truncate">{pkg.target} · {pkg.visits} visits / {pkg.days}d</div>
         </div>
         <span className="text-[11px] text-muted-foreground shrink-0">{delivered}/{planned}</span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
       </div>
       <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
         <div className="h-full bg-primary transition-[width]" style={{ width: `${pct}%` }} />
       </div>
-    </div>
+    </Link>
   );
 }

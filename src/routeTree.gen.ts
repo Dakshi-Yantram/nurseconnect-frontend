@@ -555,6 +555,7 @@ export interface FileRoutesByFullPath {
   '/complaints/$complaintId': typeof AppComplaintsComplaintIdRoute
   '/consumer/addresses': typeof AppConsumerAddressesRoute
   '/consumer/bookings': typeof AppConsumerBookingsRouteWithChildren
+  '/consumer/care-packages': typeof AppConsumerCarePackagesRoute
   '/consumer/consents': typeof AppConsumerConsentsRoute
   '/consumer/notifications': typeof AppConsumerNotificationsRoute
   '/consumer/patients': typeof AppConsumerPatientsRouteWithChildren
@@ -634,6 +635,7 @@ export interface FileRoutesByTo {
   '/complaints/$complaintId': typeof AppComplaintsComplaintIdRoute
   '/consumer/addresses': typeof AppConsumerAddressesRoute
   '/consumer/bookings': typeof AppConsumerBookingsRouteWithChildren
+  '/consumer/care-packages': typeof AppConsumerCarePackagesRoute
   '/consumer/consents': typeof AppConsumerConsentsRoute
   '/consumer/notifications': typeof AppConsumerNotificationsRoute
   '/consumer/patients': typeof AppConsumerPatientsRouteWithChildren
@@ -716,6 +718,7 @@ export interface FileRoutesById {
   '/_app/complaints/$complaintId': typeof AppComplaintsComplaintIdRoute
   '/_app/consumer/addresses': typeof AppConsumerAddressesRoute
   '/_app/consumer/bookings': typeof AppConsumerBookingsRouteWithChildren
+  '/_app/consumer/care-packages': typeof AppConsumerCarePackagesRoute
   '/_app/consumer/consents': typeof AppConsumerConsentsRoute
   '/_app/consumer/notifications': typeof AppConsumerNotificationsRoute
   '/_app/consumer/patients': typeof AppConsumerPatientsRouteWithChildren
@@ -800,6 +803,7 @@ export interface FileRouteTypes {
     | '/complaints/$complaintId'
     | '/consumer/addresses'
     | '/consumer/bookings'
+    | '/consumer/care-packages'
     | '/consumer/consents'
     | '/consumer/notifications'
     | '/consumer/patients'
@@ -879,6 +883,7 @@ export interface FileRouteTypes {
     | '/complaints/$complaintId'
     | '/consumer/addresses'
     | '/consumer/bookings'
+    | '/consumer/care-packages'
     | '/consumer/consents'
     | '/consumer/notifications'
     | '/consumer/patients'
@@ -960,6 +965,7 @@ export interface FileRouteTypes {
     | '/_app/complaints/$complaintId'
     | '/_app/consumer/addresses'
     | '/_app/consumer/bookings'
+    | '/_app/consumer/care-packages'
     | '/_app/consumer/consents'
     | '/_app/consumer/notifications'
     | '/_app/consumer/patients'
@@ -1475,6 +1481,13 @@ declare module '@tanstack/react-router' {
       path: '/addresses'
       fullPath: '/consumer/addresses'
       preLoaderRoute: typeof AppConsumerAddressesRouteImport
+      parentRoute: typeof AppConsumerRoute
+    }
+    '/_app/consumer/care-packages': {
+      id: '/_app/consumer/care-packages'
+      path: '/care-packages'
+      fullPath: '/consumer/care-packages'
+      preLoaderRoute: typeof AppConsumerCarePackagesRouteImport
       parentRoute: typeof AppConsumerRoute
     }
     '/_app/complaints/$complaintId': {
