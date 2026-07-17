@@ -29,6 +29,8 @@ export const Route = createFileRoute("/_app/consumer/bookings")({
   validateSearch: (s: Record<string, unknown>) => ({
     new: s.new === "1" || s.new === "true" || s.new === true ? true : undefined,
     package: typeof s.package === "string" ? s.package : undefined,
+    packageId: typeof s.packageId === "string" ? s.packageId : undefined,
+    serviceId: typeof s.serviceId === "string" ? s.serviceId : undefined,
   }),
 });
 
@@ -177,6 +179,10 @@ function ConsumerBookings() {
   const [consumerProfile, setConsumerProfile] = useState<any>(null);
   // Prefill notes when arriving from a Care Package's "Book" button
   const [prefillNotes, setPrefillNotes] = useState<string | undefined>(undefined);
+  // Prefill the Service field with the package's linked service, so the
+  // dropdown doesn't show an unrelated/blank list after clicking "Book"
+  // on a Care Package card.
+  const [prefillServiceId, setPrefillServiceId] = useState<string | undefined>(undefined);
 
   const bookings = useBookings();
   const patients = useConsumerPatients(user?.id);
@@ -193,12 +199,13 @@ function ConsumerBookings() {
   useEffect(() => {
     if (search.new) {
       if (search.package) setPrefillNotes(`Package: ${search.package}`);
+      if (search.serviceId) setPrefillServiceId(search.serviceId);
       setOpen(true);
       // clean the URL so a refresh/back doesn't reopen the modal
       navigate({ to: "/consumer/bookings", search: {}, replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.new, search.package]);
+  }, [search.new, search.package, search.serviceId]);
 
   const liveSchema: FormSchema = useMemo(() => {
     const patientField = BOOKING_REQUEST_SCHEMA.sections[0].fields[0];
@@ -360,7 +367,10 @@ function ConsumerBookings() {
           schema={liveSchema}
           onSubmit={onCreate}
           submitLabel="Request booking"
-          initialValues={prefillNotes ? { notes: prefillNotes } : undefined}
+          initialValues={{
+            ...(prefillNotes ? { notes: prefillNotes } : {}),
+            ...(prefillServiceId ? { service: prefillServiceId } : {}),
+          }}
         />
       </Modal>
       <PaymentDialog
