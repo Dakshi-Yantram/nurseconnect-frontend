@@ -5,6 +5,7 @@ import {
   Scale, FileSearch, Database, Settings, ScrollText, HeartHandshake,
   CalendarCheck, FileText, Bell, User as UserIcon,
   Briefcase, MapPin, IndianRupee, GraduationCap, Clock, FileSignature, Inbox,
+  UserCog, HelpCircle, UserPlus, LifeBuoy,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -12,10 +13,16 @@ import {
 //   - ONE admin role (full access). No more super_admin / ops / finance / clinical.
 //   - reviewer: reviews onboarding docs, authors training, checks assessments.
 //     Reviewer shares the admin shell but only sees its own nav items.
+//   - operations: creates support/clinical_training_lead/clinical_trainer
+//     accounts, manages the FAQ/help-center content. Own portal.
+//   - clinical_training_lead / clinical_trainer: share the admin shell like
+//     reviewer, filtered to their own nav items.
 // ---------------------------------------------------------------------------
-export type Role = "admin" | "reviewer" | "support" | "consumer" | "partner";
+export type Role =
+  | "admin" | "reviewer" | "support" | "consumer" | "partner"
+  | "operations" | "clinical_training_lead" | "clinical_trainer";
 
-export type Portal = "admin" | "support" | "consumer" | "partner";
+export type Portal = "admin" | "support" | "consumer" | "partner" | "operations";
 
 export type SelfRegisterRole = Extract<Role, "consumer" | "partner">;
 export const SELF_REGISTER_ROLES: { id: SelfRegisterRole; label: string; tagline: string }[] = [
@@ -26,7 +33,10 @@ export const SELF_REGISTER_ROLES: { id: SelfRegisterRole; label: string; tagline
 export const ROLES: { id: Role; label: string; description: string }[] = [
   { id: "admin",    label: "Admin",             description: "Full platform access" },
   { id: "reviewer", label: "Reviewer",          description: "Document review, training authoring, assessments" },
+  { id: "operations", label: "Operations",      description: "Creates staff accounts, manages FAQs" },
   { id: "support",  label: "Support Staff",     description: "Ticket resolution and escalation management" },
+  { id: "clinical_training_lead", label: "Clinical Training Lead", description: "Reviews and approves training content" },
+  { id: "clinical_trainer", label: "Clinical Trainer", description: "Authors training modules and assessments" },
   { id: "consumer", label: "Family / Patient",  description: "Self-served bookings, patients, consents" },
   { id: "partner",  label: "Care Professional", description: "Marketplace claiming + visit execution" },
 ];
@@ -34,7 +44,10 @@ export const ROLES: { id: Role; label: string; description: string }[] = [
 export const ROLE_PORTAL: Record<Role, Portal> = {
   admin:    "admin",
   reviewer: "admin",   // reviewer uses the admin shell, filtered to review items
+  operations: "operations",
   support:  "support",
+  clinical_training_lead: "admin",
+  clinical_trainer: "admin",
   consumer: "consumer",
   partner:  "partner",
 };
@@ -44,12 +57,16 @@ export const PORTAL_LABEL: Record<Portal, string> = {
   consumer: "Consumer Portal",
   partner:  "Partner Portal",
   support:  "/support-dashboard",
+  operations: "Operations Portal",
 };
 
 export const PORTAL_HOME: Record<Role, string> = {
   admin:    "/dashboard",
   reviewer: "/onboarding-review",
+  operations: "/operations",
   support:  "/support-dashboard",
+  clinical_training_lead: "/training-review",
+  clinical_trainer: "/training-authoring",
   consumer: "/consumer",
   partner:  "/partner",
 };
@@ -68,16 +85,20 @@ export type Permission =
   // Reviewer
   | "review.training"
   // New routes
-  | "consumer.addresses" | "partner.services" | "admin.reviewer.mgmt"
+  | "consumer.addresses" | "partner.services" | "admin.reviewer.mgmt" | "admin.roles"
   // Consumer
   | "consumer.home" | "consumer.bookings" | "consumer.patients"
   | "consumer.payments" | "consumer.consents" | "consumer.notifications" | "consumer.profile"
   | "consumer.care_packages"
   // Partner
   | "partner.home" | "partner.assignments" | "partner.visits" | "partner.documentation"
-  | "partner.earnings" | "partner.training" | "partner.availability"
+  | "partner.earnings" | "partner.training" | "partner.availability" | "partner.help"
   // Support
-  | "support.queue" | "support.assign" | "support.resolve";
+  | "support.queue" | "support.assign" | "support.resolve" | "support.tickets"
+  // Operations
+  | "ops.home" | "ops.staff" | "ops.faq"
+  // Clinical training lead / trainer
+  | "training.review_queue" | "training.author";
 
 // The single admin gets everything (former super-admin set) + training review.
 const ADMIN_ALL: Permission[] = [
@@ -87,7 +108,7 @@ const ADMIN_ALL: Permission[] = [
   "finance.reconciliation", "finance.subscriptions", "finance.disputes",
   "trust.incidents", "trust.complaints",
   "compliance.retention", "compliance.audit", "compliance.settings",
-  "review.training", "admin.reviewer.mgmt",
+  "review.training", "admin.reviewer.mgmt", "admin.roles",
 ];
 
 // Reviewer: onboarding/doc review + training authoring + assessment checks.
@@ -108,19 +129,37 @@ const CONSUMER_ALL: Permission[] = [
 
 const PARTNER_ALL: Permission[] = [
   "partner.home", "partner.assignments", "partner.visits", "partner.documentation",
-  "partner.earnings", "partner.training", "partner.availability", "partner.services",
+  "partner.earnings", "partner.training", "partner.availability", "partner.services", "partner.help",
 ];
 
 const SUPPORT_PERMISSIONS: Permission[] = [
   "support.queue",
   "support.assign",
   "support.resolve",
+  "support.tickets",
+];
+
+const OPERATIONS_PERMISSIONS: Permission[] = [
+  "ops.home",
+  "ops.staff",
+  "ops.faq",
+];
+
+const CLINICAL_TRAINING_LEAD_PERMISSIONS: Permission[] = [
+  "training.review_queue",
+];
+
+const CLINICAL_TRAINER_PERMISSIONS: Permission[] = [
+  "training.author",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin:    ADMIN_ALL,
   reviewer: REVIEWER_PERMISSIONS,
+  operations: OPERATIONS_PERMISSIONS,
   support:  SUPPORT_PERMISSIONS,
+  clinical_training_lead: CLINICAL_TRAINING_LEAD_PERMISSIONS,
+  clinical_trainer: CLINICAL_TRAINER_PERMISSIONS,
   consumer: CONSUMER_ALL,
   partner:  PARTNER_ALL,
 };
@@ -132,7 +171,7 @@ export type NavSection =
   | "Overview" | "Users" | "Clinical" | "Finance" | "Trust & Safety" | "Compliance"
   | "My Care" | "Account"
   | "Work" | "Personal"
-  | "Support";
+  | "Support" | "Operations" | "Training";
 
 export interface NavItem {
   to: string;
@@ -175,8 +214,13 @@ export const NAV_REGISTRY: NavItem[] = [
 
   // ---------- NEW ROUTES ----------
   { to: "/reviewer-management", label: "Reviewer Workload", icon: LayoutDashboard, section: "Users",    permission: "admin.reviewer.mgmt", portal: "admin" },
+  { to: "/roles-permissions",   label: "Roles & Permissions", icon: UserCog,       section: "Users",    permission: "admin.roles",         portal: "admin" },
   { to: "/consumer/addresses",  label: "Addresses",         icon: LayoutDashboard, section: "Account",  permission: "consumer.addresses",  portal: "consumer" },
   { to: "/partner/services",    label: "My Services",       icon: LayoutDashboard, section: "Work",     permission: "partner.services",    portal: "partner" },
+
+  // ---------- CLINICAL TRAINING LEAD / TRAINER (admin shell, filtered) ----------
+  { to: "/training-review",     label: "Training Review",   icon: GraduationCap,   section: "Training", permission: "training.review_queue", portal: "admin" },
+  { to: "/training-authoring",  label: "My Training Modules", icon: BookOpen,      section: "Training", permission: "training.author",       portal: "admin" },
 
     // ---------- CONSUMER ----------
   { to: "/consumer",                label: "Home",               icon: LayoutDashboard, section: "My Care",        permission: "consumer.home",             portal: "consumer" },
@@ -196,17 +240,24 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/partner/earnings",        label: "Earnings",           icon: IndianRupee,     section: "Personal",       permission: "partner.earnings",          portal: "partner" },
   { to: "/partner/training",        label: "Training",           icon: GraduationCap,   section: "Personal",       permission: "partner.training",          portal: "partner" },
   { to: "/partner/availability",    label: "Availability",       icon: Clock,           section: "Personal",       permission: "partner.availability",      portal: "partner" },
+  { to: "/partner/help",            label: "Help & Support",     icon: LifeBuoy,        section: "Personal",       permission: "partner.help",              portal: "partner" },
 
   // ---------- SUPPORT ----------
   { to: "/support-dashboard",   label: "Support Queue",    icon: Inbox,        section: "Support", permission: "support.queue",   portal: "support" },
+  { to: "/support-tickets",     label: "Ticket Queue",     icon: LifeBuoy,     section: "Support", permission: "support.tickets", portal: "support" },
   { to: "/support-escalations", label: "All Escalations",  icon: AlertOctagon, section: "Support", permission: "support.queue",   portal: "support" },
+
+  // ---------- OPERATIONS ----------
+  { to: "/operations",          label: "Overview",         icon: LayoutDashboard, section: "Operations", permission: "ops.home",  portal: "operations" },
+  { to: "/operations/staff",    label: "Staff Accounts",   icon: UserPlus,        section: "Operations", permission: "ops.staff", portal: "operations" },
+  { to: "/operations/faq",      label: "FAQ Management",   icon: HelpCircle,      section: "Operations", permission: "ops.faq",   portal: "operations" },
 ];
 
 export const NAV_SECTIONS: NavSection[] = [
   "Overview", "Users", "Clinical", "Finance", "Trust & Safety", "Compliance",
   "My Care", "Account",
   "Work", "Personal",
-  "Support",
+  "Support", "Operations", "Training",
 ];
 
 // ---------------------------------------------------------------------------

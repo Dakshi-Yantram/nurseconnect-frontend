@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
+import { ChatPanel } from "@/components/shared/ChatPanel";
 
 export const Route = createFileRoute("/_app/partner/visits/$visitId")({
   component: PartnerVisitDetail,
@@ -137,6 +138,8 @@ function PartnerVisitDetail() {
             <Navigation size={15} /> Navigate with Google Maps
           </a>
         </div>
+
+        <ChatPanel scope="booking" id={visitId} />
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-700">{error}</div>}
 

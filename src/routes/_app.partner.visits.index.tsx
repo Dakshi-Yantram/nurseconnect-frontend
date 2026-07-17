@@ -55,14 +55,14 @@ function WorkerVisits() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {rows.map((r) => {
               const state = bindStatus("booking", r.state);
-              const patient = bookingPatientName(r) ?? "â€”";
-              const service = bookingService(r) ?? "â€”";
-              const area = bookingArea(r) ?? "â€”";
+              const patient = bookingPatientName(r) ?? "—";
+              const service = bookingService(r) ?? "—";
+              const area = bookingArea(r) ?? "—";
 
               return (
                 <Link
                   key={r.id}
-                  to="/worker/visits/$visitId"
+                  to="/partner/visits/$visitId"
                   params={{ visitId: r.id }}
                   className="group bg-background border border-border rounded-xl hover:border-primary/30 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 overflow-hidden block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >

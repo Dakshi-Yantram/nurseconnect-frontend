@@ -1,13 +1,13 @@
 import { createFileRoute, Link, Navigate, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
-import { ShieldCheck, Clock, HeartHandshake, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { ShieldCheck, Clock, HeartHandshake, ArrowRight, Eye, EyeOff, Smartphone } from "lucide-react";
 import logo from "@/assets/yantram-logo.jpg";
 import { useAuth } from "@/lib/auth-context";
 import { portalHome, portalForRole, routePortal, SELF_REGISTER_ROLES, type Role, type SelfRegisterRole } from "@/lib/rbac";
 
 export const Route = createFileRoute("/auth/login")({
   component: LoginPage,
-  head: () => ({ meta: [{ title: "Login â€” NurseConnect" }] }),
+  head: () => ({ meta: [{ title: "Login — NurseConnect" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     redirect: typeof s.redirect === "string" ? s.redirect : undefined,
   }),
@@ -35,13 +35,15 @@ function safeRedirect(role: Role, raw: string | undefined): string | null {
   }
 }
 
-// Map backend role â†’ frontend role
+// Map backend role → frontend role
 const BACKEND_TO_ROLE: Record<string, Role> = {
   consumer: "consumer", worker: "partner",
   admin: "admin", reviewer: "reviewer",
+  operations: "operations", support: "support",
+  clinical_training_lead: "clinical_training_lead", clinical_trainer: "clinical_trainer",
 };
 
-// Map frontend self-register role â†’ backend role string
+// Map frontend self-register role → backend role string
 const SELF_ROLE_TO_BACKEND: Record<SelfRegisterRole, string> = {
   consumer: "consumer",
   partner: "worker",
@@ -80,6 +82,14 @@ async function apiVerifyEmail(email: string, code: string) {
   return apiRequest("/auth/verify-email", { email, code });
 }
 
+async function apiOtpSend(phone_e164: string) {
+  return apiRequest("/auth/otp/send", { phone_e164, purpose: "login" });
+}
+
+async function apiOtpVerify(phone_e164: string, code: string) {
+  return apiRequest("/auth/otp/verify", { phone_e164, code, role: "consumer" });
+}
+
 function saveTokens(access: string, refresh: string) {
   localStorage.setItem("access_token", access);
   localStorage.setItem("refresh_token", refresh);
@@ -103,7 +113,7 @@ function isPasswordValid(pw: string): boolean {
   );
 }
 
-type Mode = "signin" | "register" | "verify";
+type Mode = "signin" | "register" | "verify" | "otp_phone" | "otp_code";
 
 function LoginPage() {
   const nav = useNavigate();
@@ -129,6 +139,12 @@ function LoginPage() {
   const [verifyEmail, setVerifyEmail] = useState("");
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+
+  // OTP login
+  const [otpPhone, setOtpPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpPhone_e164, setOtpPhone_e164] = useState("");
+  const [devOtp, setDevOtp] = useState<string | null>(null);
 
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -205,10 +221,53 @@ function LoginPage() {
       await apiVerifyEmail(verifyEmail, code);
       setEmail(verifyEmail);
       setPassword("");
-      setInfo("Email verified â€” sign in to continue.");
+      setInfo("Email verified — sign in to continue.");
       setMode("signin");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitOtpSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!otpPhone.trim()) return setError("Please enter your mobile number");
+    setLoading(true);
+    try {
+      const e164 = normalizePhone(otpPhone);
+      const data = await apiOtpSend(e164);
+      setOtpPhone_e164(e164);
+      setDevOtp(data.dev_otp ?? null);
+      setOtpCode("");
+      setInfo(`OTP sent to ${e164}`);
+      setMode("otp_code");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitOtpVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const data = await apiOtpVerify(otpPhone_e164, otpCode);
+      saveTokens(data.tokens.access_token, data.tokens.refresh_token);
+      const mappedRole = BACKEND_TO_ROLE[data.user.role] ?? "consumer";
+      signIn({
+        id: data.user.id,
+        name: data.user.full_name ?? data.user.phone_e164 ?? "User",
+        email: data.user.email ?? "",
+        role: mappedRole,
+      });
+      const target = safeRedirect(mappedRole, redirect) ?? portalHome(mappedRole);
+      nav({ to: target as string });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -261,16 +320,16 @@ function LoginPage() {
             <div className="text-lg font-semibold">NurseConnect</div>
           </div>
           <div className="nc-card p-8">
-            {mode !== "verify" && (
+            {mode !== "verify" && mode !== "otp_code" && (
               <div className="flex items-center gap-1 p-1 rounded-md bg-secondary/60 mb-4 text-[12px] font-medium">
-                {(["signin", "register"] as const).map((m) => (
+                {(["signin", "otp_phone", "register"] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => switchMode(m)}
                     className={`flex-1 px-3 py-1.5 rounded-md transition ${mode === m ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
                   >
-                    {m === "signin" ? "Sign in" : "Register"}
+                    {m === "signin" ? "Email" : m === "otp_phone" ? "Phone OTP" : "Register"}
                   </button>
                 ))}
               </div>
@@ -331,7 +390,7 @@ function LoginPage() {
                     disabled={loading}
                     className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-md font-medium hover:opacity-95 disabled:opacity-60 transition"
                   >
-                    {loading ? "Logging inâ€¦" : "Login"}
+                    {loading ? "Logging in…" : "Login"}
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </form>
@@ -448,7 +507,7 @@ function LoginPage() {
                     disabled={loading}
                     className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-md font-medium hover:opacity-95 disabled:opacity-60 transition"
                   >
-                    {loading ? "Creating accountâ€¦" : "Create account"}
+                    {loading ? "Creating account…" : "Create account"}
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </form>
@@ -502,7 +561,7 @@ function LoginPage() {
                     disabled={loading}
                     className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-md font-medium hover:opacity-95 disabled:opacity-60 transition"
                   >
-                    {loading ? "Verifyingâ€¦" : "Verify email"}
+                    {loading ? "Verifying…" : "Verify email"}
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </form>
@@ -510,6 +569,109 @@ function LoginPage() {
                 <div className="mt-6 text-[13px] text-muted-foreground text-center">
                   Wrong email?{" "}
                   <button type="button" onClick={() => switchMode("register")} className="text-primary font-medium">
+                    Go back
+                  </button>
+                </div>
+              </>
+            )}
+
+            {mode === "otp_phone" && (
+              <>
+                <h2 className="text-2xl font-semibold tracking-tight">Login with OTP</h2>
+                <p className="text-sm text-muted-foreground mt-1">For family members & care recipients</p>
+
+                <form className="mt-6 space-y-4" onSubmit={submitOtpSend}>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">Mobile Number</label>
+                    <div className="relative mt-1.5">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[14px]">
+                        <Smartphone className="h-4 w-4" />
+                      </span>
+                      <input
+                        value={otpPhone}
+                        onChange={(e) => setOtpPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                        placeholder="9999900001"
+                        inputMode="numeric"
+                        maxLength={10}
+                        className="w-full pl-10 pr-3 py-2.5 text-[14px] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40"
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Enter 10-digit mobile number (India)</p>
+                  </div>
+
+                  {error && (
+                    <div className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    disabled={loading}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-md font-medium hover:opacity-95 disabled:opacity-60 transition"
+                  >
+                    {loading ? "Sending OTP…" : "Send OTP"}
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </form>
+
+                <div className="mt-6 text-[13px] text-muted-foreground text-center">
+                  Are you a nurse or caregiver?{" "}
+                  <button type="button" onClick={() => switchMode("signin")} className="text-primary font-medium">
+                    Email login
+                  </button>
+                </div>
+              </>
+            )}
+
+            {mode === "otp_code" && (
+              <>
+                <h2 className="text-2xl font-semibold tracking-tight">Enter OTP</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Sent to <span className="font-medium text-foreground">{otpPhone_e164}</span>
+                </p>
+
+                <form className="mt-6 space-y-4" onSubmit={submitOtpVerify}>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">6-digit OTP</label>
+                    <input
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="123456"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      className="mt-1.5 w-full px-3 py-2.5 text-[14px] rounded-md border border-border bg-card text-center tracking-[0.4em] text-[18px] focus:outline-none focus:ring-2 focus:ring-ring/40"
+                    />
+                    {devOtp && (
+                      <p className="mt-1.5 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                        Dev mode OTP: <span className="font-mono font-bold">{devOtp}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {info && (
+                    <div className="text-[13px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                      {info}
+                    </div>
+                  )}
+                  {error && (
+                    <div className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    disabled={loading}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-md font-medium hover:opacity-95 disabled:opacity-60 transition"
+                  >
+                    {loading ? "Verifying…" : "Verify & Login"}
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </form>
+
+                <div className="mt-6 text-[13px] text-muted-foreground text-center">
+                  Wrong number?{" "}
+                  <button type="button" onClick={() => { switchMode("otp_phone"); setInfo(null); }} className="text-primary font-medium">
                     Go back
                   </button>
                 </div>

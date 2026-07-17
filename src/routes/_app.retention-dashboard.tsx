@@ -1,20 +1,62 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/shared/Card";
 import { StatusChip } from "@/components/shared/StatusChip";
-import { RETENTION_SCHEDULES, CONSENTS } from "@/lib/mock-data";
-import { Play, Archive } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import { Play, Archive, RefreshCw } from "lucide-react";
 import { RunRetentionModal } from "@/components/retention/RunRetentionModal";
 import { ArchiveRecordsModal } from "@/components/retention/ArchiveRecordsModal";
 
 export const Route = createFileRoute("/_app/retention-dashboard")({ component: RetentionPage });
 
-type RetentionRecord = (typeof RETENTION_SCHEDULES)[number];
+interface RetentionRecord {
+  id: string;
+  entity: string;
+  policy: string;
+  lastRun: string;
+  processed: number;
+  next: string;
+  active: boolean;
+}
+
+interface ConsentRow {
+  id: string;
+  patient: string;
+  type: string;
+  version: string | null;
+  signedAt: string | null;
+  status: string;
+}
 
 function RetentionPage() {
+  const [schedules, setSchedules] = useState<RetentionRecord[]>([]);
+  const [consents, setConsents] = useState<ConsentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<RetentionRecord | null>(null);
   const [runOpen, setRunOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      apiFetch("/api/admin/retention-schedules"),
+      apiFetch("/api/admin/consents"),
+    ])
+      .then(([s, c]) => {
+        setSchedules((s as Array<Omit<RetentionRecord, "lastRun" | "next"> & { lastRun: string | null }>).map(r => ({
+          ...r,
+          lastRun: r.lastRun ?? "Never",
+          next: "—",
+        })));
+        setConsents(c);
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load retention data"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
 
   const openRun = (r: RetentionRecord) => {
     setSelectedRecord(r);
@@ -25,6 +67,16 @@ function RetentionPage() {
     setSelectedRecord(r);
     setArchiveOpen(true);
   };
+
+  if (loading) return <div className="py-16 text-center text-[13px] text-muted-foreground">Loading…</div>;
+  if (error) return (
+    <div className="py-16 text-center text-[13px] text-red-600">
+      {error}
+      <button onClick={load} className="ml-2 inline-flex items-center gap-1 text-primary hover:underline">
+        <RefreshCw className="h-3 w-3" /> Retry
+      </button>
+    </div>
+  );
 
   return (
     <>
@@ -43,15 +95,18 @@ function RetentionPage() {
               </tr>
             </thead>
             <tbody>
-              {RETENTION_SCHEDULES.map((r) => (
+              {schedules.length === 0 && (
+                <tr><td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">No retention schedules configured.</td></tr>
+              )}
+              {schedules.map((r) => (
                 <tr key={r.id} className="border-t border-border hover:bg-muted/30">
                   <td className="px-5 py-3 font-medium">{r.entity}</td>
                   <td className="px-5 py-3">
                     <StatusChip tone="info" label={r.policy} />
                   </td>
-                  <td className="px-5 py-3 text-muted-foreground">{r.lastRun}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{r.lastRun !== "Never" ? new Date(r.lastRun).toLocaleDateString() : "Never"}</td>
                   <td className="px-5 py-3">{r.processed.toLocaleString()}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{r.next}</td>
+                  <td className="px-5 py-3 text-muted-foreground">—</td>
                   <td className="px-5 py-3">
                     <StatusChip
                       tone={r.active ? "success" : "muted"}
@@ -96,17 +151,20 @@ function RetentionPage() {
               </tr>
             </thead>
             <tbody>
-              {CONSENTS.map((c) => (
+              {consents.length === 0 && (
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">No consent records yet.</td></tr>
+              )}
+              {consents.map((c) => (
                 <tr key={c.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="px-5 py-3 font-mono text-[12px]">{c.id}</td>
+                  <td className="px-5 py-3 font-mono text-[12px]">{c.id.slice(0, 8)}</td>
                   <td className="px-5 py-3 font-medium">{c.patient}</td>
                   <td className="px-5 py-3">{c.type}</td>
-                  <td className="px-5 py-3">{c.version}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{c.signedAt}</td>
+                  <td className="px-5 py-3">{c.version ?? "—"}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{c.signedAt ? new Date(c.signedAt).toLocaleDateString() : "—"}</td>
                   <td className="px-5 py-3">
                     <StatusChip
                       tone={
-                        c.status === "active"
+                        c.status === "given"
                           ? "success"
                           : c.status === "revoked"
                           ? "warning"

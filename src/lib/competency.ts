@@ -59,26 +59,14 @@ export const COURSE_CATALOG: Course[] = [
     summary: "Glucometry, sliding scale, hypo protocols." },
 ];
 
-const SEED_ANCHOR = "2026-07-01T09:00:00.000Z";
-
+// This in-memory store now only backs the legacy admin "Training Review"
+// moderation screen (_app.moderation.training.tsx). The worker-facing training
+// page (_app.partner.training.tsx) reads real data from
+// /api/training/modules instead. This store starts empty — no seeded
+// accounts — until the moderation screen is migrated to the same backend
+// (TrainingModule/AssessmentModule ContentStatus lifecycle).
 function seedEnrollments(): Enrollment[] {
-  const now = SEED_ANCHOR;
-  const seed = (workerId: string, name: string): Enrollment[] => [
-
-    { id: `${workerId}:CRS-INF`, workerId, workerName: name, courseId: "CRS-INF",
-      status: "approved",  updatedAt: now, reviewer: "trainer@nurseconnect.in" },
-    { id: `${workerId}:CRS-ESC`, workerId, workerName: name, courseId: "CRS-ESC",
-      status: "submitted", updatedAt: now, notes: "Submitted by worker" },
-    { id: `${workerId}:CRS-GER`, workerId, workerName: name, courseId: "CRS-GER",
-      status: "pending",   updatedAt: now },
-    { id: `${workerId}:CRS-WND`, workerId, workerName: name, courseId: "CRS-WND",
-      status: "approved",  updatedAt: now, reviewer: "trainer@nurseconnect.in" },
-  ];
-  return [
-    ...seed("worker-anon",   "Demo Worker"),
-    ...seed("worker-priya",  "Priya Sharma"),
-    ...seed("worker-rahul",  "Rahul Verma"),
-  ];
+  return [];
 }
 
 // --- Store ------------------------------------------------------------------

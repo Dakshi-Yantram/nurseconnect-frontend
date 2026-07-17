@@ -217,18 +217,3 @@ export function VerifyVisitOtp({
     </div>
   );
 }
-
-// ─── Default export: combined demo wrapper ────────────────────────────────────
-
-export default function VisitStartOtp() {
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center gap-8 p-6">
-      <GenerateVisitOtp bookingId="demo-booking-id" />
-      <VerifyVisitOtp
-        bookingId="demo-booking-id"
-        latitude={28.6139}
-        longitude={77.209}
-      />
-    </div>
-  );
-}
