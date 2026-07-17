@@ -196,9 +196,9 @@ function mapEscalation(e: any): IncidentEntity {
     title: noteSnippet ? `${triggerLabel} — ${noteSnippet}` : triggerLabel,
     severity: (
       e.level === "emergency" ? "critical"
-      : e.level === "contact_doctor" ? "high"
-      : e.level === "watch" ? "medium"
-      : "low"
+        : e.level === "contact_doctor" ? "high"
+          : e.level === "watch" ? "medium"
+            : "low"
     ) as IncidentEntity["severity"],
     rawStatus: e.status ?? "open",
     reporter: e.worker_id ?? "—",
@@ -285,13 +285,21 @@ export function DomainProvider({ children }: { children: ReactNode }) {
     console.log("Token:", token ? "present" : "MISSING");
     if (!token) { setLoading(false); return; }
 
+    // NEW — read role so we don't fire consumer-only calls for partner logins
+    let role: string | null = null;
+    try {
+      const raw = localStorage.getItem("nc.session.v1");
+      role = raw ? JSON.parse(raw)?.role ?? null : null;
+    } catch { role = null; }
+    const isConsumer = role === "consumer";
+
     try {
       const mock = buildMockData();
 
       // Fetch all data in parallel
       const [bookingsRes, patientsRes, servicesRes, packagesRes, escalationsRes] = await Promise.allSettled([
-        apiFetch("/api/bookings/consumer"),
-        apiFetch("/api/patients"),
+        isConsumer ? apiFetch("/api/bookings/consumer") : Promise.resolve([]),
+        isConsumer ? apiFetch("/api/patients") : Promise.resolve([]),
         apiFetch("/api/services"),
         apiFetch("/api/care-packages"),
         apiFetch("/api/escalations/"),

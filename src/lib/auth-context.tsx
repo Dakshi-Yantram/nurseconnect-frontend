@@ -27,7 +27,6 @@ interface AuthContextValue {
   hydrated: boolean;
   signIn: (user: SessionUser) => void;
   signOut: () => void;
-  setRole: (role: Role) => void;
   hasPermission: (p: Permission) => boolean;
 }
 
@@ -75,21 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback((u: SessionUser) => { writeSession(u); setUser(u); }, []);
   const signOut = useCallback(() => { writeSession(null); setUser(null); }, []);
-  const setRole = useCallback((role: Role) => {
-    setUser(prev => {
-      const next = prev ? { ...prev, role } : { id: "demo", name: "Admin User", email: "admin@nurseconnect.in", role };
-      writeSession(next);
-      return next;
-    });
-  }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,
     isAuthenticated: !!user,
     hydrated,
-    signIn, signOut, setRole,
+    signIn, signOut,
     hasPermission: (p) => rbacHas(user?.role ?? null, p),
-  }), [user, hydrated, signIn, signOut, setRole]);
+  }), [user, hydrated, signIn, signOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

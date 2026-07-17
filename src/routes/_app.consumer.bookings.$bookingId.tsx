@@ -7,6 +7,7 @@ import {
   ClipboardList, Thermometer, Activity, FileText, ArrowRight,
 } from "lucide-react";
 import { useBooking, useRefetchBookings } from "@/lib/domain";
+import { ChatPanel } from "@/components/shared/ChatPanel";
 import { Card } from "@/components/shared/Card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
@@ -265,6 +266,7 @@ function ConsumerBookingDetail() {
       </Card>
       <TrackNurseMap bookingId={record.id} status={record.state} destLat={record.latitude} destLng={record.longitude} />
       <StartVisitCodeButton bookingId={record.id} status={record.state} />
+      <ChatPanel scope="booking" id={record.id} />
       {/* ── Payment status ── */}
       <RuntimeBoundary label="Payment">
         <Card

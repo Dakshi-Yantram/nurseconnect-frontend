@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
+import { ChatPanel } from "@/components/shared/ChatPanel";
 
 export const Route = createFileRoute("/_app/partner/visits/$visitId")({
   component: PartnerVisitDetail,
@@ -48,8 +49,13 @@ const CHECKLIST_ITEMS = [
 
 function PartnerVisitDetail() {
   const { visitId } = Route.useParams();
-  useLocationPublisher(visitId, ["assigned","worker_en_route","worker_arrived"].includes(b?.status ?? "")); // booking id
+  // NOTE: `b` (the booking state) must be declared BEFORE it's referenced
+  // below in useLocationPublisher. The previous version referenced `b` in
+  // that call before the `useState` line that creates it, which threw
+  // "ReferenceError: Cannot access 'b' before initialization" on every load
+  // of this page (visible after accepting a booking).
   const [b, setB] = useState<Booking | null>(null);
+  useLocationPublisher(visitId, ["assigned","worker_en_route","worker_arrived"].includes(b?.status ?? "")); // booking id
   const [vitals, setVitals] = useState<Vital[]>([]);
   const [loading, setLoading] = useState(true);
   const [otp, setOtp] = useState("");
@@ -132,6 +138,8 @@ function PartnerVisitDetail() {
             <Navigation size={15} /> Navigate with Google Maps
           </a>
         </div>
+
+        <ChatPanel scope="booking" id={visitId} />
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-700">{error}</div>}
 

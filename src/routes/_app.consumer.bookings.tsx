@@ -217,6 +217,7 @@ function ConsumerBookings() {
     upcoming: bookings.filter(b =>
       b.rawStatus === "pending_payment" ||
       b.rawStatus === "pending" ||
+      b.rawStatus === "confirmed" ||
       b.rawStatus === "claimed"
     ),
     inCare: bookings.filter(b =>

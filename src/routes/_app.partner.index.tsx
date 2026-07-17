@@ -1,6 +1,6 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Briefcase, MapPin, IndianRupee, Award, ChevronRight, CalendarCheck, Activity } from "lucide-react";
+import { Briefcase, MapPin, IndianRupee, Award, ChevronRight, CalendarCheck, Activity, Wifi, WifiOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,82 @@ function StatCard({
     </div>
   );
   return href ? <Link to={href}>{inner}</Link> : inner;
+}
+
+function AvailabilityToggle() {
+  const [availability, setAvailability] = useState<"online" | "offline" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch("/api/workers/me")
+      .then((data) => setAvailability(data?.availability === "online" ? "online" : "offline"))
+      .catch(() => setAvailability("offline"));
+  }, []);
+
+  const toggle = async () => {
+    const next = availability === "online" ? "offline" : "online";
+    setLoading(true);
+    setError(null);
+    try {
+      await apiFetch("/api/workers/me/availability", {
+        method: "PUT",
+        body: JSON.stringify({ availability: next }),
+      });
+      setAvailability(next);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not update availability");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (availability === null) {
+    return <div className="rounded-xl border border-border bg-card px-5 py-4 h-[68px] animate-pulse" />;
+  }
+
+  const isOnline = availability === "online";
+
+  return (
+    <div className={cn(
+      "rounded-xl border px-5 py-4 flex items-center justify-between gap-4 transition-all",
+      isOnline ? "border-emerald-200 bg-emerald-50" : "border-border bg-card"
+    )}>
+      <div className="flex items-center gap-3">
+        <span className={cn(
+          "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg",
+          isOnline ? "bg-emerald-100 text-emerald-600" : "bg-muted text-muted-foreground"
+        )}>
+          {isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}
+        </span>
+        <div>
+          <p className="text-[13px] font-semibold text-foreground">
+            {isOnline ? "You are Online" : "You are Offline"}
+          </p>
+          <p className="text-[11.5px] text-muted-foreground">
+            {isOnline ? "Accepting new assignments" : "Not visible to patients"}
+          </p>
+          {error && <p className="text-[11px] text-red-500 mt-0.5">{error}</p>}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={loading}
+        className={cn(
+          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none",
+          isOnline ? "bg-emerald-500" : "bg-gray-300",
+          loading && "opacity-60 cursor-not-allowed"
+        )}
+        aria-label="Toggle availability"
+      >
+        <span className={cn(
+          "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200",
+          isOnline ? "translate-x-6" : "translate-x-1"
+        )} />
+      </button>
+    </div>
+  );
 }
 
 function WorkerHome() {
@@ -76,6 +152,9 @@ function WorkerHome() {
             <p className="text-[12.5px] text-muted-foreground mt-0.5">Here's your workspace overview for today</p>
           </div>
         </div>
+
+        {/* Online/Offline toggle */}
+        <AvailabilityToggle />
 
         {/* Skill badges */}
         <div className="rounded-xl border border-border bg-background overflow-hidden">

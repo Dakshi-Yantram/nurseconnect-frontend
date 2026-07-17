@@ -1,11 +1,21 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/shared/Card";
 import { StatusChip } from "@/components/shared/StatusChip";
-import { RULE_SETS } from "@/lib/mock-data";
-import { Edit2, History, BookOpen, AlertTriangle, ShieldCheck, Activity, ArrowLeft } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import { Edit2, History, BookOpen, AlertTriangle, ShieldCheck, Activity, ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/clinical-rule-sets")({ component: RuleSetsPage });
+
+interface RuleSetRow {
+  id: string;
+  rule_set_code: string;
+  name: string;
+  version: number;
+  is_active: boolean;
+  created_at: string;
+}
 
 const VITAL_THRESHOLDS = [
   { vital: "Systolic BP", normal: "90–140", warning: "140–160", critical: ">180" },
@@ -18,6 +28,21 @@ const VITAL_THRESHOLDS = [
 
 function RuleSetsPage() {
   const router = useRouter();
+  const [ruleSets, setRuleSets] = useState<RuleSetRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    apiFetch("/api/admin/clinical-rule-sets")
+      .then(setRuleSets)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load rule sets"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
   return (
     <div className="space-y-6">
       <button onClick={() => router.history.back()} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
@@ -25,30 +50,43 @@ function RuleSetsPage() {
       </button>
 
       <Card title="Rule Sets" padded={false}>
-        <table className="w-full text-[13px]">
-          <thead><tr className="bg-muted/40 text-muted-foreground text-left">
-            <th className="px-5 py-2.5">ID</th><th className="px-5 py-2.5">Name</th><th className="px-5 py-2.5">Category</th>
-            <th className="px-5 py-2.5">Scope</th><th className="px-5 py-2.5">Version</th><th className="px-5 py-2.5">Updated</th><th className="px-5 py-2.5"></th>
-          </tr></thead>
-          <tbody>
-            {RULE_SETS.map(r => (
-              <tr key={r.id} className="border-t border-border hover:bg-muted/30">
-                <td className="px-5 py-3 font-mono text-[12px]">{r.id}</td>
-                <td className="px-5 py-3 font-medium">{r.name}</td>
-                <td className="px-5 py-3"><StatusChip tone="info" label={r.category} /></td>
-                <td className="px-5 py-3 text-muted-foreground">{r.scope}</td>
-                <td className="px-5 py-3">v{r.version}</td>
-                <td className="px-5 py-3 text-muted-foreground">{r.updated}</td>
-                <td className="px-5 py-3">
-                  <div className="flex gap-1">
-                    <button onClick={() => toast.message("Rule editor opened")} className="h-8 w-8 grid place-items-center rounded hover:bg-secondary"><Edit2 className="h-4 w-4 text-muted-foreground" /></button>
-                    <button onClick={() => toast.message("Version history loaded")} className="h-8 w-8 grid place-items-center rounded hover:bg-secondary"><History className="h-4 w-4 text-muted-foreground" /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {loading && <div className="px-5 py-8 text-center text-[13px] text-muted-foreground">Loading…</div>}
+        {error && (
+          <div className="px-5 py-8 text-center text-[13px] text-red-600">
+            {error}
+            <button onClick={load} className="ml-2 inline-flex items-center gap-1 text-primary hover:underline">
+              <RefreshCw className="h-3 w-3" /> Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && (
+          <table className="w-full text-[13px]">
+            <thead><tr className="bg-muted/40 text-muted-foreground text-left">
+              <th className="px-5 py-2.5">Code</th><th className="px-5 py-2.5">Name</th>
+              <th className="px-5 py-2.5">Version</th><th className="px-5 py-2.5">Status</th><th className="px-5 py-2.5">Created</th><th className="px-5 py-2.5"></th>
+            </tr></thead>
+            <tbody>
+              {ruleSets.length === 0 && (
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">No clinical rule sets yet.</td></tr>
+              )}
+              {ruleSets.map(r => (
+                <tr key={r.id} className="border-t border-border hover:bg-muted/30">
+                  <td className="px-5 py-3 font-mono text-[12px]">{r.rule_set_code}</td>
+                  <td className="px-5 py-3 font-medium">{r.name}</td>
+                  <td className="px-5 py-3">v{r.version}</td>
+                  <td className="px-5 py-3"><StatusChip tone={r.is_active ? "success" : "muted"} label={r.is_active ? "Active" : "Inactive"} dot /></td>
+                  <td className="px-5 py-3 text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex gap-1">
+                      <button onClick={() => toast.message("Rule editor coming soon")} className="h-8 w-8 grid place-items-center rounded hover:bg-secondary"><Edit2 className="h-4 w-4 text-muted-foreground" /></button>
+                      <button onClick={() => toast.message("Version history coming soon")} className="h-8 w-8 grid place-items-center rounded hover:bg-secondary"><History className="h-4 w-4 text-muted-foreground" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Card, KpiCard } from "@/components/shared/Card";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { PermissionGate } from "@/components/shared/PermissionGate";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { useAuth } from "@/lib/auth-context";
+import { apiFetch } from "@/lib/api";
 import type { Permission } from "@/lib/rbac";
 import {
   Users, HeartPulse, Activity as ActivityIcon, Wallet, Star, CheckCircle2, Timer,
@@ -13,9 +15,6 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell, Legend,
 } from "recharts";
-import {
-  KPIS, BOOKING_TREND, SERVICE_DISTRIBUTION, REGIONS, ALERTS, ACTIVITY,
-} from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_app/dashboard")({
   component: DashboardPage,
@@ -24,9 +23,40 @@ export const Route = createFileRoute("/_app/dashboard")({
 
 const PIE_COLORS = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4"];
 
+interface Kpis {
+  total_patients: number; active_nurses: number; active_visits: number;
+  revenue: number; avg_rating: number; completion_rate: number;
+}
+interface TrendRow { date: string; bookings: number; completed: number }
+interface DistRow { name: string; value: number; pct: number }
+interface AlertRow { id: string; label: string; priority: string; action: string; to: string }
+interface ActivityRow { who: string; what: string; target: string; when: string }
+interface RegionRow { city: string; nurses: number; patients: number; visits: number; revenue: number }
+
 function DashboardPage() {
   const { user } = useAuth();
   const greeting = user ? `Welcome back, ${user.name.split(" ")[0]}` : "Welcome";
+
+  const [kpis, setKpis] = useState<Kpis | null>(null);
+  const [trend, setTrend] = useState<TrendRow[]>([]);
+  const [distribution, setDistribution] = useState<DistRow[]>([]);
+  const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [activity, setActivity] = useState<ActivityRow[]>([]);
+  const [regions, setRegions] = useState<RegionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch("/api/admin/dashboard/kpis").catch(() => null),
+      apiFetch("/api/admin/dashboard/booking-trend").catch(() => []),
+      apiFetch("/api/admin/dashboard/service-distribution").catch(() => []),
+      apiFetch("/api/admin/dashboard/alerts").catch(() => []),
+      apiFetch("/api/admin/dashboard/activity").catch(() => []),
+      apiFetch("/api/admin/regions").catch(() => []),
+    ]).then(([k, t, d, a, act, r]) => {
+      setKpis(k); setTrend(t); setDistribution(d); setAlerts(a); setActivity(act); setRegions(r);
+    }).finally(() => setLoading(false));
+  }, []);
 
   const quickActions: { label: string; to: string; permission: Permission }[] = [
     { label: "Approve Nurses",     to: "/nurse-approval",            permission: "users.approve" },
@@ -55,23 +85,22 @@ function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KpiCard label="Total Patients" value="2,847" trend="+12%" hint="+342 this month" icon={Users} tone="primary" />
-        <KpiCard label="Active Nurses" value="156" trend="+8%" hint="12 pending approval" icon={HeartPulse} tone="success" />
-        <KpiCard label="Active Visits Today" value="42" trend="Live" hint="86 completed today" icon={ActivityIcon} tone="warning" />
-        <KpiCard label="Revenue This Month" value="₹8.4L" trend="+24%" hint="Target: ₹10L" icon={Wallet} tone="purple" />
+        <KpiCard label="Total Patients" value={loading ? "—" : (kpis?.total_patients ?? 0).toLocaleString()} icon={Users} tone="primary" />
+        <KpiCard label="Active Nurses" value={loading ? "—" : (kpis?.active_nurses ?? 0).toLocaleString()} icon={HeartPulse} tone="success" />
+        <KpiCard label="Active Visits Now" value={loading ? "—" : kpis?.active_visits ?? 0} icon={ActivityIcon} tone="warning" />
+        <KpiCard label="Revenue (captured)" value={loading ? "—" : `₹${((kpis?.revenue ?? 0) / 100000).toFixed(1)}L`} icon={Wallet} tone="purple" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KpiCard label="Avg. Rating" value={<span>4.8 <span className="text-amber-500">★</span></span>} hint="Based on 1,247 reviews" icon={Star} tone="warning" />
-        <KpiCard label="Completion Rate" value="97.5%" hint="2,456 / 2,520 visits" icon={CheckCircle2} tone="success" />
-        <KpiCard label="Avg. Response Time" value="12 min" hint="Booking to assignment" icon={Timer} tone="info" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <KpiCard label="Avg. Nurse Rating" value={loading ? "—" : <span>{kpis?.avg_rating ?? 0} <span className="text-amber-500">★</span></span>} icon={Star} tone="warning" />
+        <KpiCard label="Completion Rate" value={loading ? "—" : `${kpis?.completion_rate ?? 0}%`} icon={CheckCircle2} tone="success" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card title="Booking Trends" className="lg:col-span-2" action={<select className="text-[12px] border rounded px-2 py-1 bg-card"><option>Last 7 days</option><option>Last 30 days</option></select>}>
+        <Card title="Booking Trends (7 days)" className="lg:col-span-2">
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={BOOKING_TREND}>
+              <AreaChart data={trend}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#2563EB" stopOpacity={0.3} />
@@ -79,7 +108,7 @@ function DashboardPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="day" stroke="#94A3B8" fontSize={12} />
+                <XAxis dataKey="date" stroke="#94A3B8" fontSize={12} />
                 <YAxis stroke="#94A3B8" fontSize={12} />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                 <Area type="monotone" dataKey="bookings" stroke="#2563EB" fill="url(#g1)" strokeWidth={2} />
@@ -90,31 +119,38 @@ function DashboardPage() {
         </Card>
 
         <Card title="Service Distribution" action={<Link to="/visits" className="text-primary font-medium">View Details</Link>}>
-          <div className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={SERVICE_DISTRIBUTION} dataKey="value" nameKey="name" innerRadius={42} outerRadius={72} paddingAngle={2}>
-                  {SERVICE_DISTRIBUTION.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <ul className="mt-2 space-y-1.5">
-            {SERVICE_DISTRIBUTION.map((s, i) => (
-              <li key={s.name} className="flex items-center justify-between text-[12px]">
-                <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: PIE_COLORS[i] }} /> {s.name}</span>
-                <span className="text-muted-foreground"><b className="text-foreground">{s.value}</b> · {s.growth}</span>
-              </li>
-            ))}
-          </ul>
+          {distribution.length === 0 ? (
+            <div className="py-8 text-center text-[12.5px] text-muted-foreground">No completed bookings yet.</div>
+          ) : (
+            <>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={distribution} dataKey="value" nameKey="name" innerRadius={42} outerRadius={72} paddingAngle={2}>
+                      {distribution.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {distribution.map((s, i) => (
+                  <li key={s.name} className="flex items-center justify-between text-[12px]">
+                    <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} /> {s.name}</span>
+                    <span className="text-muted-foreground"><b className="text-foreground">{s.value}</b> · {s.pct}%</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="System Alerts & Actions Required" className="lg:col-span-2">
           <ul className="divide-y divide-border -my-2">
-            {ALERTS.map(a => (
+            {alerts.length === 0 && <li className="py-3 text-[12.5px] text-muted-foreground">No alerts.</li>}
+            {alerts.map(a => (
               <li key={a.id} className="py-3 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <StatusChip
@@ -134,14 +170,15 @@ function DashboardPage() {
 
         <Card title="Recent Admin Activity" action={<Link to="/audit-logs" className="text-primary font-medium">View All</Link>}>
           <ul className="space-y-3">
-            {ACTIVITY.map((a, i) => (
+            {activity.length === 0 && <li className="text-[12.5px] text-muted-foreground">No recent activity.</li>}
+            {activity.map((a, i) => (
               <li key={i} className="flex items-start gap-3">
                 <div className="h-8 w-8 rounded-full bg-secondary grid place-items-center text-[11px] font-semibold text-foreground shrink-0">
                   {a.who[0]}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] text-foreground"><b>{a.who}</b> {a.what} <span className="text-primary">{a.target}</span></div>
-                  <div className="text-[11px] text-muted-foreground">{a.when}</div>
+                  <div className="text-[11px] text-muted-foreground">{new Date(a.when).toLocaleString()}</div>
                 </div>
               </li>
             ))}
@@ -158,20 +195,19 @@ function DashboardPage() {
               <th className="px-5 py-2.5 font-medium">Patients</th>
               <th className="px-5 py-2.5 font-medium">Visits</th>
               <th className="px-5 py-2.5 font-medium">Revenue</th>
-              <th className="px-5 py-2.5 font-medium">Change</th>
-              <th className="px-5 py-2.5 font-medium"></th>
             </tr>
           </thead>
           <tbody>
-            {REGIONS.map(r => (
+            {regions.length === 0 && (
+              <tr><td colSpan={5} className="px-5 py-8 text-center text-muted-foreground">No regional data yet.</td></tr>
+            )}
+            {regions.map(r => (
               <tr key={r.city} className="border-t border-border hover:bg-muted/30">
                 <td className="px-5 py-3 font-medium">{r.city}</td>
                 <td className="px-5 py-3">{r.nurses}</td>
                 <td className="px-5 py-3">{r.patients}</td>
                 <td className="px-5 py-3">{r.visits}</td>
-                <td className="px-5 py-3">{r.revenue}</td>
-                <td className="px-5 py-3"><StatusChip tone="success" label={`↗ +${r.change}%`} /></td>
-                <td className="px-5 py-3 text-muted-foreground"><ChevronRight className="h-4 w-4" /></td>
+                <td className="px-5 py-3">₹{r.revenue.toLocaleString("en-IN")}</td>
               </tr>
             ))}
           </tbody>
