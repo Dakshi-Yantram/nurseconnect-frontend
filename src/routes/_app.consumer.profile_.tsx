@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/shared/Card";
 import { useAuth } from "@/lib/auth-context";
+import { apiFetch } from "@/lib/api";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { PortalBadge } from "@/components/shared/PortalBadge";
 import {
   User, ChevronRight, LogOut, UserCircle, Settings, SlidersHorizontal,
   HelpCircle, ArrowLeft, Lock, Shield, Trash2, Globe, Bell, Moon,
-  MessageCircle, Phone, FileText, Info, Check, X, Sun, Monitor
+  MessageCircle, Phone, FileText, Info, Check, X, Sun, Monitor,
+  LifeBuoy, Send, RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export const Route = createFileRoute("/_app/consumer/profile_")({
   component: ConsumerProfile,
@@ -18,7 +20,8 @@ export const Route = createFileRoute("/_app/consumer/profile_")({
 type Page = null | "personal" | "settings" | "preferences" | "help"
   | "change-password" | "2fa" | "delete-account"
   | "language" | "notifications" | "theme"
-  | "faqs" | "contact" | "privacy" | "terms" | "version";
+  | "faqs" | "contact" | "privacy" | "terms" | "version"
+  | "tickets" | "raise-ticket";
 
 function BackBtn({ onClick }: { onClick: () => void }) {
   return (
@@ -229,22 +232,11 @@ if (page === "theme") return (
   </div>
 );
 
-  if (page === "faqs") return (
-    <div className="space-y-4 max-w-md mx-auto">
-      <BackBtn onClick={() => go("help")} />
-      <Card title="FAQs" padded={false}>
-        {[
-          { q: "How do I book a nurse?", a: "Go to Bookings → New Booking and fill in the details." },
-          { q: "Can I cancel a booking?", a: "Yes, you can cancel up to 2 hours before the scheduled time." },
-          { q: "How do I add a patient?", a: "Go to Patients → Add Patient and fill in the form." },
-          { q: "How are nurses verified?", a: "All nurses are background-checked and licensed before onboarding." },
-          { q: "How do I contact my nurse?", a: "Open your booking and use the contact button to reach your nurse." },
-        ].map(({ q, a }) => (
-          <FAQItem key={q} question={q} answer={a} />
-        ))}
-      </Card>
-    </div>
-  );
+  if (page === "faqs") return <FaqPage onBack={() => go("help")} />;
+
+  if (page === "tickets") return <TicketsPage onBack={() => go("help")} onRaise={() => go("raise-ticket")} />;
+
+  if (page === "raise-ticket") return <RaiseTicketPage onBack={() => go("tickets")} onSubmitted={() => go("tickets")} />;
 
   if (page === "contact") return (
     <div className="space-y-4 max-w-md mx-auto">
@@ -313,7 +305,7 @@ if (page === "theme") return (
   if (page === "preferences") return (
     <div className="space-y-4 max-w-md mx-auto">
       <BackBtn onClick={() => go(null)} />
-      <Card title="App Preferences" padded={false}>
+      <Card title="Account Preferences" padded={false}>
         <SettingRow icon={<Globe className="h-4 w-4 text-blue-500" />}   label="Language"      sub={lang}   onClick={() => go("language")} />
         <SettingRow icon={<Bell className="h-4 w-4 text-amber-500" />}   label="Notifications" sub={`${[notifs.email && "Email", notifs.sms && "SMS", notifs.push && "Push"].filter(Boolean).join(", ") || "All off"}`} onClick={() => go("notifications")} />
         <SettingRow icon={<Moon className="h-4 w-4 text-violet-500" />}  label="Theme"         sub={theme}  onClick={() => go("theme")} />
@@ -326,6 +318,7 @@ if (page === "theme") return (
       <BackBtn onClick={() => go(null)} />
       <Card title="Help & Support" padded={false}>
         <SettingRow icon={<MessageCircle className="h-4 w-4 text-blue-500" />}  label="FAQs"             sub="Frequently asked questions"    onClick={() => go("faqs")} />
+        <SettingRow icon={<LifeBuoy className="h-4 w-4 text-rose-500" />}       label="My Tickets"       sub="Raise or track a support ticket" onClick={() => go("tickets")} />
         <SettingRow icon={<Phone className="h-4 w-4 text-emerald-500" />}       label="Contact Support"  sub="support@nurseconnect.in"       onClick={() => go("contact")} />
         <SettingRow icon={<FileText className="h-4 w-4 text-violet-500" />}     label="Privacy Policy"   sub="How we handle your data"       onClick={() => go("privacy")} />
         <SettingRow icon={<FileText className="h-4 w-4 text-amber-500" />}      label="Terms of Service" sub="Usage terms and conditions"    onClick={() => go("terms")} />
@@ -355,7 +348,7 @@ if (page === "theme") return (
         {[
           { label: "Personal Information", icon: UserCircle,        key: "personal",    color: "text-blue-500" },
           { label: "Account Settings",     icon: Settings,          key: "settings",    color: "text-violet-500" },
-          { label: "App Preferences",      icon: SlidersHorizontal, key: "preferences", color: "text-emerald-500" },
+          { label: "Account Preferences",  icon: SlidersHorizontal, key: "preferences", color: "text-emerald-500" },
           { label: "Help & Support",       icon: HelpCircle,        key: "help",        color: "text-amber-500" },
         ].map(({ label, icon: Icon, key, color }) => (
           <button key={key} onClick={() => go(key as Page)}
@@ -375,6 +368,186 @@ if (page === "theme") return (
       >
         <LogOut className="h-4 w-4" /> Logout
       </button>
+    </div>
+  );
+}
+
+interface FaqRow { id: string; category: string | null; question: string; answer: string }
+interface TicketRow {
+  id: string; ticket_ref: string; category: string; subject: string; status: string;
+  created_at: string; resolution_notes: string | null;
+}
+
+function FaqPage({ onBack }: { onBack: () => void }) {
+  const [faqs, setFaqs] = useState<FaqRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    apiFetch("/api/faqs")
+      .then(setFaqs)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load FAQs"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-4 max-w-md mx-auto">
+      <BackBtn onClick={onBack} />
+      <Card title="FAQs" padded={false}>
+        {loading && <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">Loading…</div>}
+        {error && (
+          <div className="px-4 py-8 text-center text-[12.5px] text-red-600">
+            {error}
+            <button onClick={load} className="ml-2 inline-flex items-center gap-1 text-primary hover:underline">
+              <RefreshCw className="h-3 w-3" /> Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && faqs.length === 0 && (
+          <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">No FAQs published yet.</div>
+        )}
+        {!loading && !error && faqs.map(f => (
+          <FAQItem key={f.id} question={f.question} answer={f.answer} />
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+const TICKET_STATUS_TONE: Record<string, string> = {
+  open: "text-amber-600 bg-amber-50",
+  in_progress: "text-sky-600 bg-sky-50",
+  resolved: "text-emerald-600 bg-emerald-50",
+  closed: "text-muted-foreground bg-muted",
+};
+
+function TicketsPage({ onBack, onRaise }: { onBack: () => void; onRaise: () => void }) {
+  const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    apiFetch("/api/tickets/mine")
+      .then(setTickets)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load tickets"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-4 max-w-md mx-auto">
+      <BackBtn onClick={onBack} />
+      <button onClick={onRaise}
+        className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-lg font-medium hover:opacity-95 transition text-[13px]">
+        <Send className="h-4 w-4" /> Raise a Ticket
+      </button>
+      <Card title="My Tickets" padded={false}>
+        {loading && <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">Loading…</div>}
+        {error && (
+          <div className="px-4 py-8 text-center text-[12.5px] text-red-600">
+            {error}
+            <button onClick={load} className="ml-2 inline-flex items-center gap-1 text-primary hover:underline">
+              <RefreshCw className="h-3 w-3" /> Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && tickets.length === 0 && (
+          <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">No tickets raised yet.</div>
+        )}
+        {!loading && !error && tickets.map(t => (
+          <div key={t.id} className="px-4 py-3.5 border-b border-border last:border-0">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-medium">{t.subject}</span>
+              <span className={`text-[10.5px] font-medium px-2 py-0.5 rounded-full ${TICKET_STATUS_TONE[t.status] ?? ""}`}>
+                {t.status.replace(/_/g, " ")}
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {t.ticket_ref} · {t.category} · {new Date(t.created_at).toLocaleDateString()}
+            </div>
+            {t.resolution_notes && (
+              <div className="text-[11.5px] text-muted-foreground mt-1.5 italic">"{t.resolution_notes}"</div>
+            )}
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+const TICKET_CATEGORIES = [
+  { value: "booking", label: "Booking issue" },
+  { value: "billing", label: "Billing / Payment" },
+  { value: "clinical", label: "Clinical concern" },
+  { value: "nurse_conduct", label: "Nurse conduct" },
+  { value: "technical", label: "App / Technical" },
+  { value: "other", label: "Other" },
+];
+
+function RaiseTicketPage({ onBack, onSubmitted }: { onBack: () => void; onSubmitted: () => void }) {
+  const [category, setCategory] = useState("booking");
+  const [subject, setSubject] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subject.trim() || !description.trim()) {
+      setError("Subject and description are required");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await apiFetch("/api/tickets", {
+        method: "POST",
+        body: JSON.stringify({ category, subject: subject.trim(), description: description.trim() }),
+      });
+      onSubmitted();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to submit ticket");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 max-w-md mx-auto">
+      <BackBtn onClick={onBack} />
+      <Card title="Raise a Ticket">
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Category</label>
+            <select value={category} onChange={e => setCategory(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[13px] bg-background focus:outline-none focus:ring-2 focus:ring-primary/40">
+              {TICKET_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Subject</label>
+            <input value={subject} onChange={e => setSubject(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[13px] bg-background focus:outline-none focus:ring-2 focus:ring-primary/40" />
+          </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Description</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4}
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[13px] bg-background focus:outline-none focus:ring-2 focus:ring-primary/40" />
+          </div>
+          {error && <p className="text-[12px] text-rose-600">{error}</p>}
+          <button disabled={submitting} type="submit"
+            className="w-full py-2.5 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+            {submitting ? "Submitting…" : "Submit Ticket"}
+          </button>
+        </form>
+      </Card>
     </div>
   );
 }

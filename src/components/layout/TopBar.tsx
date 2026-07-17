@@ -12,11 +12,11 @@
 // route is added to rbac.ts, just extend NOTIFICATIONS_ROUTE_BY_PORTAL below.
 
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { Bell, Search, ChevronDown, Menu } from "lucide-react";
+import { Bell, Search, ChevronDown, Menu, LogOut, User as UserIcon } from "lucide-react";
 import { useState } from "react";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useAuth } from "@/lib/auth-context";
-import { ROLES, portalForRole, portalHome, routeMeta, type Role, type Portal } from "@/lib/rbac";
+import { portalForRole, portalHome, routeMeta, type Portal } from "@/lib/rbac";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { PortalBadge } from "@/components/shared/PortalBadge";
 
@@ -34,7 +34,7 @@ type TopBarProps = {
 export function TopBar({ onOpenMobileNav }: TopBarProps) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const meta = routeMeta(path);
-  const { user, setRole } = useAuth();
+  const { user, signOut } = useAuth();
   const nav = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const currentPortal = portalForRole(user?.role ?? null);
@@ -107,33 +107,39 @@ export function TopBar({ onOpenMobileNav }: TopBarProps) {
 
               {menuOpen && (
                 <div
-                  className="absolute right-0 mt-2 w-64 rounded-md border border-border bg-card shadow-lg p-2 z-30"
+                  className="absolute right-0 mt-2 w-56 rounded-md border border-border bg-card shadow-lg p-2 z-30"
                   onMouseLeave={() => setMenuOpen(false)}
                 >
                   <div className="px-2 pb-2 mb-2 border-b border-border">
-                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Switch role (demo)</div>
+                    <div className="text-[13px] font-medium text-foreground">{user.name}</div>
+                    <div className="text-[11.5px] text-muted-foreground truncate">{user.email}</div>
                   </div>
                   <ul className="space-y-0.5">
-                    {ROLES.map((r) => (
-                      <li key={r.id}>
-                        <button
-                          onClick={() => {
-                            const nextRole = r.id as Role;
-                            setRole(nextRole);
-                            setMenuOpen(false);
-                            if (portalForRole(nextRole) !== currentPortal) {
-                              nav({ to: portalHome(nextRole) });
-                            }
-                          }}
-                          className={`w-full text-left px-2 py-1.5 rounded-md text-[12.5px] hover:bg-secondary flex items-center justify-between ${
-                            user.role === r.id ? "bg-secondary" : ""
-                          }`}
-                        >
-                          <span>{r.label}</span>
-                          {user.role === r.id && <RoleBadge role={r.id as Role} />}
-                        </button>
-                      </li>
-                    ))}
+                    <li>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          nav({ to: portalHome(user.role) });
+                        }}
+                        className="w-full text-left px-2 py-1.5 rounded-md text-[12.5px] hover:bg-secondary flex items-center gap-2"
+                      >
+                        <UserIcon className="h-3.5 w-3.5" />
+                        My profile
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          signOut();
+                          nav({ to: "/auth/login", search: { redirect: undefined } });
+                        }}
+                        className="w-full text-left px-2 py-1.5 rounded-md text-[12.5px] hover:bg-secondary flex items-center gap-2 text-red-600"
+                      >
+                        <LogOut className="h-3.5 w-3.5" />
+                        Sign out
+                      </button>
+                    </li>
                   </ul>
                 </div>
               )}

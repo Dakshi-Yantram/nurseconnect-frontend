@@ -31,6 +31,7 @@ function PartnerServices() {
   const [items, setItems] = useState<Eligibility[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -68,6 +69,25 @@ function PartnerServices() {
     }
   }
 
+  async function requestUnlock(item: Eligibility) {
+    setError(null);
+    setRequesting(item.id);
+    try {
+      await apiFetch("/api/workers/me/service-qualification-requests", {
+        method: "POST",
+        body: JSON.stringify({
+          target_type: item.target_type,
+          target_id: item.id,
+        }),
+      });
+      await load();
+    } catch (e: any) {
+      setError(String(e?.message ?? e));
+    } finally {
+      setRequesting(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -97,6 +117,7 @@ function PartnerServices() {
           {items.map((item) => {
             const optedIn = item.preference_status === "OPTED_IN";
             const locked = !item.can_opt_in && !optedIn;
+            const pendingReview = item.qualification_status === "QUALIFIED_PENDING_APPROVAL";
             const risky = (item.risk_level ?? "").toUpperCase() === "HIGH";
             return (
               <div
@@ -130,6 +151,8 @@ function PartnerServices() {
                   <p className="text-[11.5px] text-muted-foreground mt-0.5">
                     {optedIn
                       ? "You are offering this service"
+                      : pendingReview
+                        ? "Unlock request is waiting for reviewer approval"
                       : locked
                         ? (item.locked_reason ?? "Not qualified yet")
                         : "Available to opt in"}
@@ -145,7 +168,17 @@ function PartnerServices() {
                     {busy === item.id ? "…" : "Opt out"}
                   </button>
                 ) : locked ? (
-                  <span className="text-[11px] font-semibold text-muted-foreground">Locked</span>
+                  pendingReview ? (
+                    <span className="text-[11px] font-semibold text-amber-700">Requested</span>
+                  ) : (
+                    <button
+                      onClick={() => requestUnlock(item)}
+                      disabled={requesting === item.id}
+                      className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+                    >
+                      {requesting === item.id ? "…" : "Request unlock"}
+                    </button>
+                  )
                 ) : (
                   <button
                     onClick={() => setPreference(item, "OPTED_IN")}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { payForBooking } from "@/lib/payments";
 
 // Minimal shape of the booking returned by POST /api/bookings/
 export type CreatedBooking = {
@@ -15,17 +15,6 @@ export type CreatedBooking = {
 
 
 const inr = (n: number | string) => `₹${Number(n).toLocaleString("en-IN")}`;
-
-function loadRazorpay(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (window.Razorpay) return resolve(true);
-    const s = document.createElement("script");
-    s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.onload = () => resolve(true);
-    s.onerror = () => resolve(false);
-    document.body.appendChild(s);
-  });
-}
 
 // Opens after a booking is created (status = pending_payment). Shows the cost
 // breakdown, creates a Razorpay order, runs checkout, then verifies — which is
@@ -43,7 +32,6 @@ export function PaymentDialog({
   const [error, setError] = useState<string | null>(null);
 
   if (!open || !booking) return null;
-  const b = booking;
   const rows = [
     { label: "Base price", value: booking.base_amount },
     { label: "Urgent surcharge", value: booking.surge_amount },
@@ -60,42 +48,11 @@ export function PaymentDialog({
     setBusy(true);
 
     try {
-      const ok = await loadRazorpay();
-      if (!ok) throw new Error("Could not load payment gateway");
-
-      const order = await apiFetch("/api/payments/order", {
-        method: "POST",
-        body: JSON.stringify({ booking_id: currentBooking.id }),
+      const result = await payForBooking({
+        bookingId: currentBooking.id,
+        description: `Booking ${currentBooking.booking_ref ?? ""}`,
       });
-
-      await new Promise<void>((resolve, reject) => {
-        const rzp = new window.Razorpay({
-          key: order.razorpay_key_id,
-          order_id: order.razorpay_order_id,
-          amount: order.amount,
-          currency: order.currency,
-          name: "NurseConnect",
-          description: `Booking ${currentBooking.booking_ref ?? ""}`,
-          handler: async (resp: any) => {
-            try {
-              await apiFetch("/api/payments/verify", {
-                method: "POST",
-                body: JSON.stringify({
-                  booking_id: currentBooking.id,
-                  razorpay_order_id: resp.razorpay_order_id,
-                  razorpay_payment_id: resp.razorpay_payment_id,
-                  razorpay_signature: resp.razorpay_signature,
-                }),
-              });
-              resolve();
-            } catch (e) {
-              reject(e);
-            }
-          },
-          modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
-        });
-        rzp.open();
-      });
+      if (!result.verified) throw new Error("We couldn't confirm the payment. Please try again.");
 
       onConfirmed();
       onClose();

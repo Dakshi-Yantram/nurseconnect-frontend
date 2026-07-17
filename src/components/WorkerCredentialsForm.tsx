@@ -26,27 +26,27 @@ export function WorkerCredentialsForm({
     regValidUntil.trim() !== "";
 
   async function save() {
-  setError(null);
-  setSaved(false);
-  setBusy(true);
-  try {
-    await apiFetch("/api/workers/me", {
-      method: "PUT",
-      body: JSON.stringify({
-        date_of_birth: dob || null,
-        registration_no: regNo.trim() || null,
-        registration_authority: regAuthority.trim() || null,
-        registration_valid_until: regValidUntil || null,
-      }),
-    });
-    setSaved(true);
-    onSaved?.();
-  } catch (e: any) {
-    setError(String(e?.message ?? e));
-  } finally {
-    setBusy(false);
+    setError(null);
+    setSaved(false);
+    setBusy(true);
+    try {
+      await apiFetch("/api/workers/me", {
+        method: "PUT",
+        body: JSON.stringify({
+          date_of_birth: dob || null,
+          registration_no: regNo.trim() || null,
+          registration_authority: regAuthority.trim() || null,
+          registration_valid_until: regValidUntil || null,
+        }),
+      });
+      setSaved(true);
+      onSaved?.();
+    } catch (e: any) {
+      setError(String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
   }
-}
 
   return (
     <div className="rounded-xl border border-border bg-card px-5 py-4 mb-4">
@@ -58,8 +58,8 @@ export function WorkerCredentialsForm({
         We need a few more details before a reviewer can verify your account.
       </p>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="md:col-span-3">
           <label className="text-[11px] font-semibold text-muted-foreground">Date of birth</label>
           <input
             type="date"

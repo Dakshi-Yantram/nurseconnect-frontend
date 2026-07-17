@@ -109,7 +109,7 @@ function NurseApproval() {
     }
     catch (e: any) {
       let msg = String(e?.message ?? e);
-      try { const j = JSON.parse(msg); msg = j.detail?.message ?? j.detail ?? msg; } catch {}
+      try { const j = JSON.parse(msg); msg = j.detail?.message ?? j.detail ?? msg; } catch { }
       setError(msg);
     } finally { setBusy(false); }
   }
@@ -230,7 +230,13 @@ function NurseApproval() {
                               </div>
                               {doc?.document_url && <a href={doc.document_url} target="_blank" rel="noreferrer" className="text-primary text-[12px] flex items-center gap-1">View <ExternalLink size={11} /></a>}
                               {doc ? (
-                                doc.verification_status === "verified" ? <CheckCircle2 size={17} className="text-emerald-600" /> : (
+                                doc.verification_status === "verified" ? (
+                                  <CheckCircle2 size={17} className="text-emerald-600" />
+                                ) : doc.verification_status === "rejected" ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-semibold text-red-700">
+                                    <XCircle size={12} /> Rejected
+                                  </span>
+                                ) : (
                                   <div className="flex gap-1.5">
                                     <button onClick={() => reviewDoc(doc, "verified")} disabled={busy} className="rounded bg-emerald-600 px-2.5 py-1 text-[11.5px] font-semibold text-white hover:opacity-90 disabled:opacity-40">Verify</button>
                                     <button onClick={() => reviewDoc(doc, "rejected")} disabled={busy} className="rounded border border-red-300 px-2.5 py-1 text-[11.5px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40">Reject</button>

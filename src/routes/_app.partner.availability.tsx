@@ -11,6 +11,14 @@ export const Route = createFileRoute("/_app/partner/availability")({
 
 // The backend models availability as a live online/offline status (not a
 // weekly grid). Going ONLINE is only allowed once onboarding is approved.
+//
+// PATCH — location capture:
+// Going online now also captures the browser's current GPS position and
+// posts it to POST /api/workers/me/location. Without this, the backend's
+// proximity-based dispatch (current_latitude/current_longitude on the
+// worker profile) never gets populated, so the worker never appears in
+// any wave and never sees new booking requests, no matter how many
+// bookings are created near them.
 function WorkerAvailability() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -18,6 +26,7 @@ function WorkerAvailability() {
   const [onboarding, setOnboarding] = useState<string>("");
   const [stats, setStats] = useState<{ rating: number; visits: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [locationWarning, setLocationWarning] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,10 +44,60 @@ function WorkerAvailability() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Wraps the browser Geolocation API in a Promise so it can be awaited
+  // alongside the rest of the "go online" flow.
+  function getCurrentPosition(): Promise<GeolocationPosition> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Location is not supported on this device/browser"));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      });
+    });
+  }
+
+  async function pushLocation(): Promise<boolean> {
+    try {
+      const pos = await getCurrentPosition();
+      await apiFetch("/api/workers/me/location", {
+        method: "POST",
+        body: JSON.stringify({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        }),
+      });
+      setLocationWarning(null);
+      return true;
+    } catch (e: any) {
+      // Don't block going online just because location failed — but warn
+      // clearly, since without it the worker will not receive requests.
+      const message =
+        e?.code === 1
+          ? "Location permission denied. Enable location access so you can receive nearby booking requests."
+          : "Could not get your current location. You may not receive nearby booking requests until this is fixed.";
+      setLocationWarning(message);
+      return false;
+    }
+  }
+
   async function setStatus(next: "online" | "offline") {
     setError(null);
     setSaving(true);
     try {
+      // Capture + send location before/alongside going online. We still
+      // proceed with going online even if location fails, but the banner
+      // below will tell the worker why they might not see requests.
+      if (next === "online") {
+        await pushLocation();
+      } else {
+        setLocationWarning(null);
+      }
+
       const updated = await apiFetch("/api/workers/me/availability", {
         method: "PUT",
         body: JSON.stringify({ availability: next }),
@@ -50,6 +109,17 @@ function WorkerAvailability() {
       setSaving(false);
     }
   }
+
+  // Keep location fresh while online — refresh every 2 minutes so a
+  // worker who moves around still shows up in the right proximity wave.
+  useEffect(() => {
+    if (availability !== "online") return;
+    const interval = setInterval(() => {
+      pushLocation();
+    }, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availability]);
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -107,6 +177,13 @@ function WorkerAvailability() {
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2 text-[12.5px] text-amber-800">
             <ShieldAlert size={16} className="mt-0.5 flex-shrink-0" />
             Your account must be approved before you can go online.
+          </div>
+        )}
+
+        {locationWarning && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2 text-[12.5px] text-amber-800">
+            <ShieldAlert size={16} className="mt-0.5 flex-shrink-0" />
+            {locationWarning}
           </div>
         )}
 
