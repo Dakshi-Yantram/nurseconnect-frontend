@@ -166,7 +166,7 @@ function FieldInput({
     case "signature":
       return (
         <div className={cn(baseInput, "min-h-[64px] flex items-center text-muted-foreground text-[12px]")}>
-          {value ? `Signed by ${String(value)}` : disabled ? "— No signature —" : "Tap to sign (demo)"}
+          {value ? `Signed by ${String(value)}` : disabled ? "— No signature —" : "Tap to sign"}
           {!disabled && !value && (
             <button type="button" className="ml-auto text-[12px] text-primary"
               onClick={() => onChange(`${new Date().toLocaleString()}`)}>Sign</button>
