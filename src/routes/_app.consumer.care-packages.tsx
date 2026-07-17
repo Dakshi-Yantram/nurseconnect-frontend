@@ -104,6 +104,7 @@ function ConsumerCarePackages() {
                   </div>
                   <Link
                     to="/consumer/bookings"
+                    search={{ new: true, package: pkg.name }}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground hover:opacity-90"
                   >
                     Book <ArrowRight className="h-3.5 w-3.5" />

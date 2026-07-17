@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState, useSearch, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/shared/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -27,6 +27,10 @@ import { PaymentDialog } from "@/components/PaymentDialog";
 export const Route = createFileRoute("/_app/consumer/bookings")({
   component: BookingsLayout,
   head: () => ({ meta: [{ title: "Bookings – NurseConnect" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    new: s.new === "1" || s.new === "true" || s.new === true ? true : undefined,
+    package: typeof s.package === "string" ? s.package : undefined,
+  }),
 });
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -164,12 +168,16 @@ function BookingsLayout() {
 
 function ConsumerBookings() {
   const { user } = useAuth();
+  const search = useSearch({ from: "/_app/consumer/bookings" });
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [pendingBooking, setPendingBooking] = useState<any>(null);
   // Store consumer profile for location resolution
   const [consumerProfile, setConsumerProfile] = useState<any>(null);
+  // Prefill notes when arriving from a Care Package's "Book" button
+  const [prefillNotes, setPrefillNotes] = useState<string | undefined>(undefined);
 
   const bookings = useBookings();
   const patients = useConsumerPatients(user?.id);
@@ -180,6 +188,18 @@ function ConsumerBookings() {
   useEffect(() => {
     fetchConsumerProfile().then(setConsumerProfile);
   }, []);
+
+  // Auto-open "New booking" modal when navigated here with ?new=1
+  // (e.g. clicking "Book" on a Care Package card) — skips the extra click.
+  useEffect(() => {
+    if (search.new) {
+      if (search.package) setPrefillNotes(`Package: ${search.package}`);
+      setOpen(true);
+      // clean the URL so a refresh/back doesn't reopen the modal
+      navigate({ to: "/consumer/bookings", search: {}, replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.new, search.package]);
 
   const liveSchema: FormSchema = useMemo(() => {
     const patientField = BOOKING_REQUEST_SCHEMA.sections[0].fields[0];
@@ -345,6 +365,7 @@ function ConsumerBookings() {
           schema={liveSchema}
           onSubmit={onCreate}
           submitLabel="Request booking"
+          initialValues={prefillNotes ? { notes: prefillNotes } : undefined}
         />
       </Modal>
       <PaymentDialog

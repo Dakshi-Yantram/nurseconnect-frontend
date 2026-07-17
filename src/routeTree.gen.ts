@@ -417,12 +417,11 @@ const AppConsumerConsentsRoute = AppConsumerConsentsRouteImport.update({
   path: '/consents',
   getParentRoute: () => AppConsumerRoute,
 } as any)
-const AppConsumerCarePackagesRoute =
-  AppConsumerCarePackagesRouteImport.update({
-    id: '/care-packages',
-    path: '/care-packages',
-    getParentRoute: () => AppConsumerRoute,
-  } as any)
+const AppConsumerCarePackagesRoute = AppConsumerCarePackagesRouteImport.update({
+  id: '/care-packages',
+  path: '/care-packages',
+  getParentRoute: () => AppConsumerRoute,
+} as any)
 const AppConsumerBookingsRoute = AppConsumerBookingsRouteImport.update({
   id: '/bookings',
   path: '/bookings',
@@ -1469,6 +1468,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConsumerConsentsRouteImport
       parentRoute: typeof AppConsumerRoute
     }
+    '/_app/consumer/care-packages': {
+      id: '/_app/consumer/care-packages'
+      path: '/care-packages'
+      fullPath: '/consumer/care-packages'
+      preLoaderRoute: typeof AppConsumerCarePackagesRouteImport
+      parentRoute: typeof AppConsumerRoute
+    }
     '/_app/consumer/bookings': {
       id: '/_app/consumer/bookings'
       path: '/bookings'
@@ -1481,13 +1487,6 @@ declare module '@tanstack/react-router' {
       path: '/addresses'
       fullPath: '/consumer/addresses'
       preLoaderRoute: typeof AppConsumerAddressesRouteImport
-      parentRoute: typeof AppConsumerRoute
-    }
-    '/_app/consumer/care-packages': {
-      id: '/_app/consumer/care-packages'
-      path: '/care-packages'
-      fullPath: '/consumer/care-packages'
-      preLoaderRoute: typeof AppConsumerCarePackagesRouteImport
       parentRoute: typeof AppConsumerRoute
     }
     '/_app/complaints/$complaintId': {
