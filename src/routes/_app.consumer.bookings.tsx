@@ -6,7 +6,6 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { Modal } from "@/components/shared/Modal";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
-import { WorkflowActionButton } from "@/components/shared/WorkflowActionButton";
 import { SchemaForm } from "@/lib/forms/SchemaForm";
 import { BOOKING_REQUEST_SCHEMA } from "@/lib/forms/templates";
 import type { FormSchema } from "@/lib/forms/schema";
@@ -16,7 +15,7 @@ import {
 } from "@/lib/domain";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import {
-  CalendarCheck, Plus, ChevronRight, Clock, HeartPulse,
+  CalendarCheck, ChevronRight, Clock, HeartPulse,
   History as HistoryIcon, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -314,10 +313,6 @@ function ConsumerBookings() {
               Visits grouped by care stage — alerts, what's happening now, what's coming next, and what has recently completed.
             </div>
           </div>
-          <WorkflowActionButton action="consumer.create_booking" icon={<Plus className="h-3.5 w-3.5" />}
-            onClick={() => setOpen(true)}>
-            New booking
-          </WorkflowActionButton>
         </div>
 
         {isEmpty ? (
