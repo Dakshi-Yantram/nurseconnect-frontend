@@ -183,6 +183,10 @@ function ConsumerBookings() {
   // dropdown doesn't show an unrelated/blank list after clicking "Book"
   // on a Care Package card.
   const [prefillServiceId, setPrefillServiceId] = useState<string | undefined>(undefined);
+  // The Care Package this booking originated from (if any). Sent to the
+  // API as package_id so pricing uses the package price, not the
+  // standalone service's base_price.
+  const [prefillPackageId, setPrefillPackageId] = useState<string | undefined>(undefined);
 
   const bookings = useBookings();
   const patients = useConsumerPatients(user?.id);
@@ -200,12 +204,13 @@ function ConsumerBookings() {
     if (search.new) {
       if (search.package) setPrefillNotes(`Package: ${search.package}`);
       if (search.serviceId) setPrefillServiceId(search.serviceId);
+      if (search.packageId) setPrefillPackageId(search.packageId);
       setOpen(true);
       // clean the URL so a refresh/back doesn't reopen the modal
       navigate({ to: "/consumer/bookings", search: {}, replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.new, search.package, search.serviceId]);
+  }, [search.new, search.package, search.serviceId, search.packageId]);
 
   const liveSchema: FormSchema = useMemo(() => {
     const patientField = BOOKING_REQUEST_SCHEMA.sections[0].fields[0];
@@ -226,9 +231,16 @@ function ConsumerBookings() {
               };
             }
             if (f.key === serviceField.key) {
+              // Coming from a Care Package's "Book" button — only show the
+              // service that package is actually linked to, not the full
+              // catalogue. Keeps the dropdown consistent with what was
+              // picked on the Care Packages page.
+              const filteredServices = prefillServiceId
+                ? services.filter(s => s.id === prefillServiceId)
+                : services;
               return {
                 ...f,
-                options: services.map(s => ({ label: s.name, value: s.id })),
+                options: filteredServices.map(s => ({ label: s.name, value: s.id })),
               };
             }
             return f;
@@ -236,7 +248,7 @@ function ConsumerBookings() {
         };
       }),
     };
-  }, [patients, services]);
+  }, [patients, services, prefillServiceId]);
 
   const care = {
     all: bookings,
@@ -280,6 +292,10 @@ function ConsumerBookings() {
       const created = await apiPost("/api/bookings/", {
         patient_id: patient.id,
         service_id: service.id,
+        // When booking started from a Care Package, include its id so the
+        // backend prices this visit from the package (per_visit_price /
+        // package_price) instead of the service's standalone base_price.
+        ...(prefillPackageId ? { package_id: prefillPackageId } : {}),
         booking_type: "one_time",
         scheduled_date: values.preferred_date,
         scheduled_start_time: (() => {
