@@ -130,21 +130,37 @@ export const DOCUMENTATION_SCHEMA: FormSchema = {
 
 export const BOOKING_REQUEST_SCHEMA: FormSchema = {
   key: "booking_request", title: "New Care Booking", version: "1.0",
-  description: "Book a care package for a patient under your care.",
+  description: "Request a nurse visit for a patient under your care.",
   sections: [
     {
-      key: "patient", title: "Patient & care package", fields: [
+      key: "patient", title: "Patient & service", fields: [
         { key: "patient_name", label: "Patient", kind: "text", validation: { required: true } },
         {
-          key: "service", label: "Care package", kind: "select", validation: { required: true },
-          options: [],
+          key: "service", label: "Service", kind: "select", validation: { required: true },
+          options: [
+            { label: "Geriatric Care", value: "Geriatric Care" },
+            { label: "Wound Dressing", value: "Wound Dressing" },
+            { label: "Post-Op", value: "Post-Op" },
+            { label: "Diabetes Check", value: "Diabetes Check" },
+            { label: "IV Therapy", value: "IV Therapy" },
+          ]
         },
+        { key: "area", label: "Service area", kind: "text", validation: { required: true }, placeholder: "e.g. Indiranagar, BLR" },
       ]
     },
     {
       key: "schedule", title: "Schedule", fields: [
         { key: "preferred_date", label: "Preferred date", kind: "date", validation: { required: true } },
         { key: "preferred_time", label: "Preferred time", kind: "text", placeholder: "10:00 AM" },
+        {
+          key: "duration_hint", label: "Duration", kind: "select",
+          options: [
+            { label: "Up to 1h", value: "1h" },
+            { label: "Up to 2h", value: "2h" },
+            { label: "Half day", value: "4h" },
+            { label: "Full day", value: "8h" },
+          ]
+        },
       ]
     },
     {
