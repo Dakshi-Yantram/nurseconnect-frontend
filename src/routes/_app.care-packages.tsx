@@ -49,6 +49,9 @@ interface CarePackage {
   is_active: boolean;
   version: number;
   available_cities?: string[];
+  gate?: string;
+  required_assessment_codes?: string[] | null;
+  practical_checklist_items?: string[] | null;
   created_at: string;
 }
 
@@ -70,6 +73,9 @@ interface PackageFormValues {
   requires_prescription: boolean;
   insurance_covered: boolean;
   available_cities: string; // comma-separated
+  gate: string;
+  required_assessment_codes: string; // comma-separated
+  practical_checklist_items: string; // one per line
 }
 
 const EMPTY_FORM: PackageFormValues = {
@@ -90,11 +96,19 @@ const EMPTY_FORM: PackageFormValues = {
   requires_prescription: false,
   insurance_covered: true,
   available_cities: "",
+  gate: "credential_only",
+  required_assessment_codes: "",
+  practical_checklist_items: "",
 };
 
 const TIERS = ["tier1", "tier2", "tier3", "tier4", "tier5"];
 const GENDER_OPTIONS = ["any", "female_only", "male_only"];
 const FREQUENCY_OPTIONS = ["daily", "alternate_days", "twice_weekly", "weekly", "as_needed"];
+const GATES = [
+  { value: "credential_only", label: "Gate 1 — Credential only", hint: "Identity, basic training, background check. No formal exam." },
+  { value: "theory_verified", label: "Gate 2 — Theory verified", hint: "Requires passing a proctored theory assessment." },
+  { value: "practical_verified", label: "Gate 3 — Practical verified", hint: "Theory passed + a trainer signs off a practical checklist." },
+];
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 function authHeaders() {
@@ -197,6 +211,13 @@ function CarePackagesPage() {
         insurance_covered: values.insurance_covered,
         available_cities: values.available_cities
           ? values.available_cities.split(",").map(c => c.trim()).filter(Boolean)
+          : null,
+        gate: values.gate,
+        required_assessment_codes: values.required_assessment_codes
+          ? values.required_assessment_codes.split(",").map(c => c.trim()).filter(Boolean)
+          : null,
+        practical_checklist_items: values.gate === "practical_verified" && values.practical_checklist_items
+          ? values.practical_checklist_items.split("\n").map(c => c.trim()).filter(Boolean)
           : null,
       };
 
@@ -327,17 +348,25 @@ function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle }: {
           <div className="text-[14px] font-semibold truncate">{pkg.name}</div>
           <div className="text-[11px] text-muted-foreground">{pkg.package_code} · v{pkg.version}</div>
         </div>
-        <button
-          onClick={onToggle}
-          disabled={toggling}
-          title={pkg.is_active ? "Click to deactivate" : "Click to activate"}
-        >
-          <StatusChip
-            tone={pkg.is_active ? "success" : "muted"}
-            label={toggling ? "…" : pkg.is_active ? "Active" : "Inactive"}
-            dot
-          />
-        </button>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <button
+            onClick={onToggle}
+            disabled={toggling}
+            title={pkg.is_active ? "Click to deactivate" : "Click to activate"}
+          >
+            <StatusChip
+              tone={pkg.is_active ? "success" : "muted"}
+              label={toggling ? "…" : pkg.is_active ? "Active" : "Inactive"}
+              dot
+            />
+          </button>
+          {pkg.gate && pkg.gate !== "credential_only" && (
+            <StatusChip
+              tone={pkg.gate === "practical_verified" ? "danger" : "warning"}
+              label={pkg.gate === "practical_verified" ? "Gate 3" : "Gate 2"}
+            />
+          )}
+        </div>
       </div>
 
       {pkg.target_condition && (
@@ -419,6 +448,9 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
         requires_prescription: pkg.requires_prescription ?? false,
         insurance_covered: pkg.insurance_covered ?? true,
         available_cities: pkg.available_cities?.join(", ") ?? "",
+        gate: pkg.gate ?? "credential_only",
+        required_assessment_codes: pkg.required_assessment_codes?.join(", ") ?? "",
+        practical_checklist_items: pkg.practical_checklist_items?.join("\n") ?? "",
       });
     } else {
       setForm(EMPTY_FORM);
@@ -491,6 +523,58 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
           <CheckboxField label="Requires prescription" checked={form.requires_prescription} onChange={v => set("requires_prescription", v)} />
           <CheckboxField label="Insurance covered" checked={form.insurance_covered} onChange={v => set("insurance_covered", v)} />
         </div>
+
+        <div className="col-span-2 pt-3 mt-1 border-t border-border">
+          <p className="text-[12px] font-semibold text-foreground mb-2">Nurse qualification gate</p>
+          <div className="grid grid-cols-1 gap-2">
+            {GATES.map(g => (
+              <label
+                key={g.value}
+                className={`flex items-start gap-2.5 rounded-md border px-3 py-2.5 cursor-pointer transition ${
+                  form.gate === g.value ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="gate"
+                  className="mt-0.5"
+                  checked={form.gate === g.value}
+                  onChange={() => set("gate", g.value)}
+                />
+                <div>
+                  <div className="text-[12.5px] font-medium text-foreground">{g.label}</div>
+                  <div className="text-[11px] text-muted-foreground">{g.hint}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {(form.gate === "theory_verified" || form.gate === "practical_verified") && (
+          <Field
+            label="Required assessment codes (comma-separated)"
+            value={form.required_assessment_codes}
+            onChange={v => set("required_assessment_codes", v)}
+            placeholder="e.g. ASSESS-IV-THEORY — must match an Assessment code authored by a trainer"
+            full
+          />
+        )}
+
+        {form.gate === "practical_verified" && (
+          <div className="col-span-2">
+            <label className="text-[12px] font-medium text-foreground">Practical checklist items (one per line)</label>
+            <textarea
+              value={form.practical_checklist_items}
+              onChange={e => set("practical_checklist_items", e.target.value)}
+              rows={4}
+              placeholder={"Demonstrates correct IV insertion technique\nMaintains sterile field throughout\nCorrectly disposes of sharps"}
+              className="mt-1.5 w-full px-3 py-2 text-[13px] rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring/40"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              A clinical trainer will tick off each of these when observing the worker and signing off.
+            </p>
+          </div>
+        )}
       </form>
     </Modal>
   );

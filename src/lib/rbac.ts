@@ -87,11 +87,12 @@ export type Permission =
   // New routes
   | "consumer.addresses" | "partner.services" | "admin.reviewer.mgmt" | "admin.roles"
   // Consumer
-  | "consumer.home" | "consumer.care_packages" | "consumer.bookings" | "consumer.patients"
+  | "consumer.home" | "consumer.bookings" | "consumer.patients"
   | "consumer.payments" | "consumer.consents" | "consumer.notifications" | "consumer.profile"
   // Partner
   | "partner.home" | "partner.assignments" | "partner.visits" | "partner.documentation"
   | "partner.earnings" | "partner.training" | "partner.availability" | "partner.help"
+  | "partner.assessments"
   // Support
   | "support.queue" | "support.assign" | "support.resolve" | "support.tickets"
   // Operations
@@ -121,13 +122,14 @@ const REVIEWER_PERMISSIONS: Permission[] = [
 ];
 
 const CONSUMER_ALL: Permission[] = [
-  "consumer.home", "consumer.care_packages", "consumer.bookings", "consumer.patients",
+  "consumer.home", "consumer.bookings", "consumer.patients",
   "consumer.payments", "consumer.consents", "consumer.notifications", "consumer.profile", "consumer.addresses",
 ];
 
 const PARTNER_ALL: Permission[] = [
   "partner.home", "partner.assignments", "partner.visits", "partner.documentation",
   "partner.earnings", "partner.training", "partner.availability", "partner.services", "partner.help",
+  "partner.assessments",
 ];
 
 const SUPPORT_PERMISSIONS: Permission[] = [
@@ -222,7 +224,6 @@ export const NAV_REGISTRY: NavItem[] = [
 
     // ---------- CONSUMER ----------
   { to: "/consumer",                label: "Home",               icon: LayoutDashboard, section: "My Care",        permission: "consumer.home",             portal: "consumer" },
-  { to: "/consumer/care-packages",  label: "Care Packages",      icon: Package,         section: "My Care",        permission: "consumer.care_packages",    portal: "consumer" },
   { to: "/consumer/bookings",       label: "Bookings",           icon: CalendarCheck,   section: "My Care",        permission: "consumer.bookings",         portal: "consumer" },
   { to: "/consumer/patients",       label: "Patients",           icon: HeartHandshake,  section: "My Care",        permission: "consumer.patients",         portal: "consumer" },
   { to: "/consumer/payments",       label: "Payments",           icon: CreditCard,      section: "Account",        permission: "consumer.payments",         portal: "consumer" },
@@ -237,6 +238,7 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/partner/documentation",   label: "Documentation",      icon: FileText,        section: "Work",           permission: "partner.documentation",     portal: "partner" },
   { to: "/partner/earnings",        label: "Earnings",           icon: IndianRupee,     section: "Personal",       permission: "partner.earnings",          portal: "partner" },
   { to: "/partner/training",        label: "Training",           icon: GraduationCap,   section: "Personal",       permission: "partner.training",          portal: "partner" },
+  { to: "/partner/assessments",     label: "Assessments",        icon: ClipboardCheck,  section: "Personal",       permission: "partner.assessments",       portal: "partner" },
   { to: "/partner/availability",    label: "Availability",       icon: Clock,           section: "Personal",       permission: "partner.availability",      portal: "partner" },
   { to: "/partner/help",            label: "Help & Support",     icon: LifeBuoy,        section: "Personal",       permission: "partner.help",              portal: "partner" },
 

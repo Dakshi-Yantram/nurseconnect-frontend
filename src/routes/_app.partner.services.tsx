@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_app/partner/services")({
 });
 
 type Eligibility = {
-  target_type: "service" | "package";
+  target_type: "package";
   id: string;
   code: string;
   name: string;
@@ -23,10 +23,12 @@ type Eligibility = {
   requires_admin_skill_approval?: boolean;
 };
 
-// Nurses choose which services/packages they want to serve — but they can
-// only opt IN to ones they are qualified for. A caretaker who is not
-// qualified for, say, IV Infusion, sees it LOCKED with the reason. This is
-// enforced server-side too (opt-in is rejected unless qualification=APPROVED).
+// Nurses choose which admin-managed care packages they want to serve — but
+// they can only opt IN to ones they are qualified for. A caretaker who
+// isn't qualified for, say, Post-Surgery Recovery, sees it LOCKED with the
+// reason. Enforced server-side too (opt-in is rejected unless
+// qualification=APPROVED). No pricing is ever shown here — packages are
+// purely opt-in offerings gated by training/assessments.
 function PartnerServices() {
   const [items, setItems] = useState<Eligibility[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,9 +102,9 @@ function PartnerServices() {
     <div className="min-h-screen bg-muted/30">
       <div className="mx-auto max-w-3xl px-4 py-8 space-y-4">
         <div>
-          <h1 className="text-[18px] font-bold text-foreground">Services I Can Provide</h1>
+          <h1 className="text-[18px] font-bold text-foreground">Care Packages I Can Provide</h1>
           <p className="text-[12.5px] text-muted-foreground mt-0.5">
-            Opt in to the services and care packages you want to serve. Locked items require a
+            Opt in to the care packages you want to serve. Locked packages require a
             higher tier, certificate, or a passed assessment first.
           </p>
         </div>
@@ -150,7 +152,7 @@ function PartnerServices() {
                   </div>
                   <p className="text-[11.5px] text-muted-foreground mt-0.5">
                     {optedIn
-                      ? "You are offering this service"
+                      ? "You are offering this care package"
                       : pendingReview
                         ? "Unlock request is waiting for reviewer approval"
                       : locked
@@ -194,7 +196,7 @@ function PartnerServices() {
         </div>
 
         {items.length === 0 && (
-          <p className="text-[13px] text-muted-foreground">No services available yet. Ask an admin to add care packages.</p>
+          <p className="text-[13px] text-muted-foreground">No care packages available yet. Ask an admin to add one.</p>
         )}
       </div>
     </div>
