@@ -11,10 +11,9 @@ import { useConsumerPatients } from "@/lib/domain";
 import { useConsumerCareSnapshot } from "@/lib/orchestration";
 import { bookingPatientName, bookingService, bookingArea, bookingStartedAt } from "@/lib/orchestration/links";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
-import { CARE_PACKAGES } from "@/lib/mock-data";
 import {
   CalendarCheck, ChevronRight, AlertTriangle, Clock, HeartPulse,
-  Package as PackageIcon, History as HistoryIcon, Activity,
+  History as HistoryIcon, Activity,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/consumer/")({
@@ -27,7 +26,6 @@ function ConsumerHome() {
   const ownerId = user?.id ?? null;
   const care = useConsumerCareSnapshot(ownerId);
   const patients = useConsumerPatients(ownerId).slice(0, 4);
-  const activePackages = CARE_PACKAGES.filter(p => p.active).slice(0, 4);
 
   return (
     <div className="space-y-6">
@@ -91,25 +89,14 @@ function ConsumerHome() {
         </RuntimeBoundary>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <RuntimeBoundary label="Recently completed">
-          <JourneyList
-            title={<span className="flex items-center gap-2"><HistoryIcon className="h-4 w-4 text-muted-foreground" /> Recently completed</span>}
-            action={<Link to="/consumer/bookings" className="text-[12px] text-primary">Full history</Link>}
-            emptyTitle="No completed visits yet" emptyHint="Completed visits will accumulate here as part of the care journey."
-            rows={care.completed.slice(0, 5)} tone="muted"
-          />
-        </RuntimeBoundary>
-
-        <Card
-          title={<span className="flex items-center gap-2"><PackageIcon className="h-4 w-4 text-muted-foreground" /> Care packages in progress</span>}
-          padded={false}
-        >
-          {activePackages.length === 0
-            ? <div className="p-5"><EmptyState icon={PackageIcon} title="No active care packages" /></div>
-            : activePackages.map(p => <PackageLifecycleRow key={p.id} pkg={p} care={care} />)}
-        </Card>
-      </div>
+      <RuntimeBoundary label="Recently completed">
+        <JourneyList
+          title={<span className="flex items-center gap-2"><HistoryIcon className="h-4 w-4 text-muted-foreground" /> Recently completed</span>}
+          action={<Link to="/consumer/bookings" className="text-[12px] text-primary">Full history</Link>}
+          emptyTitle="No completed visits yet" emptyHint="Completed visits will accumulate here as part of the care journey."
+          rows={care.completed.slice(0, 5)} tone="muted"
+        />
+      </RuntimeBoundary>
 
       <RuntimeBoundary label="Patients under care">
         <Card
@@ -218,33 +205,3 @@ function JourneyList({
   );
 }
 
-function PackageLifecycleRow({
-  pkg, care,
-}: { pkg: typeof CARE_PACKAGES[number]; care: ReturnType<typeof useConsumerCareSnapshot> }) {
-  const linked = care.all.filter(r => {
-    const svc = String((r.data as any)?.service ?? "").toLowerCase();
-    return svc.includes(pkg.name.split(" ")[0].toLowerCase());
-  });
-  const delivered = linked.filter(r => r.state === "completed").length;
-  const planned   = Math.max(pkg.visits, delivered);
-  const pct       = planned === 0 ? 0 : Math.min(100, Math.round((delivered / planned) * 100));
-
-  return (
-    <Link
-      to="/consumer/care-packages"
-      className="block px-4 py-3 border-b border-border last:border-0 hover:bg-muted/30"
-    >
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium truncate">{pkg.name}</div>
-          <div className="text-[11.5px] text-muted-foreground truncate">{pkg.target} · {pkg.visits} visits / {pkg.days}d</div>
-        </div>
-        <span className="text-[11px] text-muted-foreground shrink-0">{delivered}/{planned}</span>
-        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-      </div>
-      <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className="h-full bg-primary transition-[width]" style={{ width: `${pct}%` }} />
-      </div>
-    </Link>
-  );
-}
