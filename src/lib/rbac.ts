@@ -87,7 +87,7 @@ export type Permission =
   // New routes
   | "consumer.addresses" | "partner.services" | "admin.reviewer.mgmt" | "admin.roles"
   // Consumer
-  | "consumer.home" | "consumer.bookings" | "consumer.patients"
+  | "consumer.home" | "consumer.care_packages" | "consumer.bookings" | "consumer.patients"
   | "consumer.payments" | "consumer.consents" | "consumer.notifications" | "consumer.profile"
   // Partner
   | "partner.home" | "partner.assignments" | "partner.visits" | "partner.documentation"
@@ -121,7 +121,7 @@ const REVIEWER_PERMISSIONS: Permission[] = [
 ];
 
 const CONSUMER_ALL: Permission[] = [
-  "consumer.home", "consumer.bookings", "consumer.patients",
+  "consumer.home", "consumer.care_packages", "consumer.bookings", "consumer.patients",
   "consumer.payments", "consumer.consents", "consumer.notifications", "consumer.profile", "consumer.addresses",
 ];
 
