@@ -16,9 +16,6 @@ interface Props {
   initialValues?: FormValues;
   readonly?: boolean;
   onSubmit?: (values: FormValues) => void;
-  /** Fires on every field change — lets a parent show a live preview (e.g.
-   * selected care package details) without owning the form's state. */
-  onValuesChange?: (values: FormValues) => void;
   submitLabel?: string;
   footer?: ReactNode;
 }
@@ -26,7 +23,7 @@ interface Props {
 const baseInput = "w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary";
 
 export function SchemaForm({
-  schema, initialValues, readonly, onSubmit, onValuesChange, submitLabel = "Save", footer,
+  schema, initialValues, readonly, onSubmit, submitLabel = "Save", footer,
 }: Props) {
   const { user } = useAuth();
   const role = user?.role ?? null;
@@ -39,11 +36,7 @@ export function SchemaForm({
   );
   const errorMap = useMemo(() => Object.fromEntries(errors.map(e => [e.field, e.message])), [errors]);
 
-  const set = (key: string, v: unknown) => setValues(prev => {
-    const next = { ...prev, [key]: v };
-    onValuesChange?.(next);
-    return next;
-  });
+  const set = (key: string, v: unknown) => setValues(prev => ({ ...prev, [key]: v }));
 
   return (
     <form

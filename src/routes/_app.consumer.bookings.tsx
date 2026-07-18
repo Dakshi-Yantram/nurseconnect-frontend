@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useRouterState, useSearch, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/shared/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -6,16 +6,17 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { Modal } from "@/components/shared/Modal";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
+import { WorkflowActionButton } from "@/components/shared/WorkflowActionButton";
 import { SchemaForm } from "@/lib/forms/SchemaForm";
 import { BOOKING_REQUEST_SCHEMA } from "@/lib/forms/templates";
 import type { FormSchema } from "@/lib/forms/schema";
 import { useAuth } from "@/lib/auth-context";
 import {
-  useBookings, useConsumerPatients, usePackages, useRefetchBookings,
+  useBookings, useConsumerPatients, useServices, useRefetchBookings,
 } from "@/lib/domain";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import {
-  CalendarCheck, ChevronRight, Clock, HeartPulse,
+  CalendarCheck, Plus, ChevronRight, Clock, HeartPulse,
   History as HistoryIcon, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -174,8 +175,6 @@ function BookingsLayout() {
 
 function ConsumerBookings() {
   const { user } = useAuth();
-  const search = useSearch({ from: "/_app/consumer/bookings" });
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [addressId, setAddressId] = useState<string | null>(null);
@@ -192,45 +191,13 @@ function ConsumerBookings() {
 
   const bookings = useBookings();
   const patients = useConsumerPatients(user?.id);
-  const packages = usePackages();
+  const services = useServices();
   const refetchBookings = useRefetchBookings();
 
   // Load consumer profile on mount for location fields
   useEffect(() => {
     fetchConsumerProfile().then(setConsumerProfile);
   }, []);
-
-  // Auto-open "New booking" modal when navigated here with ?new=1
-  // (e.g. clicking "Book" on a Care Package card) — skips the extra click.
-  useEffect(() => {
-    if (search.new) {
-      if (search.package) setPrefillNotes(`Package: ${search.package}`);
-      if (search.packageId) { setPrefillPackageId(search.packageId); setSelectedPackageId(search.packageId); }
-      setOpen(true);
-      // clean the URL so a refresh/back doesn't reopen the modal
-      navigate({ to: "/consumer/bookings", search: {}, replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.new, search.package, search.packageId]);
-
-  // The only bookable unit is an admin-managed care package — no
-  // standalone services. Price shown here always matches what admin set,
-  // since it's read from the same /api/care-packages data admin writes to.
-  const packageOptions = useMemo(() => {
-    const activePackages = packages.filter(p => p.rawStatus === "active");
-    return activePackages.map(p => {
-      const price = p.packagePrice ?? p.perVisitPrice;
-      return {
-        label: `${p.name}${price != null ? ` — ₹${price.toLocaleString("en-IN")}` : ""}`,
-        value: p.id,
-      };
-    });
-  }, [packages]);
-
-  const selectedPackage = useMemo(
-    () => packages.find(p => p.id === selectedPackageId),
-    [packages, selectedPackageId],
-  );
 
   const liveSchema: FormSchema = useMemo(() => {
     const patientField = BOOKING_REQUEST_SCHEMA.sections[0].fields[0];
@@ -251,20 +218,17 @@ function ConsumerBookings() {
               };
             }
             if (f.key === serviceField.key) {
-              // Coming from a Care Package's "Book" button — narrow the
-              // dropdown to just that package so the choice made on the
-              // Care Packages page carries through unambiguously.
-              const filtered = prefillPackageId
-                ? packageOptions.filter(o => o.value === prefillPackageId)
-                : packageOptions;
-              return { ...f, options: filtered };
+              return {
+                ...f,
+                options: services.map(s => ({ label: s.name, value: s.id })),
+              };
             }
             return f;
           }),
         };
       }),
     };
-  }, [patients, packageOptions, prefillPackageId]);
+  }, [patients, services]);
 
   const care = {
     all: bookings,
@@ -288,9 +252,9 @@ function ConsumerBookings() {
       toast.error("Select a patient");
       return;
     }
-    const packageId = String(values.service ?? "");
-    if (!packages.some(p => p.id === packageId)) {
-      toast.error("Select a care package");
+    const service = services.find(s => s.id === values.service);
+    if (!service) {
+      toast.error("Select a service");
       return;
     }
 
@@ -307,9 +271,7 @@ function ConsumerBookings() {
 
       const created = await apiPost("/api/bookings/", {
         patient_id: patient.id,
-        // Prices from the package's own package_price/per_visit_price —
-        // always the same number shown in the dropdown above and set by admin.
-        package_id: packageId,
+        service_id: service.id,
         booking_type: "one_time",
         scheduled_date: values.preferred_date,
         scheduled_start_time: (() => {
@@ -323,7 +285,7 @@ function ConsumerBookings() {
         address_id: addressId || undefined,
         // fallback inline address when no saved address selected
         ...(!addressId ? {
-          address: { line1: location.city || "—", city: location.city, state: location.state, pincode: location.pincode },
+          address: { line1: values.area || "—", city: location.city, state: location.state, pincode: location.pincode },
           latitude: location.latitude, longitude: location.longitude,
         } : {}),
         special_instructions: values.notes || undefined,
@@ -350,6 +312,10 @@ function ConsumerBookings() {
               Visits grouped by care stage — alerts, what's happening now, what's coming next, and what has recently completed.
             </div>
           </div>
+          <WorkflowActionButton action="consumer.create_booking" icon={<Plus className="h-3.5 w-3.5" />}
+            onClick={() => setOpen(true)}>
+            New booking
+          </WorkflowActionButton>
         </div>
 
         {isEmpty ? (
@@ -389,44 +355,15 @@ function ConsumerBookings() {
         )}
       </div>
 
-      <Modal
-        open={open}
-        onClose={() => { setOpen(false); setSelectedPackageId(prefillPackageId); }}
-        title="New care booking"
-      >
-        <div className="space-y-4">
+      <Modal open={open} onClose={() => setOpen(false)} title="New care booking">
+        <div className="mb-4">
           <AddressPicker value={addressId} onChange={setAddressId} />
-
-          {selectedPackage && (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-foreground truncate">{selectedPackage.name}</p>
-                <p className="text-[11.5px] text-muted-foreground">
-                  {[
-                    selectedPackage.visitsPerCycle != null ? `${selectedPackage.visitsPerCycle} visits` : null,
-                    selectedPackage.cycleDurationDays != null ? `${selectedPackage.cycleDurationDays} days` : null,
-                  ].filter(Boolean).join(" · ") || "Structured care package"}
-                </p>
-              </div>
-              {(selectedPackage.packagePrice ?? selectedPackage.perVisitPrice) != null && (
-                <p className="text-[15px] font-semibold text-primary shrink-0">
-                  ₹{(selectedPackage.packagePrice ?? selectedPackage.perVisitPrice)!.toLocaleString("en-IN")}
-                </p>
-              )}
-            </div>
-          )}
-
-          <SchemaForm
-            schema={liveSchema}
-            onSubmit={onCreate}
-            onValuesChange={(v) => setSelectedPackageId(typeof v.service === "string" ? v.service : undefined)}
-            submitLabel="Request booking"
-            initialValues={{
-              ...(prefillNotes ? { notes: prefillNotes } : {}),
-              ...(prefillPackageId ? { service: prefillPackageId } : {}),
-            }}
-          />
         </div>
+        <SchemaForm
+          schema={liveSchema}
+          onSubmit={onCreate}
+          submitLabel="Request booking"
+        />
       </Modal>
       <PaymentDialog
         booking={pendingBooking}

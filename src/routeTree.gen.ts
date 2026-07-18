@@ -73,6 +73,7 @@ import { Route as AppConsumerPaymentsRouteImport } from './routes/_app.consumer.
 import { Route as AppConsumerPatientsRouteImport } from './routes/_app.consumer.patients'
 import { Route as AppConsumerNotificationsRouteImport } from './routes/_app.consumer.notifications'
 import { Route as AppConsumerConsentsRouteImport } from './routes/_app.consumer.consents'
+import { Route as AppConsumerCarePackagesRouteImport } from './routes/_app.consumer.care-packages'
 import { Route as AppConsumerBookingsRouteImport } from './routes/_app.consumer.bookings'
 import { Route as AppConsumerAddressesRouteImport } from './routes/_app.consumer.addresses'
 import { Route as AppComplaintsComplaintIdRouteImport } from './routes/_app.complaints.$complaintId'
@@ -85,7 +86,6 @@ import { Route as AppPartnerVisitsVisitIdRouteImport } from './routes/_app.partn
 import { Route as AppConsumerProfileSettingsRouteImport } from './routes/_app.consumer.profile_.settings'
 import { Route as AppConsumerProfilePreferencesRouteImport } from './routes/_app.consumer.profile_.preferences'
 import { Route as AppConsumerProfilePersonalRouteImport } from './routes/_app.consumer.profile_.personal'
-import { Route as AppConsumerProfileHelpRouteImport } from './routes/_app.consumer.profile_.help'
 import { Route as AppConsumerPatientsPatientIdRouteImport } from './routes/_app.consumer.patients.$patientId'
 import { Route as AppConsumerBookingsBookingIdRouteImport } from './routes/_app.consumer.bookings.$bookingId'
 
@@ -414,11 +414,12 @@ const AppConsumerConsentsRoute = AppConsumerConsentsRouteImport.update({
   path: '/consents',
   getParentRoute: () => AppConsumerRoute,
 } as any)
-const AppConsumerCarePackagesRoute = AppConsumerCarePackagesRouteImport.update({
-  id: '/care-packages',
-  path: '/care-packages',
-  getParentRoute: () => AppConsumerRoute,
-} as any)
+const AppConsumerCarePackagesRoute =
+  AppConsumerCarePackagesRouteImport.update({
+    id: '/care-packages',
+    path: '/care-packages',
+    getParentRoute: () => AppConsumerRoute,
+  } as any)
 const AppConsumerBookingsRoute = AppConsumerBookingsRouteImport.update({
   id: '/bookings',
   path: '/bookings',
@@ -486,11 +487,6 @@ const AppConsumerProfilePersonalRoute =
     path: '/personal',
     getParentRoute: () => AppConsumerProfileRoute,
   } as any)
-const AppConsumerProfileHelpRoute = AppConsumerProfileHelpRouteImport.update({
-  id: '/help',
-  path: '/help',
-  getParentRoute: () => AppConsumerProfileRoute,
-} as any)
 const AppConsumerPatientsPatientIdRoute =
   AppConsumerPatientsPatientIdRouteImport.update({
     id: '/$patientId',
@@ -545,6 +541,7 @@ export interface FileRoutesByFullPath {
   '/complaints/$complaintId': typeof AppComplaintsComplaintIdRoute
   '/consumer/addresses': typeof AppConsumerAddressesRoute
   '/consumer/bookings': typeof AppConsumerBookingsRouteWithChildren
+  '/consumer/care-packages': typeof AppConsumerCarePackagesRoute
   '/consumer/consents': typeof AppConsumerConsentsRoute
   '/consumer/notifications': typeof AppConsumerNotificationsRoute
   '/consumer/patients': typeof AppConsumerPatientsRouteWithChildren
@@ -577,7 +574,6 @@ export interface FileRoutesByFullPath {
   '/partner/': typeof AppPartnerIndexRoute
   '/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
-  '/consumer/profile/help': typeof AppConsumerProfileHelpRoute
   '/consumer/profile/personal': typeof AppConsumerProfilePersonalRoute
   '/consumer/profile/preferences': typeof AppConsumerProfilePreferencesRoute
   '/consumer/profile/settings': typeof AppConsumerProfileSettingsRoute
@@ -623,6 +619,7 @@ export interface FileRoutesByTo {
   '/complaints/$complaintId': typeof AppComplaintsComplaintIdRoute
   '/consumer/addresses': typeof AppConsumerAddressesRoute
   '/consumer/bookings': typeof AppConsumerBookingsRouteWithChildren
+  '/consumer/care-packages': typeof AppConsumerCarePackagesRoute
   '/consumer/consents': typeof AppConsumerConsentsRoute
   '/consumer/notifications': typeof AppConsumerNotificationsRoute
   '/consumer/patients': typeof AppConsumerPatientsRouteWithChildren
@@ -654,7 +651,6 @@ export interface FileRoutesByTo {
   '/partner': typeof AppPartnerIndexRoute
   '/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
-  '/consumer/profile/help': typeof AppConsumerProfileHelpRoute
   '/consumer/profile/personal': typeof AppConsumerProfilePersonalRoute
   '/consumer/profile/preferences': typeof AppConsumerProfilePreferencesRoute
   '/consumer/profile/settings': typeof AppConsumerProfileSettingsRoute
@@ -704,6 +700,7 @@ export interface FileRoutesById {
   '/_app/complaints/$complaintId': typeof AppComplaintsComplaintIdRoute
   '/_app/consumer/addresses': typeof AppConsumerAddressesRoute
   '/_app/consumer/bookings': typeof AppConsumerBookingsRouteWithChildren
+  '/_app/consumer/care-packages': typeof AppConsumerCarePackagesRoute
   '/_app/consumer/consents': typeof AppConsumerConsentsRoute
   '/_app/consumer/notifications': typeof AppConsumerNotificationsRoute
   '/_app/consumer/patients': typeof AppConsumerPatientsRouteWithChildren
@@ -736,7 +733,6 @@ export interface FileRoutesById {
   '/_app/partner/': typeof AppPartnerIndexRoute
   '/_app/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/_app/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
-  '/_app/consumer/profile_/help': typeof AppConsumerProfileHelpRoute
   '/_app/consumer/profile_/personal': typeof AppConsumerProfilePersonalRoute
   '/_app/consumer/profile_/preferences': typeof AppConsumerProfilePreferencesRoute
   '/_app/consumer/profile_/settings': typeof AppConsumerProfileSettingsRoute
@@ -786,6 +782,7 @@ export interface FileRouteTypes {
     | '/complaints/$complaintId'
     | '/consumer/addresses'
     | '/consumer/bookings'
+    | '/consumer/care-packages'
     | '/consumer/consents'
     | '/consumer/notifications'
     | '/consumer/patients'
@@ -818,7 +815,6 @@ export interface FileRouteTypes {
     | '/partner/'
     | '/consumer/bookings/$bookingId'
     | '/consumer/patients/$patientId'
-    | '/consumer/profile/help'
     | '/consumer/profile/personal'
     | '/consumer/profile/preferences'
     | '/consumer/profile/settings'
@@ -864,6 +860,7 @@ export interface FileRouteTypes {
     | '/complaints/$complaintId'
     | '/consumer/addresses'
     | '/consumer/bookings'
+    | '/consumer/care-packages'
     | '/consumer/consents'
     | '/consumer/notifications'
     | '/consumer/patients'
@@ -895,7 +892,6 @@ export interface FileRouteTypes {
     | '/partner'
     | '/consumer/bookings/$bookingId'
     | '/consumer/patients/$patientId'
-    | '/consumer/profile/help'
     | '/consumer/profile/personal'
     | '/consumer/profile/preferences'
     | '/consumer/profile/settings'
@@ -944,6 +940,7 @@ export interface FileRouteTypes {
     | '/_app/complaints/$complaintId'
     | '/_app/consumer/addresses'
     | '/_app/consumer/bookings'
+    | '/_app/consumer/care-packages'
     | '/_app/consumer/consents'
     | '/_app/consumer/notifications'
     | '/_app/consumer/patients'
@@ -976,7 +973,6 @@ export interface FileRouteTypes {
     | '/_app/partner/'
     | '/_app/consumer/bookings/$bookingId'
     | '/_app/consumer/patients/$patientId'
-    | '/_app/consumer/profile_/help'
     | '/_app/consumer/profile_/personal'
     | '/_app/consumer/profile_/preferences'
     | '/_app/consumer/profile_/settings'
@@ -1441,6 +1437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConsumerConsentsRouteImport
       parentRoute: typeof AppConsumerRoute
     }
+    '/_app/consumer/care-packages': {
+      id: '/_app/consumer/care-packages'
+      path: '/care-packages'
+      fullPath: '/consumer/care-packages'
+      preLoaderRoute: typeof AppConsumerCarePackagesRouteImport
+      parentRoute: typeof AppConsumerRoute
+    }
     '/_app/consumer/bookings': {
       id: '/_app/consumer/bookings'
       path: '/bookings'
@@ -1453,6 +1456,13 @@ declare module '@tanstack/react-router' {
       path: '/addresses'
       fullPath: '/consumer/addresses'
       preLoaderRoute: typeof AppConsumerAddressesRouteImport
+      parentRoute: typeof AppConsumerRoute
+    }
+    '/_app/consumer/care-packages': {
+      id: '/_app/consumer/care-packages'
+      path: '/care-packages'
+      fullPath: '/consumer/care-packages'
+      preLoaderRoute: typeof AppConsumerCarePackagesRouteImport
       parentRoute: typeof AppConsumerRoute
     }
     '/_app/complaints/$complaintId': {
@@ -1523,13 +1533,6 @@ declare module '@tanstack/react-router' {
       path: '/personal'
       fullPath: '/consumer/profile/personal'
       preLoaderRoute: typeof AppConsumerProfilePersonalRouteImport
-      parentRoute: typeof AppConsumerProfileRoute
-    }
-    '/_app/consumer/profile_/help': {
-      id: '/_app/consumer/profile_/help'
-      path: '/help'
-      fullPath: '/consumer/profile/help'
-      preLoaderRoute: typeof AppConsumerProfileHelpRouteImport
       parentRoute: typeof AppConsumerProfileRoute
     }
     '/_app/consumer/patients/$patientId': {
@@ -1620,14 +1623,12 @@ const AppConsumerPatientsRouteWithChildren =
   AppConsumerPatientsRoute._addFileChildren(AppConsumerPatientsRouteChildren)
 
 interface AppConsumerProfileRouteChildren {
-  AppConsumerProfileHelpRoute: typeof AppConsumerProfileHelpRoute
   AppConsumerProfilePersonalRoute: typeof AppConsumerProfilePersonalRoute
   AppConsumerProfilePreferencesRoute: typeof AppConsumerProfilePreferencesRoute
   AppConsumerProfileSettingsRoute: typeof AppConsumerProfileSettingsRoute
 }
 
 const AppConsumerProfileRouteChildren: AppConsumerProfileRouteChildren = {
-  AppConsumerProfileHelpRoute: AppConsumerProfileHelpRoute,
   AppConsumerProfilePersonalRoute: AppConsumerProfilePersonalRoute,
   AppConsumerProfilePreferencesRoute: AppConsumerProfilePreferencesRoute,
   AppConsumerProfileSettingsRoute: AppConsumerProfileSettingsRoute,
@@ -1639,6 +1640,7 @@ const AppConsumerProfileRouteWithChildren =
 interface AppConsumerRouteChildren {
   AppConsumerAddressesRoute: typeof AppConsumerAddressesRoute
   AppConsumerBookingsRoute: typeof AppConsumerBookingsRouteWithChildren
+  AppConsumerCarePackagesRoute: typeof AppConsumerCarePackagesRoute
   AppConsumerConsentsRoute: typeof AppConsumerConsentsRoute
   AppConsumerNotificationsRoute: typeof AppConsumerNotificationsRoute
   AppConsumerPatientsRoute: typeof AppConsumerPatientsRouteWithChildren
@@ -1650,6 +1652,7 @@ interface AppConsumerRouteChildren {
 const AppConsumerRouteChildren: AppConsumerRouteChildren = {
   AppConsumerAddressesRoute: AppConsumerAddressesRoute,
   AppConsumerBookingsRoute: AppConsumerBookingsRouteWithChildren,
+  AppConsumerCarePackagesRoute: AppConsumerCarePackagesRoute,
   AppConsumerConsentsRoute: AppConsumerConsentsRoute,
   AppConsumerNotificationsRoute: AppConsumerNotificationsRoute,
   AppConsumerPatientsRoute: AppConsumerPatientsRouteWithChildren,
