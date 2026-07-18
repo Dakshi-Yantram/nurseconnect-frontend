@@ -24,6 +24,7 @@ type CarePackage = {
   cycle_duration_days?: number | null;
   package_price?: number | string | null;
   insurance_covered?: boolean;
+  primary_service_id?: string | null;
 };
 
 function money(value?: number | string | null) {
@@ -104,6 +105,12 @@ function ConsumerCarePackages() {
                   </div>
                   <Link
                     to="/consumer/bookings"
+                    search={{
+                      new: true,
+                      package: pkg.name,
+                      packageId: pkg.id,
+                      serviceId: pkg.primary_service_id ?? undefined,
+                    }}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground hover:opacity-90"
                   >
                     Book <ArrowRight className="h-3.5 w-3.5" />

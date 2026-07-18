@@ -414,6 +414,11 @@ const AppConsumerConsentsRoute = AppConsumerConsentsRouteImport.update({
   path: '/consents',
   getParentRoute: () => AppConsumerRoute,
 } as any)
+const AppConsumerCarePackagesRoute = AppConsumerCarePackagesRouteImport.update({
+  id: '/care-packages',
+  path: '/care-packages',
+  getParentRoute: () => AppConsumerRoute,
+} as any)
 const AppConsumerBookingsRoute = AppConsumerBookingsRouteImport.update({
   id: '/bookings',
   path: '/bookings',

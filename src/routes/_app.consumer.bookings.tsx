@@ -26,14 +26,16 @@ import { PaymentDialog } from "@/components/PaymentDialog";
 export const Route = createFileRoute("/_app/consumer/bookings")({
   component: BookingsLayout,
   head: () => ({ meta: [{ title: "Bookings – NurseConnect" }] }),
+
   // Explicit optional-fields return type — without it TS infers each key as
   // "required, value possibly undefined" rather than truly optional, which
   // forces a `search` prop on every `<Link to="/consumer/bookings">` /
   // `<Link to="/consumer/bookings/$bookingId">` across the app.
-  validateSearch: (s: Record<string, unknown>): { new?: boolean; package?: string; packageId?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { new?: boolean; package?: string; packageId?: string; serviceId?: string } => ({
     new: s.new === "1" || s.new === "true" || s.new === true ? true : undefined,
     package: typeof s.package === "string" ? s.package : undefined,
     packageId: typeof s.packageId === "string" ? s.packageId : undefined,
+    serviceId: typeof s.serviceId === "string" ? s.serviceId : undefined,
   }),
 });
 
@@ -180,6 +182,7 @@ function ConsumerBookings() {
   const [pendingBooking, setPendingBooking] = useState<any>(null);
   // Store consumer profile for location resolution
   const [consumerProfile, setConsumerProfile] = useState<any>(null);
+
   // Prefill notes + selection when arriving from a Care Package's "Book" button
   const [prefillNotes, setPrefillNotes] = useState<string | undefined>(undefined);
   const [prefillPackageId, setPrefillPackageId] = useState<string | undefined>(undefined);
