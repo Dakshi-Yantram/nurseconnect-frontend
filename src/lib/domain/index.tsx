@@ -72,8 +72,14 @@ export interface IncidentEntity {
 
 export interface PackageEntity {
   id: string;
+  code?: string;
   name: string;
   rawStatus: string;
+  packagePrice?: number;
+  perVisitPrice?: number;
+  primaryServiceId?: string;
+  visitsPerCycle?: number;
+  cycleDurationDays?: number;
 }
 
 export interface ServiceEntity {
@@ -380,8 +386,14 @@ export function DomainProvider({ children }: { children: ReactNode }) {
             : (packagesRes.value?.items ?? [])
           ).map((p: any) => ({
             id: p.id ?? "",
+            code: p.package_code ?? "",
             name: p.name ?? p.package_name ?? "Package",
             rawStatus: p.is_active ? "active" : "inactive",
+            packagePrice: p.package_price != null ? Number(p.package_price) : undefined,
+            perVisitPrice: p.per_visit_price != null ? Number(p.per_visit_price) : undefined,
+            primaryServiceId: p.primary_service_id ?? undefined,
+            visitsPerCycle: p.visits_per_cycle ?? undefined,
+            cycleDurationDays: p.cycle_duration_days ?? undefined,
           }))
           : mock.packages;
 
