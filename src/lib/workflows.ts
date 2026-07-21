@@ -89,17 +89,45 @@ function s(preset: keyof typeof STATUS_PRESETS, next: string[], extra: Partial<S
   return { ...STATUS_PRESETS[preset], next, ...extra };
 }
 
+// Booking status labels/tones — mirrors app/models/enums.py BookingStatus
+// exactly, since this workflow now renders real backend values directly
+// (bindStatus previously fell back to a mock-era "pending/claimed/active"
+// vocabulary that the backend never emits, silently mislabeling every
+// booking from "nurse accepted" through "nurse arrived").
+const BOOKING_STATUS_PRESETS: Record<string, Omit<StatusMeta, "next">> = {
+  draft:            { label: "Draft",              tone: "muted",   phase: "intake" },
+  pending_payment:  { label: "Pending Payment",     tone: "warning", phase: "intake" },
+  confirmed:        { label: "Confirmed",           tone: "info",    phase: "intake" },
+  assigned:         { label: "Nurse Assigned",      tone: "primary", phase: "active" },
+  worker_en_route:  { label: "Nurse On The Way",    tone: "primary", phase: "active" },
+  worker_arrived:   { label: "Nurse Arrived",       tone: "primary", phase: "active" },
+  in_progress:      { label: "Visit In Progress",   tone: "primary", phase: "active" },
+  completed:        { label: "Completed",           tone: "success", phase: "terminal" },
+  cancelled:        { label: "Cancelled",           tone: "muted",   phase: "terminal" },
+  missed:           { label: "Missed",              tone: "danger",  phase: "terminal" },
+  rematch_pending:  { label: "Finding New Nurse",   tone: "warning", phase: "blocked" },
+  disputed:         { label: "Disputed",            tone: "danger",  phase: "review" },
+};
+function bs(key: keyof typeof BOOKING_STATUS_PRESETS, next: string[], extra: Partial<StatusMeta> = {}): StatusMeta {
+  return { ...BOOKING_STATUS_PRESETS[key], next, ...extra };
+}
+
 export const WORKFLOWS: Record<WorkflowKey, WorkflowDef> = {
   booking: {
-    key: "booking", label: "Booking", portal: "shared", initial: "pending",
+    key: "booking", label: "Booking", portal: "shared", initial: "pending_payment",
     states: {
-      pending:      s("pending",     ["claimed","active","cancelled"],    { slaMinutes: 30, actions: ["ops.assign","worker.claim_assignment","consumer.cancel_booking"] }),
-      claimed:      s("claimed",     ["active","pending","cancelled"],    { slaMinutes: 60, actions: ["worker.accept_assignment","worker.release_assignment","worker.decline_assignment","ops.assign"] }),
-      active:       s("active",      ["in_progress","cancelled"],          { actions: ["worker.check_in","worker.release_assignment"] }),
-      in_progress:  s("in_progress", ["completed","escalated"],            { actions: ["worker.check_out","worker.escalate_visit"] }),
-      escalated:    s("escalated",   ["in_progress","cancelled"],          { slaMinutes: 60, actions: ["ops.escalate","ops.intervene","clinical.escalate"] }),
-      completed:    s("completed",   []),
-      cancelled:    s("cancelled",   []),
+      draft:            bs("draft",            ["pending_payment", "cancelled"]),
+      pending_payment:  bs("pending_payment",   ["confirmed", "cancelled"], { slaMinutes: 30 }),
+      confirmed:        bs("confirmed",         ["assigned", "rematch_pending", "cancelled"], { slaMinutes: 60 }),
+      assigned:         bs("assigned",          ["worker_en_route", "rematch_pending", "cancelled"], { slaMinutes: 60 }),
+      worker_en_route:  bs("worker_en_route",   ["worker_arrived", "cancelled"]),
+      worker_arrived:   bs("worker_arrived",    ["in_progress", "cancelled"]),
+      in_progress:      bs("in_progress",       ["completed", "disputed", "missed"]),
+      rematch_pending:  bs("rematch_pending",   ["assigned", "cancelled"], { slaMinutes: 45 }),
+      disputed:         bs("disputed",          ["completed", "cancelled"], { slaMinutes: 24 * 60 }),
+      completed:        bs("completed",         []),
+      cancelled:        bs("cancelled",         []),
+      missed:           bs("missed",            []),
     },
   },
   escalation: {
