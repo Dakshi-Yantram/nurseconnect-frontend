@@ -375,15 +375,24 @@ export function DomainProvider({ children }: { children: ReactNode }) {
           : mock.patients;
 
       // Map services
+      // Map services. Same honesty principle as bookings: on failure, show
+      // an empty list instead of fake catalogue data.
       const services: ServiceEntity[] =
         servicesRes.status === "fulfilled"
           ? (Array.isArray(servicesRes.value)
             ? servicesRes.value
             : (servicesRes.value?.items ?? [])
           ).map(mapService)
-          : mock.services;
+          : [];
+
+      if (servicesRes.status !== "fulfilled") {
+        console.warn("Services API failed — showing empty state instead of mock data:", servicesRes.reason);
+      }
 
       // Map packages
+     // Map packages. Same honesty principle as bookings: on failure, show
+      // an empty list instead of fake "PKG-101"-style mock packages, which
+      // are not real UUIDs and break booking creation on the backend.
       const packages: PackageEntity[] =
         packagesRes.status === "fulfilled"
           ? (Array.isArray(packagesRes.value)
@@ -405,7 +414,11 @@ export function DomainProvider({ children }: { children: ReactNode }) {
             minTier: p.min_tier ?? undefined,
             insuranceCovered: p.insurance_covered ?? undefined,
           }))
-          : mock.packages;
+          : [];
+
+      if (packagesRes.status !== "fulfilled") {
+        console.warn("Care-packages API failed — showing empty state instead of mock data:", packagesRes.reason);
+      }
 
       setData({
         bookings,
