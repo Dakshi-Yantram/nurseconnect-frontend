@@ -53,11 +53,19 @@ export function deriveExecutionStage(rec: EntityRecord | undefined | null): Exec
   const fallback = (key: ExecutionStageKey): ExecutionStage => ({ key, ...STAGE_META[key] });
   if (!rec) return fallback("pending");
   const d: any = rec.data ?? {};
+  // bindStatus("booking", ...) now returns real backend BookingStatus
+  // values directly (pending_payment, confirmed, assigned, worker_en_route,
+  // worker_arrived, in_progress, completed, cancelled, missed,
+  // rematch_pending, disputed) — mapped here to the worker's guided-stage
+  // vocabulary, which is a presentation-layer rollup, not the source of truth.
   const canonicalState = bindStatus("booking", rec.state);
   switch (canonicalState) {
-    case "pending":   return fallback("pending");
-    case "claimed":   return fallback("claimed");
-    case "active": {
+    case "pending_payment":
+    case "confirmed":
+    case "rematch_pending": return fallback("pending");
+    case "assigned":        return fallback("claimed");
+    case "worker_en_route":
+    case "worker_arrived": {
       const consentAccepted = !!(d.consentAccepted ?? d.consent_accepted);
       return fallback(consentAccepted ? "ready_for_visit" : "check_in_pending");
     }
@@ -68,9 +76,10 @@ export function deriveExecutionStage(rec: EntityRecord | undefined | null): Exec
       if (!documentationComplete) return fallback("documentation_pending");
       return fallback("ready_for_completion");
     }
-    case "escalated": return fallback("escalated");
+    case "disputed":  return fallback("escalated");
     case "completed": return fallback("completed");
-    case "cancelled": return fallback("cancelled");
+    case "cancelled":
+    case "missed":    return fallback("cancelled");
     default:          return fallback("in_progress");
   }
 }
