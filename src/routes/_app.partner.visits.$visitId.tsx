@@ -40,12 +40,29 @@ function mapsUrl(b: Booking): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q || "destination")}`;
 }
 
-const CHECKLIST_ITEMS = [
-  { key: "patient_identity_confirmed", label: "Confirmed patient identity" },
-  { key: "vitals_recorded", label: "Recorded vital signs" },
-  { key: "hand_hygiene", label: "Followed hand-hygiene protocol" },
-  { key: "care_explained_to_family", label: "Explained care to the family" },
-];
+type WorkflowQuestion = {
+  id: string; type: string; text: string; required?: boolean; options?: Array<string | { label: string; value: string }>;
+};
+type WorkflowFieldDef = {
+  field_id: string; type: string; label: string; required?: boolean; blocks_checkout?: boolean;
+  options?: Array<string | { label: string; value: string }>;
+};
+type WorkflowResponse = {
+  checklist_template: { id: string; code: string; version: number; questions: WorkflowQuestion[] } | null;
+  documentation_template: { id: string; template_code: string; version: number; mandatory_fields: WorkflowFieldDef[] } | null;
+  existing_responses: {
+    checklist: Array<{ question_id: string; answer_json: any }>;
+    documentation: Array<{ field_id: string; value_json: any; file_url: string | null }>;
+  };
+  completion_status: { can_checkout: boolean; missing_items: string[]; blocking_items: string[] };
+};
+
+function optionValue(o: string | { label: string; value: string }): string {
+  return typeof o === "string" ? o : o.value;
+}
+function optionLabel(o: string | { label: string; value: string }): string {
+  return typeof o === "string" ? o : o.label;
+}
 
 function PartnerVisitDetail() {
   const { visitId } = Route.useParams();
@@ -182,10 +199,40 @@ function ExecutionPanel({
   setError: (v: string | null) => void; parseErr: (e: any) => string; reload: () => Promise<void>;
 }) {
   const [v, setV] = useState<Record<string, string>>({});
-  const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [summary, setSummary] = useState("");
   const [notes, setNotes] = useState("");
   const [lastFlags, setLastFlags] = useState<string[] | null>(null);
+
+  // Dynamic per-service questionnaire — resolved from the booking's
+  // checklist/documentation template (package > service > fallback), not a
+  // hardcoded list. Wired to the same /api/care/workflow endpoints that
+  // gate checkout via validate_documentation_completion, so filling this in
+  // is what actually unblocks "Complete visit & check out" below.
+  const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
+  const [workflowLoading, setWorkflowLoading] = useState(true);
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [docAnswers, setDocAnswers] = useState<Record<string, any>>({});
+  const [uploading, setUploading] = useState<string | null>(null);
+
+  const loadWorkflow = useCallback(async () => {
+    setWorkflowLoading(true);
+    try {
+      const wf: WorkflowResponse = await apiFetch(`/api/care/workflow/${bookingId}`);
+      setWorkflow(wf);
+      const a: Record<string, any> = {};
+      for (const r of wf.existing_responses?.checklist ?? []) a[r.question_id] = r.answer_json?.value;
+      setAnswers(a);
+      const d: Record<string, any> = {};
+      for (const r of wf.existing_responses?.documentation ?? []) d[r.field_id] = r.value_json?.value ?? (r.file_url ? { file_url: r.file_url } : undefined);
+      setDocAnswers(d);
+    } catch {
+      setWorkflow(null);
+    } finally {
+      setWorkflowLoading(false);
+    }
+  }, [bookingId]);
+
+  useEffect(() => { loadWorkflow(); }, [loadWorkflow]);
 
   const num = (s?: string) => (s && s.trim() !== "" ? Number(s) : null);
 
@@ -207,12 +254,53 @@ function ExecutionPanel({
   }
 
   async function submitChecklist() {
+    if (!workflow?.checklist_template) return;
     setError(null); setBusy("checklist");
     try {
-      await apiFetch(`/api/visits/${bookingId}/checklist`, {
-        method: "POST", body: JSON.stringify({ responses: checks }),
+      const responses = workflow.checklist_template.questions
+        .filter(q => answers[q.id] !== undefined && answers[q.id] !== "")
+        .map(q => ({ question_id: q.id, answer: answers[q.id] }));
+      await apiFetch(`/api/care/workflow/${bookingId}/responses`, {
+        method: "POST", body: JSON.stringify({ responses }),
       });
-      await reload();
+      await loadWorkflow();
+    } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
+  }
+
+  async function uploadDocPhoto(fieldId: string, file: File) {
+    setError(null); setUploading(fieldId);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("field_id", fieldId);
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "http://localhost:8000")}/api/care/workflow/${bookingId}/documentation/file`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setDocAnswers(s => ({ ...s, [fieldId]: { file_url: data.file_url } }));
+    } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
+  }
+
+  async function submitDocumentation() {
+    if (!workflow?.documentation_template) return;
+    setError(null); setBusy("documentation");
+    try {
+      const items = workflow.documentation_template.mandatory_fields
+        .filter(f => docAnswers[f.field_id] !== undefined && docAnswers[f.field_id] !== "")
+        .map(f => {
+          const v = docAnswers[f.field_id];
+          return v && typeof v === "object" && "file_url" in v
+            ? { field_id: f.field_id, file_url: v.file_url }
+            : { field_id: f.field_id, value: v };
+        });
+      await apiFetch(`/api/care/workflow/${bookingId}/documentation`, {
+        method: "POST", body: JSON.stringify({ items }),
+      });
+      await loadWorkflow();
     } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
   }
 
@@ -283,26 +371,77 @@ function ExecutionPanel({
         )}
       </div>
 
-      {/* Checklist */}
+      {/* Care questionnaire — dynamic, resolved from this booking's service/package checklist template */}
       <div className="rounded-xl border border-border bg-card px-5 py-4">
         <div className="flex items-center gap-2 mb-3">
           <ClipboardList size={15} className="text-primary" />
-          <p className="text-[13px] font-semibold text-foreground">Care checklist</p>
+          <p className="text-[13px] font-semibold text-foreground">Care questionnaire</p>
         </div>
-        <div className="space-y-2">
-          {CHECKLIST_ITEMS.map((it) => (
-            <label key={it.key} className="flex items-center gap-2 text-[12.5px] text-foreground">
-              <input type="checkbox" checked={!!checks[it.key]}
-                onChange={(e) => setChecks((s) => ({ ...s, [it.key]: e.target.checked }))} />
-              {it.label}
-            </label>
-          ))}
-        </div>
-        <button onClick={submitChecklist} disabled={busy !== null}
-          className="mt-3 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
-          {busy === "checklist" ? "Saving…" : "Save checklist"}
-        </button>
+        {workflowLoading ? (
+          <p className="text-[12px] text-muted-foreground">Loading…</p>
+        ) : !workflow?.checklist_template ? (
+          <p className="text-[12px] text-muted-foreground">No questionnaire configured for this service.</p>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {workflow.checklist_template.questions.map((q) => (
+                <WorkflowField
+                  key={q.id}
+                  id={q.id} type={q.type} label={q.text} required={q.required} options={q.options}
+                  value={answers[q.id]} onChange={(val) => setAnswers((s) => ({ ...s, [q.id]: val }))}
+                />
+              ))}
+            </div>
+            <button onClick={submitChecklist} disabled={busy !== null}
+              className="mt-3 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
+              {busy === "checklist" ? "Saving…" : "Save questionnaire"}
+            </button>
+          </>
+        )}
       </div>
+
+      {/* Documentation — dynamic fields, some may block checkout */}
+      {workflow?.documentation_template && (
+        <div className="rounded-xl border border-border bg-card px-5 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText size={15} className="text-primary" />
+            <p className="text-[13px] font-semibold text-foreground">Visit documentation</p>
+          </div>
+          <div className="space-y-3">
+            {workflow.documentation_template.mandatory_fields.map((f) => (
+              f.type === "photo" ? (
+                <div key={f.field_id}>
+                  <label className="text-[11px] font-semibold text-muted-foreground">
+                    {f.label}{f.required ? " *" : ""}
+                  </label>
+                  <input type="file" accept="image/*"
+                    onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocPhoto(f.field_id, file); }}
+                    className="mt-0.5 w-full text-[12px]" disabled={uploading === f.field_id} />
+                  {docAnswers[f.field_id]?.file_url && (
+                    <p className="mt-1 text-[11px] text-emerald-700">Uploaded ✓</p>
+                  )}
+                </div>
+              ) : (
+                <WorkflowField
+                  key={f.field_id}
+                  id={f.field_id} type={f.type} label={f.label} required={f.required} options={f.options}
+                  value={docAnswers[f.field_id]} onChange={(val) => setDocAnswers((s) => ({ ...s, [f.field_id]: val }))}
+                />
+              )
+            ))}
+          </div>
+          <button onClick={submitDocumentation} disabled={busy !== null}
+            className="mt-3 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
+            {busy === "documentation" ? "Saving…" : "Save documentation"}
+          </button>
+        </div>
+      )}
+
+      {workflow && !workflow.completion_status.can_checkout && workflow.completion_status.blocking_items.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-800">
+          Before checkout: {workflow.completion_status.blocking_items.join(", ")}
+        </div>
+      )}
 
       {/* Family summary + checkout */}
       <div className="rounded-xl border border-border bg-card px-5 py-4">
@@ -323,5 +462,89 @@ function ExecutionPanel({
         </button>
       </div>
     </>
+  );
+}
+
+// Generic renderer for one dynamic checklist question or documentation
+// field, driven entirely by the template's declared `type` — no per-service
+// hardcoding. Supported types match care_workflow_engine.SUPPORTED_QUESTION_TYPES.
+function WorkflowField({
+  id, type, label, required, options, value, onChange,
+}: {
+  id: string; type: string; label: string; required?: boolean;
+  options?: Array<string | { label: string; value: string }>;
+  value: any; onChange: (val: any) => void;
+}) {
+  const labelEl = (
+    <label htmlFor={id} className="text-[11px] font-semibold text-muted-foreground">
+      {label}{required ? " *" : ""}
+    </label>
+  );
+
+  if (type === "boolean") {
+    return (
+      <label className="flex items-center gap-2 text-[12.5px] text-foreground">
+        <input id={id} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />
+        {label}{required ? " *" : ""}
+      </label>
+    );
+  }
+  if (type === "number") {
+    return (
+      <div>
+        {labelEl}
+        <input id={id} type="number" value={value ?? ""} onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+          className="mt-0.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
+      </div>
+    );
+  }
+  if (type === "textarea") {
+    return (
+      <div>
+        {labelEl}
+        <textarea id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={2}
+          className="mt-0.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
+      </div>
+    );
+  }
+  if (type === "single_select" && options?.length) {
+    return (
+      <div>
+        {labelEl}
+        <select id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value)}
+          className="mt-0.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]">
+          <option value="" disabled>Select…</option>
+          {options.map((o) => <option key={optionValue(o)} value={optionValue(o)}>{optionLabel(o)}</option>)}
+        </select>
+      </div>
+    );
+  }
+  if (type === "multi_select" && options?.length) {
+    const selected: string[] = Array.isArray(value) ? value : [];
+    return (
+      <div>
+        {labelEl}
+        <div className="mt-1 space-y-1">
+          {options.map((o) => {
+            const ov = optionValue(o);
+            return (
+              <label key={ov} className="flex items-center gap-2 text-[12.5px] text-foreground">
+                <input type="checkbox" checked={selected.includes(ov)}
+                  onChange={(e) => onChange(e.target.checked ? [...selected, ov] : selected.filter(s => s !== ov))} />
+                {optionLabel(o)}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+  // text (default)
+  return (
+    <div>
+      {labelEl}
+      <input id={id} type="text" value={value ?? ""} onChange={(e) => onChange(e.target.value)}
+        className="mt-0.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
+    </div>
   );
 }
