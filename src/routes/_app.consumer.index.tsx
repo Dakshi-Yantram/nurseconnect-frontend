@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { Card } from "@/components/shared/Card";
 import { PortalBadge } from "@/components/shared/PortalBadge";
 import { RoleBadge } from "@/components/shared/RoleBadge";
@@ -7,9 +8,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
 import { useAuth } from "@/lib/auth-context";
-import { useConsumerPatients } from "@/lib/domain";
-import { useConsumerCareSnapshot } from "@/lib/orchestration";
-import { bookingPatientName, bookingService, bookingArea, bookingStartedAt } from "@/lib/orchestration/links";
+import { useConsumerPatients, useBookings, type BookingEntity } from "@/lib/domain";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import {
   CalendarCheck, ChevronRight, AlertTriangle, Clock, HeartPulse,
@@ -21,10 +20,46 @@ export const Route = createFileRoute("/_app/consumer/")({
   head: () => ({ meta: [{ title: "My Care — NurseConnect" }] }),
 });
 
+// Real BookingStatus values (app/models/enums.py) bucketed for the care
+// journey view. useBookings() is already server-scoped to the logged-in
+// consumer (/api/bookings/consumer), so no client-side ownerId filter here —
+// this previously read from the mock-seeded orchestration store via
+// useConsumerCareSnapshot, which never received real booking data at all.
+function useConsumerCareSnapshot() {
+  const bookings = useBookings();
+  return useMemo(() => {
+    const upcoming = bookings.filter(b =>
+      b.rawStatus === "pending_payment" ||
+      b.rawStatus === "confirmed" ||
+      b.rawStatus === "assigned" ||
+      b.rawStatus === "worker_en_route" ||
+      b.rawStatus === "worker_arrived" ||
+      b.rawStatus === "rematch_pending"
+    );
+    const inCare = bookings.filter(b => b.rawStatus === "in_progress");
+    const completed = bookings.filter(b =>
+      b.rawStatus === "completed" || b.rawStatus === "cancelled" || b.rawStatus === "missed"
+    );
+    const escalated = bookings.filter(b => b.rawStatus === "disputed");
+
+    const byPatientId = new Map<string, BookingEntity[]>();
+    const byPatient = new Map<string, BookingEntity[]>();
+    for (const b of bookings) {
+      if (b.patientId) byPatientId.set(b.patientId, [...(byPatientId.get(b.patientId) ?? []), b]);
+      byPatient.set(b.patientName, [...(byPatient.get(b.patientName) ?? []), b]);
+    }
+
+    return {
+      all: bookings, upcoming, inCare, completed, escalated, byPatient, byPatientId,
+      counts: { upcoming: upcoming.length, inCare: inCare.length, completed: completed.length, escalated: escalated.length },
+    };
+  }, [bookings]);
+}
+
 function ConsumerHome() {
   const { user } = useAuth();
   const ownerId = user?.id ?? null;
-  const care = useConsumerCareSnapshot(ownerId);
+  const care = useConsumerCareSnapshot();
   const patients = useConsumerPatients(ownerId).slice(0, 4);
 
   return (
@@ -55,12 +90,12 @@ function ConsumerHome() {
         <RuntimeBoundary label="Care alerts">
           <Card title={<span className="flex items-center gap-2 text-rose-700"><AlertTriangle className="h-4 w-4" /> Care alerts</span>} padded={false}>
             {care.escalated.slice(0, 3).map(r => {
-              const state = bindStatus("booking", r.state);
+              const state = bindStatus("booking", r.rawStatus);
               return (
                 <Link key={r.id} to="/consumer/bookings/$bookingId" params={{ bookingId: r.id }}
                   className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0 hover:bg-muted/30">
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium truncate">#{r.id} · {bookingService(r) ?? "Service"} · {bookingPatientName(r) ?? "—"}</div>
+                    <div className="text-[13px] font-medium truncate">#{r.id} · {r.service ?? "Service"} · {r.patientName ?? "—"}</div>
                     <div className="text-[11.5px] text-muted-foreground">Escalated — your care team is actively reviewing this visit.</div>
                   </div>
                   <StatusBadge workflow="booking" state={state} />
@@ -108,9 +143,13 @@ function ConsumerHome() {
             ? <div className="p-5"><EmptyState title="No patients yet" /></div>
             : patients.map(p => {
                 const ledger = care.byPatientId.get(p.id) ?? care.byPatient.get(p.name) ?? [];
-                const upcoming  = ledger.filter(r => r.state === "pending" || r.state === "claimed").length;
-                const inCare    = ledger.filter(r => r.state === "active"  || r.state === "in_progress").length;
-                const completed = ledger.filter(r => r.state === "completed").length;
+                const upcoming  = ledger.filter(r =>
+                  r.rawStatus === "pending_payment" || r.rawStatus === "confirmed" ||
+                  r.rawStatus === "assigned" || r.rawStatus === "worker_en_route" ||
+                  r.rawStatus === "worker_arrived" || r.rawStatus === "rematch_pending"
+                ).length;
+                const inCare    = ledger.filter(r => r.rawStatus === "in_progress").length;
+                const completed = ledger.filter(r => r.rawStatus === "completed").length;
                 return (
                   <div key={p.id} className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0">
                     <div className="h-8 w-8 rounded-md bg-primary/10 text-primary grid place-items-center shrink-0">
@@ -163,7 +202,7 @@ function JourneyList({
   title, action, rows, emptyTitle, emptyHint, tone,
 }: {
   title: React.ReactNode; action?: React.ReactNode;
-  rows: ReturnType<typeof useConsumerCareSnapshot>["upcoming"];
+  rows: BookingEntity[];
   emptyTitle: string; emptyHint?: string;
   tone: "primary" | "emerald" | "muted";
 }) {
@@ -177,8 +216,7 @@ function JourneyList({
       {rows.length === 0
         ? <div className="p-5"><EmptyState icon={CalendarCheck} title={emptyTitle} description={emptyHint} /></div>
         : rows.map(r => {
-            const state = bindStatus("booking", r.state);
-            const started = bookingStartedAt(r);
+            const state = bindStatus("booking", r.rawStatus);
             return (
               <Link key={r.id} to="/consumer/bookings/$bookingId" params={{ bookingId: r.id }}
                 className="flex items-stretch gap-3 border-b border-border last:border-0 hover:bg-muted/30">
@@ -186,15 +224,15 @@ function JourneyList({
                 <div className="flex items-center gap-3 flex-1 py-3 pr-4">
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] font-medium truncate">
-                      {bookingPatientName(r) ?? "—"} · {bookingService(r) ?? "Service"}
+                      {r.patientName ?? "—"} · {r.service ?? "Service"}
                     </div>
                     <div className="text-[11.5px] text-muted-foreground truncate">
-                      #{r.id} · {bookingArea(r) ?? "—"}{started ? ` · ${started}` : ""}
+                      #{r.id} · {r.area ?? "—"}{r.startedAt ? ` · ${r.startedAt}` : ""}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <StatusBadge workflow="booking" state={state} />
-                    <SLAIndicator workflow="booking" state={state} enteredAt={parseEnteredAt(r.enteredAt)} />
+                    <SLAIndicator workflow="booking" state={state} enteredAt={parseEnteredAt(r.startedAt)} />
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
