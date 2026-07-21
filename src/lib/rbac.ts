@@ -147,6 +147,7 @@ const OPERATIONS_PERMISSIONS: Permission[] = [
 
 const CLINICAL_TRAINING_LEAD_PERMISSIONS: Permission[] = [
   "training.review_queue",
+  "training.author",
 ];
 
 const CLINICAL_TRAINER_PERMISSIONS: Permission[] = [
@@ -180,6 +181,9 @@ export interface NavItem {
   section: NavSection;
   permission: Permission;
   portal: Portal;
+  /** Optional collapsible parent group within its section (e.g. "Onboarding"
+   *  groups Nurse + Reviewer under one expandable row in the sidebar). */
+  group?: string;
 }
 
 export const NAV_REGISTRY: NavItem[] = [
@@ -190,9 +194,9 @@ export const NAV_REGISTRY: NavItem[] = [
 
   { to: "/users/patients",          label: "Patients",           icon: Users,           section: "Users",          permission: "users.view",                portal: "admin" },
   { to: "/users/nurses",            label: "Nurses",             icon: HeartHandshake,  section: "Users",          permission: "users.view",                portal: "admin" },
-  { to: "/nurse-approval",          label: "Nurse Approval",     icon: UserCheck,       section: "Users",          permission: "users.approve",             portal: "admin" },
+  { to: "/nurse-approval",          label: "Nurse",              icon: UserCheck,       section: "Users",          permission: "users.approve",             portal: "admin", group: "Onboarding" },
+  { to: "/reviewer-management",     label: "Reviewer",           icon: UserCog,         section: "Users",          permission: "admin.reviewer.mgmt",       portal: "admin", group: "Onboarding" },
   { to: "/onboarding-review",       label: "Onboarding Review",  icon: ClipboardCheck,  section: "Users",          permission: "onboarding.review",         portal: "admin" },
-  { to: "/background-verification", label: "Background Check",   icon: ShieldCheck,     section: "Users",          permission: "background.review",         portal: "admin" },
   { to: "/moderation/training",     label: "Training Review",    icon: GraduationCap,   section: "Users",          permission: "review.training",           portal: "admin" },
 
   { to: "/clinical-escalation",     label: "Clinical Escalation",icon: AlertOctagon,    section: "Clinical",       permission: "clinical.escalation",       portal: "admin" },
@@ -213,7 +217,6 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/settings",                label: "Settings",           icon: Settings,        section: "Compliance",     permission: "compliance.settings",       portal: "admin" },
 
   // ---------- NEW ROUTES ----------
-  { to: "/reviewer-management", label: "Reviewer Workload", icon: LayoutDashboard, section: "Users",    permission: "admin.reviewer.mgmt", portal: "admin" },
   { to: "/roles-permissions",   label: "Roles & Permissions", icon: UserCog,       section: "Users",    permission: "admin.roles",         portal: "admin" },
   { to: "/consumer/addresses",  label: "Addresses",         icon: LayoutDashboard, section: "Account",  permission: "consumer.addresses",  portal: "consumer" },
   { to: "/partner/services",    label: "Care Packages",     icon: LayoutDashboard, section: "Work",     permission: "partner.services",    portal: "partner" },
