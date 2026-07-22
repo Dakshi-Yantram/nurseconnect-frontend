@@ -151,7 +151,12 @@ function ConsumerHome() {
                 const inCare    = ledger.filter(r => r.rawStatus === "in_progress").length;
                 const completed = ledger.filter(r => r.rawStatus === "completed").length;
                 return (
-                  <div key={p.id} className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0">
+                  <Link
+                    key={p.id}
+                    to="/consumer/patients/$patientId"
+                    params={{ patientId: p.id }}
+                    className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
+                  >
                     <div className="h-8 w-8 rounded-md bg-primary/10 text-primary grid place-items-center shrink-0">
                       <HeartPulse className="h-4 w-4" />
                     </div>
@@ -167,7 +172,7 @@ function ConsumerHome() {
                       <span><span className="text-foreground font-semibold">{completed}</span> done</span>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  </div>
+                  </Link>
                 );
               })}
         </Card>
@@ -242,4 +247,3 @@ function JourneyList({
     </Card>
   );
 }
-

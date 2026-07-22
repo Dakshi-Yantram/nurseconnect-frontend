@@ -259,7 +259,12 @@ function NurseApproval() {
                         <p className="text-[11px] text-muted-foreground mt-1.5">Tier 3+ can give injections/IV</p>
                       </div>
                       <div className="rounded-xl border border-border bg-card px-5 py-4">
-                        <p className="text-[12.5px] font-bold mb-2">Background Check</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[12.5px] font-bold">Background Check</p>
+                          <a href="/background-verification" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+                            Full queue <ExternalLink size={11} />
+                          </a>
+                        </div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", backgroundPassed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
                             {detail.background_check_status ?? "not started"}
