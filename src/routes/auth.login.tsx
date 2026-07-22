@@ -10,6 +10,7 @@ export const Route = createFileRoute("/auth/login")({
   head: () => ({ meta: [{ title: "Login — NurseConnect" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     redirect: typeof s.redirect === "string" ? s.redirect : undefined,
+    reason: typeof s.reason === "string" ? s.reason : undefined,
   }),
 });
 
@@ -118,7 +119,7 @@ type Mode = "signin" | "register" | "verify" | "otp_phone" | "otp_code";
 function LoginPage() {
   const nav = useNavigate();
   const { signIn, isAuthenticated, user, hydrated } = useAuth();
-  const { redirect } = useSearch({ from: "/auth/login" });
+  const { redirect, reason } = useSearch({ from: "/auth/login" });
 
   const [mode, setMode] = useState<Mode>("signin");
   const [showPassword, setShowPassword] = useState(false);
@@ -339,6 +340,13 @@ function LoginPage() {
               <>
                 <h2 className="text-2xl font-semibold tracking-tight">Welcome Back</h2>
                 <p className="text-sm text-muted-foreground mt-1">Login to continue to your portal</p>
+
+                {reason === "session_mismatch" && (
+                  <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-800">
+                    You were signed out because a different account was logged in on
+                    another tab in this browser. Please sign in again to continue.
+                  </div>
+                )}
 
                 <form className="mt-6 space-y-4" onSubmit={submitSignIn}>
                   <div>
