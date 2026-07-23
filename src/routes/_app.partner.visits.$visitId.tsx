@@ -114,6 +114,19 @@ function PartnerVisitDetail() {
     } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
   }
 
+  async function cancelBooking() {
+    if (!window.confirm(
+      "Cancel this visit? It will be automatically offered to other nurses, and repeated cancellations may affect your rating."
+    )) return;
+    setError(null); setBusy("cancel");
+    try {
+      await apiFetch(`/api/bookings/${visitId}/cancel`, {
+        method: "POST", body: JSON.stringify({ reason: "Cancelled by nurse" }),
+      });
+      window.location.href = "/partner/visits";
+    } catch (e: any) { setError(parseErr(e)); setBusy(null); }
+  }
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
@@ -124,6 +137,17 @@ function PartnerVisitDetail() {
   const a = b.address_snapshot ?? {};
   const inProgress = b.status === "in_progress";
   const completed = b.status === "completed";
+
+  // 6-hour cancellation window (backend enforces this too — hiding the
+  // button here just keeps the option honest). Only before the visit starts.
+  const scheduledStartMs = (() => {
+    const d = new Date(`${b.scheduled_date}T${b.scheduled_start_time}`);
+    return isNaN(d.getTime()) ? null : d.getTime();
+  })();
+  const canCancel =
+    !inProgress && !completed &&
+    ["assigned", "worker_en_route", "worker_arrived"].includes(b.status) &&
+    (scheduledStartMs == null || Date.now() < scheduledStartMs - 6 * 60 * 60 * 1000);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -185,6 +209,20 @@ function PartnerVisitDetail() {
         ) : (
           <ExecutionPanel bookingId={visitId} booking={b} vitals={vitals}
             busy={busy} setBusy={setBusy} setError={setError} parseErr={parseErr} reload={load} />
+        )}
+
+        {canCancel && (
+          <div className="rounded-xl border border-border bg-card px-5 py-4">
+            <p className="text-[12px] text-muted-foreground mb-2">
+              Can't make this visit? Cancelling releases it to other nurses automatically.
+              Cancellation closes 6 hours before the scheduled start.
+            </p>
+            <button onClick={cancelBooking} disabled={busy !== null}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 px-4 py-2 text-[13px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40">
+              {busy === "cancel" ? <Loader2 size={15} className="animate-spin" /> : null}
+              Cancel this visit
+            </button>
+          </div>
         )}
       </div>
     </div>
