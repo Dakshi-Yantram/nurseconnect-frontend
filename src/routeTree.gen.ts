@@ -44,6 +44,7 @@ import { Route as AppCarePackagesRouteImport } from './routes/_app.care-packages
 import { Route as AppBackgroundVerificationRouteImport } from './routes/_app.background-verification'
 import { Route as AppAuditLogsRouteImport } from './routes/_app.audit-logs'
 import { Route as AppPartnerIndexRouteImport } from './routes/_app.partner.index'
+import { Route as AppOperationsIndexRouteImport } from './routes/_app.operations.index'
 import { Route as AppConsumerIndexRouteImport } from './routes/_app.consumer.index'
 import { Route as AppVisitsVisitIdRouteImport } from './routes/_app.visits.$visitId'
 import { Route as AppUsersPatientsRouteImport } from './routes/_app.users.patients'
@@ -265,6 +266,11 @@ const AppPartnerIndexRoute = AppPartnerIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppOperationsIndexRoute = AppOperationsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppOperationsRoute,
 } as any)
 const AppConsumerIndexRoute = AppConsumerIndexRouteImport.update({
   id: '/',
@@ -576,6 +582,7 @@ export interface FileRoutesByFullPath {
   '/users/patients': typeof AppUsersPatientsRoute
   '/visits/$visitId': typeof AppVisitsVisitIdRoute
   '/consumer/': typeof AppConsumerIndexRoute
+  '/operations/': typeof AppOperationsIndexRoute
   '/partner/': typeof AppPartnerIndexRoute
   '/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
@@ -603,7 +610,6 @@ export interface FileRoutesByTo {
   '/moderation': typeof AppModerationRouteWithChildren
   '/nurse-approval': typeof AppNurseApprovalRoute
   '/onboarding-review': typeof AppOnboardingReviewRouteWithChildren
-  '/operations': typeof AppOperationsRouteWithChildren
   '/ops-dashboard': typeof AppOpsDashboardRoute
   '/retention-dashboard': typeof AppRetentionDashboardRoute
   '/reviewer-management': typeof AppReviewerManagementRoute
@@ -654,6 +660,7 @@ export interface FileRoutesByTo {
   '/users/patients': typeof AppUsersPatientsRoute
   '/visits/$visitId': typeof AppVisitsVisitIdRoute
   '/consumer': typeof AppConsumerIndexRoute
+  '/operations': typeof AppOperationsIndexRoute
   '/partner': typeof AppPartnerIndexRoute
   '/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
@@ -737,6 +744,7 @@ export interface FileRoutesById {
   '/_app/users/patients': typeof AppUsersPatientsRoute
   '/_app/visits/$visitId': typeof AppVisitsVisitIdRoute
   '/_app/consumer/': typeof AppConsumerIndexRoute
+  '/_app/operations/': typeof AppOperationsIndexRoute
   '/_app/partner/': typeof AppPartnerIndexRoute
   '/_app/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/_app/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
@@ -820,6 +828,7 @@ export interface FileRouteTypes {
     | '/users/patients'
     | '/visits/$visitId'
     | '/consumer/'
+    | '/operations/'
     | '/partner/'
     | '/consumer/bookings/$bookingId'
     | '/consumer/patients/$patientId'
@@ -847,7 +856,6 @@ export interface FileRouteTypes {
     | '/moderation'
     | '/nurse-approval'
     | '/onboarding-review'
-    | '/operations'
     | '/ops-dashboard'
     | '/retention-dashboard'
     | '/reviewer-management'
@@ -898,6 +906,7 @@ export interface FileRouteTypes {
     | '/users/patients'
     | '/visits/$visitId'
     | '/consumer'
+    | '/operations'
     | '/partner'
     | '/consumer/bookings/$bookingId'
     | '/consumer/patients/$patientId'
@@ -980,6 +989,7 @@ export interface FileRouteTypes {
     | '/_app/users/patients'
     | '/_app/visits/$visitId'
     | '/_app/consumer/'
+    | '/_app/operations/'
     | '/_app/partner/'
     | '/_app/consumer/bookings/$bookingId'
     | '/_app/consumer/patients/$patientId'
@@ -1244,6 +1254,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/partner/'
       preLoaderRoute: typeof AppPartnerIndexRouteImport
       parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/operations/': {
+      id: '/_app/operations/'
+      path: '/'
+      fullPath: '/operations/'
+      preLoaderRoute: typeof AppOperationsIndexRouteImport
+      parentRoute: typeof AppOperationsRoute
     }
     '/_app/consumer/': {
       id: '/_app/consumer/'
@@ -1752,11 +1769,13 @@ const AppOnboardingReviewRouteWithChildren =
 interface AppOperationsRouteChildren {
   AppOperationsFaqRoute: typeof AppOperationsFaqRoute
   AppOperationsStaffRoute: typeof AppOperationsStaffRoute
+  AppOperationsIndexRoute: typeof AppOperationsIndexRoute
 }
 
 const AppOperationsRouteChildren: AppOperationsRouteChildren = {
   AppOperationsFaqRoute: AppOperationsFaqRoute,
   AppOperationsStaffRoute: AppOperationsStaffRoute,
+  AppOperationsIndexRoute: AppOperationsIndexRoute,
 }
 
 const AppOperationsRouteWithChildren = AppOperationsRoute._addFileChildren(
