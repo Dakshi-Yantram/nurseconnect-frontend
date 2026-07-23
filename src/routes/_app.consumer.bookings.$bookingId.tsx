@@ -186,6 +186,17 @@ function ConsumerBookingDetail() {
   const { data: report, loading: reportLoading, notFound: reportNotFound } =
     useVisitReport(record.id, record.state === "completed");
 
+  // 6-hour cancellation window — mirrors the backend policy (which enforces
+  // it regardless); here we just hide the option once the window has closed.
+  const scheduledStart = (() => {
+    const s = domainBooking?.startedAt;
+    if (!s) return null;
+    const d = new Date(s.includes("T") ? s : s.replace(" ", "T"));
+    return isNaN(d.getTime()) ? null : d;
+  })();
+  const withinCancelWindow =
+    scheduledStart == null || Date.now() < scheduledStart.getTime() - 6 * 60 * 60 * 1000;
+
   const handlePay = async () => {
     setPaying(true);
     try {
@@ -333,19 +344,26 @@ function ConsumerBookingDetail() {
 
               {payStatus === "paid" && record.state !== "completed" && record.state !== "cancelled" && (
                 <div className="mt-3 pt-3 border-t border-current/10">
-                  <button
-                    onClick={handleCancelAndRefund}
-                    disabled={refunding}
-                    className="inline-flex items-center gap-2 rounded-md border border-rose-300 text-rose-700 px-4 py-2 text-[13px] font-medium hover:bg-rose-50 disabled:opacity-60"
-                  >
-                    {refunding ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing…
-                      </>
-                    ) : (
-                      <>Cancel booking & request refund</>
-                    )}
-                  </button>
+                  {withinCancelWindow ? (
+                    <button
+                      onClick={handleCancelAndRefund}
+                      disabled={refunding}
+                      className="inline-flex items-center gap-2 rounded-md border border-rose-300 text-rose-700 px-4 py-2 text-[13px] font-medium hover:bg-rose-50 disabled:opacity-60"
+                    >
+                      {refunding ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing…
+                        </>
+                      ) : (
+                        <>Cancel booking & request refund</>
+                      )}
+                    </button>
+                  ) : (
+                    <p className="text-[12px] text-muted-foreground">
+                      Cancellation is no longer available — visits can only be cancelled up to
+                      6 hours before the scheduled start. Contact support if you need help.
+                    </p>
+                  )}
                 </div>
               )}
 
