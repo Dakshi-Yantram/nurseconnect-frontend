@@ -7,6 +7,7 @@ import { CONSENT_SCHEMA } from "@/lib/forms/templates";
 import { useConsents } from "@/lib/domain";
 import { useOrchestration } from "@/lib/orchestration";
 import { useAuth } from "@/lib/auth-context";
+import { apiFetch } from "@/lib/api";
 import { FileSignature } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,14 +21,33 @@ function ConsumerConsents() {
   const store = useOrchestration();
   const { user } = useAuth();
 
-  const onSubmit = (values: Record<string, unknown>) => {
-    // Consent is tracked as a complaint-adjacent workflow record under "booking"
-    // history when patient context exists. For now we record an audit entry on
-    // the consent itself; surface as a toast for the consumer.
-    store.annotate("booking", "consent_record",
-      user?.email ?? "consumer@nurseconnect.in", user?.role ?? null,
-      `Consent submitted (treatment=${!!values.treatment_consent}, data=${!!values.data_consent})`);
-    toast.success("Consent submitted and recorded");
+  const onSubmit = async (values: Record<string, unknown>) => {
+    try {
+      await apiFetch("/api/consents", {
+        method: "POST",
+        body: JSON.stringify({
+          patient_id: user?.id,
+          consent_type: "service",
+          consented_by_name: user?.name ?? "Consumer",
+          capture_method: "digital_checkbox",
+          treatment_consent: !!values.treatment_consent,
+          data_consent: !!values.data_consent,
+        }),
+      });
+
+      store.annotate(
+        "booking",
+        "consent_record",
+        user?.email ?? "consumer@nurseconnect.in",
+        user?.role ?? null,
+        `Consent submitted (treatment=${!!values.treatment_consent}, data=${!!values.data_consent})`
+      );
+
+      toast.success("Consent submitted and recorded");
+    } catch (err) {
+      console.error("Consent submission failed:", err);
+      toast.error("Failed to submit consent. Please try again.");
+    }
   };
 
   return (

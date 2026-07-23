@@ -24,8 +24,6 @@ import {
   bookingService, bookingPatientName, bookingArea,
   bookingStartedAt, bookingDuration, bookingNurseName,
 } from "@/lib/orchestration/links";
-// Shared with _app.consumer.payments.tsx via @/lib/payment-status so the two
-// views can't drift out of sync with each other again.
 import {
   type PaymentStatus,
   derivePaymentStatus,
@@ -40,8 +38,6 @@ export const Route = createFileRoute("/_app/consumer/bookings/$bookingId")({
   head: () => ({ meta: [{ title: "Booking — NurseConnect" }] }),
 });
 
-// ─── Payment derivation ───────────────────────────────────────────────────────
-
 const PAYMENT_CONFIG: Record<PaymentStatus, {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -54,12 +50,6 @@ const PAYMENT_CONFIG: Record<PaymentStatus, {
   refunded: { label: "Refunded", icon: XCircle, classes: "text-muted-foreground bg-muted border-border", description: "Booking cancelled — refund credited within 5–7 working days." },
   failed: { label: "Action needed", icon: AlertCircle, classes: "text-rose-700 bg-rose-50 border-rose-200", description: "Payment issue detected — your care team has been notified." },
 };
-
-// ─── Visit report (real backend data) ─────────────────────────────────────
-// Replaces what used to be entirely hardcoded "sample" content in the Care
-// Summary card below — this is the actual "view the report" flow that was
-// missing: GET /api/visits/{booking_id} for checklist/documentation/notes,
-// plus GET /api/visits/{booking_id}/vitals for the latest recorded vitals.
 
 interface VisitReport {
   checklistResponses: Record<string, any> | null;
@@ -119,7 +109,6 @@ function useVisitReport(bookingId: string, enabled: boolean) {
   return { data, loading, notFound };
 }
 
-
 const TIMELINE_LABELS: Record<string, string> = {
   "entity.created": "Booking created",
   "workflow.transitioned": "Status updated",
@@ -131,7 +120,6 @@ const TIMELINE_LABELS: Record<string, string> = {
   "entity.completed": "Visit completed",
 };
 
-
 function ConsumerBookingDetail() {
   const { bookingId } = Route.useParams();
   const { user } = useAuth();
@@ -142,11 +130,12 @@ function ConsumerBookingDetail() {
   const [paying, setPaying] = useState(false);
   const [refunding, setRefunding] = useState(false);
 
-
   const record = domainBooking ? {
     id: domainBooking.id,
     state: domainBooking.rawStatus,
     enteredAt: domainBooking.startedAt,
+    latitude: (domainBooking as any).latitude ?? null,
+    longitude: (domainBooking as any).longitude ?? null,
     data: {},
   } : null;
 
@@ -160,7 +149,6 @@ function ConsumerBookingDetail() {
             description="It may have been removed or the link is incorrect."
           />
         </Card>
-         
       </div>
     );
   }
@@ -176,7 +164,7 @@ function ConsumerBookingDetail() {
   const rawPaymentStatus = domainBooking?.paymentStatus;
   const payStatus = mapRealPaymentStatus(rawPaymentStatus) ?? derivePaymentStatus(record.state);
   const amount = domainBooking?.totalAmount != null
-    ? Number(domainBooking.totalAmount) // backend stores rupees, not paise
+    ? Number(domainBooking.totalAmount)
     : deriveAmount(service);
 
   const payCfg = PAYMENT_CONFIG[payStatus];
@@ -186,8 +174,6 @@ function ConsumerBookingDetail() {
   const { data: report, loading: reportLoading, notFound: reportNotFound } =
     useVisitReport(record.id, record.state === "completed");
 
-  // 6-hour cancellation window — mirrors the backend policy (which enforces
-  // it regardless); here we just hide the option once the window has closed.
   const scheduledStart = (() => {
     const s = domainBooking?.startedAt;
     if (!s) return null;
@@ -243,11 +229,9 @@ function ConsumerBookingDetail() {
   };
 
   return (
-
     <div className="space-y-5">
       <BackLink />
 
-      {/* ── Booking summary ── */}
       <Card padded={false}>
         <div className="flex items-start justify-between gap-4 px-5 py-4 flex-wrap">
           <div>
@@ -278,7 +262,7 @@ function ConsumerBookingDetail() {
       <TrackNurseMap bookingId={record.id} status={record.state} destLat={record.latitude} destLng={record.longitude} />
       <StartVisitCodeButton bookingId={record.id} status={record.state} />
       <ChatPanel scope="booking" id={record.id} />
-      {/* ── Payment status ── */}
+
       <RuntimeBoundary label="Payment">
         <Card
           title={
@@ -300,7 +284,6 @@ function ConsumerBookingDetail() {
                 </div>
               </div>
 
-              {/* Fee breakdown */}
               <div className="mt-3 pt-3 border-t border-current/10 grid grid-cols-3 gap-2 text-[11.5px]">
                 <PayLine label="Service fee" value={formatINR(Math.round(amount * 0.85))} />
                 <PayLine label="Platform fee" value={formatINR(Math.round(amount * 0.12))} />
@@ -366,12 +349,11 @@ function ConsumerBookingDetail() {
                   )}
                 </div>
               )}
-
             </div>
           </div>
         </Card>
       </RuntimeBoundary>
-      {/* ── Care Summary / Report (only when completed) ── */}
+
       {record.state === "completed" && (
         <RuntimeBoundary label="Care summary">
           <Card title={
@@ -395,7 +377,6 @@ function ConsumerBookingDetail() {
 
             {!reportLoading && !reportNotFound && report && (
               <>
-                {/* Visit stats */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="bg-muted/50 rounded-lg px-3 py-2.5">
                     <div className="text-[10.5px] text-muted-foreground uppercase tracking-wide">Duration</div>
@@ -411,7 +392,6 @@ function ConsumerBookingDetail() {
                   </div>
                 </div>
 
-                {/* Tasks completed */}
                 <div className="mb-4">
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Tasks completed</div>
                   <div className="flex flex-wrap gap-2">
@@ -430,7 +410,6 @@ function ConsumerBookingDetail() {
                   </div>
                 </div>
 
-                {/* Vitals */}
                 <div className="mb-4">
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Vitals recorded</div>
                   {report.vitals ? (
@@ -445,7 +424,6 @@ function ConsumerBookingDetail() {
                   )}
                 </div>
 
-                {/* Nurse notes */}
                 <div className="mb-4">
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Nurse's notes</div>
                   <div className="bg-muted/40 rounded-lg px-3 py-2.5 text-[12.5px] text-muted-foreground leading-relaxed">
@@ -453,7 +431,6 @@ function ConsumerBookingDetail() {
                   </div>
                 </div>
 
-                {/* Next steps */}
                 <div>
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Next steps</div>
                   <div className="flex items-start gap-2 text-[12.5px] text-muted-foreground">
@@ -467,12 +444,10 @@ function ConsumerBookingDetail() {
         </RuntimeBoundary>
       )}
 
-      {/* ── Booking timeline ── */}
       <RuntimeBoundary label="Booking history">
         <Card title="Booking history" padded={false}>
           <div className="px-5 py-4 space-y-0">
             {history.length === 0 ? (
-              // Fallback for seed records with no transition events yet
               <TimelineRow
                 label="Entity created"
                 note="Imported from operational seed"
@@ -496,8 +471,6 @@ function ConsumerBookingDetail() {
     </div>
   );
 }
-
-// ─── Small helpers ────────────────────────────────────────────────────────────
 
 function BackLink() {
   return (
