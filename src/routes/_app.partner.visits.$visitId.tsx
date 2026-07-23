@@ -119,8 +119,19 @@ function PartnerVisitDetail() {
   async function startVisit() {
     setError(null); setBusy("start");
     try {
+      // Backend's VisitStartOtpVerifyRequest requires otp + latitude + longitude.
+      // Previously only otp was sent, causing a 422 "Field required" x2 on every attempt.
+      const coords: { latitude: number; longitude: number } = await new Promise((resolve) => {
+        const fallback = { latitude: Number(b?.latitude ?? 0), longitude: Number(b?.longitude ?? 0) };
+        if (!navigator.geolocation) return resolve(fallback);
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+          () => resolve(fallback),
+          { timeout: 4000 },
+        );
+      });
       await apiFetch(`/api/visits/${visitId}/verify-start-otp`, {
-        method: "POST", body: JSON.stringify({ otp: otp.trim() }),
+        method: "POST", body: JSON.stringify({ otp: otp.trim(), ...coords }),
       });
       setOtp("");
       await load();
