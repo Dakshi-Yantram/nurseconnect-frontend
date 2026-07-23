@@ -99,7 +99,20 @@ function PartnerVisitDetail() {
 
   function parseErr(e: any): string {
     let msg = String(e?.message ?? e);
-    try { const j = JSON.parse(msg); msg = j.detail?.message ?? j.message ?? j.detail ?? msg; } catch { /* keep */ }
+    try {
+      const j = JSON.parse(msg);
+      const detail = j.detail;
+      if (Array.isArray(detail)) {
+        // FastAPI 422 validation errors: array of {msg, loc, type} objects.
+        msg = detail.map((d: any) => (typeof d === "string" ? d : d?.msg ?? JSON.stringify(d))).join(", ");
+      } else if (detail && typeof detail === "object") {
+        msg = detail.message ?? JSON.stringify(detail);
+      } else if (typeof detail === "string") {
+        msg = detail;
+      } else if (typeof j.message === "string") {
+        msg = j.message;
+      }
+    } catch { /* keep raw msg */ }
     return msg;
   }
 
