@@ -302,128 +302,132 @@ export function DomainProvider({ children }: { children: ReactNode }) {
     } catch { role = null; }
     const isConsumer = role === "consumer";
 
+    // NOTE: initial state is buildMockData(), which seeds `patients` with
+    // fake mock ids (e.g. "PAT-1001"). Every resource below MUST be computed
+    // in its own try/catch and MUST always be included in setData (even as
+    // an empty array on failure). If any single resource's processing throws
+    // and isn't caught locally, it must never be allowed to skip setData for
+    // the *other* resources — otherwise state (e.g. patients) stays pinned
+    // on the initial mock value forever, even after the real API succeeds.
+    const mock = buildMockData();
+
+    const [bookingsRes, patientsRes, servicesRes, packagesRes, escalationsRes] = await Promise.allSettled([
+      isConsumer ? apiFetch("/api/bookings/consumer") : Promise.resolve([]),
+      isConsumer ? apiFetch("/api/patients") : Promise.resolve([]),
+      apiFetch("/api/services"),
+      apiFetch("/api/care-packages"),
+      apiFetch("/api/escalations/"),
+    ]);
+    console.log("patients:", patientsRes);
+    console.log("services:", servicesRes);
+
+    const patientMap = new Map<string, string>();
+    const serviceMap = new Map<string, string>();
+
+    let patients: Patient[] = [];
     try {
-      const mock = buildMockData();
-
-      const [bookingsRes, patientsRes, servicesRes, packagesRes, escalationsRes] = await Promise.allSettled([
-        isConsumer ? apiFetch("/api/bookings/consumer") : Promise.resolve([]),
-        isConsumer ? apiFetch("/api/patients") : Promise.resolve([]),
-        apiFetch("/api/services"),
-        apiFetch("/api/care-packages"),
-        apiFetch("/api/escalations/"),
-      ]);
-      console.log("patients:", patientsRes);
-      console.log("services:", servicesRes);
-
-      const patientMap = new Map<string, string>();
-      const serviceMap = new Map<string, string>();
-
       if (patientsRes.status === "fulfilled") {
         const list = Array.isArray(patientsRes.value)
           ? patientsRes.value
           : (patientsRes.value?.items ?? []);
         list.forEach((p: any) => patientMap.set(p.id, p.full_name ?? p.name ?? "—"));
+        patients = list.map(mapPatient);
+      } else {
+        // Do NOT fall back to mock.patients here — those have fake string ids
+        // (e.g. "PAT-1001") that are not valid UUIDs and will break any
+        // downstream API call (consents, ABHA records, etc.) that expects
+        // a real Patient.id.
+        console.warn("Patients API failed — showing empty state instead of mock data:", patientsRes.reason);
       }
+    } catch (e) {
+      console.warn("Patients mapping threw — showing empty state instead of mock data:", e);
+      patients = [];
+    }
 
+    let services: ServiceEntity[] = [];
+    try {
       if (servicesRes.status === "fulfilled") {
         const list = Array.isArray(servicesRes.value)
           ? servicesRes.value
           : (servicesRes.value?.items ?? []);
         list.forEach((s: any) => serviceMap.set(s.id, s.name ?? s.service_code ?? "Service"));
-      }
-
-      const bookings: BookingEntity[] =
-        bookingsRes.status === "fulfilled"
-          ? (Array.isArray(bookingsRes.value)
-            ? bookingsRes.value
-            : (bookingsRes.value?.items ?? [])
-          ).map((b: any) => mapBooking(b, patientMap, serviceMap))
-          : [];
-
-      if (bookingsRes.status !== "fulfilled") {
-        console.warn("Bookings API failed — showing empty state instead of mock data:", bookingsRes.reason);
-      }
-
-      const incidents: IncidentEntity[] =
-        escalationsRes.status === "fulfilled"
-          ? (Array.isArray(escalationsRes.value) ? escalationsRes.value : []).map(mapEscalation)
-          : [];
-
-      if (escalationsRes.status !== "fulfilled") {
-        console.warn("Escalations API failed — showing no alerts instead of mock data:", escalationsRes.reason);
-      }
-
-      const patients: Patient[] =
-        patientsRes.status === "fulfilled"
-          ? (Array.isArray(patientsRes.value)
-            ? patientsRes.value
-            : (patientsRes.value?.items ?? [])
-          ).map(mapPatient)
-          : [];
-
-      if (patientsRes.status !== "fulfilled") {
-        // Do NOT fall back to mock.patients here — those have fake string ids
-        // (e.g. "PAT-1001") that are not valid UUIDs and will break any
-        // downstream API call (consents, ABHA records, etc.) that expects
-        // a real Patient.id. An empty state is safer than silently handing
-        // the UI fake data that looks real but can never be submitted.
-        console.warn("Patients API failed — showing empty state instead of mock data:", patientsRes.reason);
-      }
-
-      const services: ServiceEntity[] =
-        servicesRes.status === "fulfilled"
-          ? (Array.isArray(servicesRes.value)
-            ? servicesRes.value
-            : (servicesRes.value?.items ?? [])
-          ).map(mapService)
-          : [];
-
-      if (servicesRes.status !== "fulfilled") {
+        services = list.map(mapService);
+      } else {
         console.warn("Services API failed — showing empty state instead of mock data:", servicesRes.reason);
       }
+    } catch (e) {
+      console.warn("Services mapping threw — showing empty state instead of mock data:", e);
+      services = [];
+    }
 
-      const packages: PackageEntity[] =
-        packagesRes.status === "fulfilled"
-          ? (Array.isArray(packagesRes.value)
-            ? packagesRes.value
-            : (packagesRes.value?.items ?? [])
-          ).map((p: any) => ({
-            id: p.id ?? "",
-            code: p.package_code ?? "",
-            name: p.name ?? p.package_name ?? "Package",
-            rawStatus: p.is_active ? "active" : "inactive",
-            packagePrice: p.package_price != null ? Number(p.package_price) : undefined,
-            perVisitPrice: p.per_visit_price != null ? Number(p.per_visit_price) : undefined,
-            primaryServiceId: p.primary_service_id ?? undefined,
-            visitsPerCycle: p.visits_per_cycle ?? undefined,
-            cycleDurationDays: p.cycle_duration_days ?? undefined,
-            tagline: p.tagline ?? undefined,
-            description: p.description ?? undefined,
-            targetCondition: p.target_condition ?? undefined,
-            minTier: p.min_tier ?? undefined,
-            insuranceCovered: p.insurance_covered ?? undefined,
-          }))
-          : [];
+    let bookings: BookingEntity[] = [];
+    try {
+      if (bookingsRes.status === "fulfilled") {
+        const list = Array.isArray(bookingsRes.value)
+          ? bookingsRes.value
+          : (bookingsRes.value?.items ?? []);
+        bookings = list.map((b: any) => mapBooking(b, patientMap, serviceMap));
+      } else {
+        console.warn("Bookings API failed — showing empty state instead of mock data:", bookingsRes.reason);
+      }
+    } catch (e) {
+      console.warn("Bookings mapping threw — showing empty state instead of mock data:", e);
+      bookings = [];
+    }
 
-      if (packagesRes.status !== "fulfilled") {
+    let incidents: IncidentEntity[] = [];
+    try {
+      if (escalationsRes.status === "fulfilled") {
+        const list = Array.isArray(escalationsRes.value) ? escalationsRes.value : [];
+        incidents = list.map(mapEscalation);
+      } else {
+        console.warn("Escalations API failed — showing no alerts instead of mock data:", escalationsRes.reason);
+      }
+    } catch (e) {
+      console.warn("Escalations mapping threw — showing empty state instead of mock data:", e);
+      incidents = [];
+    }
+
+    let packages: PackageEntity[] = [];
+    try {
+      if (packagesRes.status === "fulfilled") {
+        const list = Array.isArray(packagesRes.value)
+          ? packagesRes.value
+          : (packagesRes.value?.items ?? []);
+        packages = list.map((p: any) => ({
+          id: p.id ?? "",
+          code: p.package_code ?? "",
+          name: p.name ?? p.package_name ?? "Package",
+          rawStatus: p.is_active ? "active" : "inactive",
+          packagePrice: p.package_price != null ? Number(p.package_price) : undefined,
+          perVisitPrice: p.per_visit_price != null ? Number(p.per_visit_price) : undefined,
+          primaryServiceId: p.primary_service_id ?? undefined,
+          visitsPerCycle: p.visits_per_cycle ?? undefined,
+          cycleDurationDays: p.cycle_duration_days ?? undefined,
+          tagline: p.tagline ?? undefined,
+          description: p.description ?? undefined,
+          targetCondition: p.target_condition ?? undefined,
+          minTier: p.min_tier ?? undefined,
+          insuranceCovered: p.insurance_covered ?? undefined,
+        }));
+      } else {
         console.warn("Care-packages API failed — showing empty state instead of mock data:", packagesRes.reason);
       }
-
-      setData({
-        bookings,
-        visits: bookings,
-        patients,
-        consents: mock.consents,
-        incidents,
-        packages,
-        services,
-      });
     } catch (e) {
-      console.warn("Domain API load failed:", e);
-      setData(prev => ({ ...prev, bookings: [], visits: [], incidents: [] }));
-    } finally {
-      setLoading(false);
+      console.warn("Care-packages mapping threw — showing empty state instead of mock data:", e);
+      packages = [];
     }
+
+    setData({
+      bookings,
+      visits: bookings,
+      patients,
+      consents: mock.consents,
+      incidents,
+      packages,
+      services,
+    });
+    setLoading(false);
   }
 
   async function createPatient(payload: PatientCreatePayload): Promise<Patient> {
