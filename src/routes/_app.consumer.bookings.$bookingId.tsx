@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
-import { useEntity, useEntityHistory } from "@/lib/orchestration";
+import { useEntity } from "@/lib/orchestration";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
@@ -109,16 +109,52 @@ function useVisitReport(bookingId: string, enabled: boolean) {
   return { data, loading, notFound };
 }
 
+// Maps AuditLog.action strings (see `audit()` calls across bookings.py,
+// visits.py, care_workflow.py) to human-friendly timeline labels.
 const TIMELINE_LABELS: Record<string, string> = {
-  "entity.created": "Booking created",
-  "workflow.transitioned": "Status updated",
-  "entity.claimed": "Nurse assigned",
-  "entity.released": "Assignment released",
-  "entity.escalated": "Escalated for review",
-  "entity.note_added": "Note added",
-  "entity.cancelled": "Booking cancelled",
-  "entity.completed": "Visit completed",
+  "booking.create": "Booking created",
+  "booking.accept": "Nurse assigned",
+  "booking.worker_cancel_rematch": "Nurse cancelled — finding a replacement",
+  "booking.cancel": "Booking cancelled",
+  "visit.otp_generated": "Start code generated",
+  "visit.checkin": "Nurse checked in",
+  "visit.checkin_via_otp": "Nurse checked in",
+  "visit.vitals": "Vitals recorded",
+  "visit.medication": "Medication administered",
+  "visit.checklist": "Care checklist submitted",
+  "visit.checkout": "Visit completed",
+  "care_workflow.checklist": "Care questionnaire updated",
+  "care_workflow.documentation": "Visit documentation updated",
 };
+
+interface BookingHistoryEntry {
+  id: string;
+  action: string;
+  actor_type: string;
+  changes: Record<string, unknown> | null;
+  created_at: string;
+}
+
+// Real, per-booking event trail from the backend audit log — replaces the
+// previous client-side mock (`useEntityHistory` from "@/lib/orchestration"),
+// which only ever seeded one generic "Imported from operational seed" line
+// per entity and was never wired to actual booking/visit events.
+function useBookingHistory(bookingId: string) {
+  const [entries, setEntries] = useState<BookingHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    apiFetch(`/api/bookings/${bookingId}/history`)
+      .then((rows) => { if (!cancelled) setEntries(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setEntries([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [bookingId]);
+
+  return { entries, loading };
+}
 
 function ConsumerBookingDetail() {
   const { bookingId } = Route.useParams();
@@ -126,7 +162,7 @@ function ConsumerBookingDetail() {
 
   const domainBooking = useBooking(bookingId);
   const refetchBookings = useRefetchBookings();
-  const history = useEntityHistory("booking", bookingId);
+  const { entries: history, loading: historyLoading } = useBookingHistory(bookingId);
   const [paying, setPaying] = useState(false);
   const [refunding, setRefunding] = useState(false);
 
@@ -138,6 +174,14 @@ function ConsumerBookingDetail() {
     longitude: (domainBooking as any).longitude ?? null,
     data: {},
   } : null;
+
+  // IMPORTANT: this hook must be called unconditionally, on every render,
+  // in the same order — including before `record` is known/loaded. Calling
+  // it after an early `if (!record) return ...` caused React error #310
+  // ("rendered more hooks than during the previous render") once the
+  // booking finished loading, crashing the whole page.
+  const { data: report, loading: reportLoading, notFound: reportNotFound } =
+    useVisitReport(record?.id ?? "", record?.state === "completed");
 
   if (!record) {
     return (
@@ -170,9 +214,6 @@ function ConsumerBookingDetail() {
   const payCfg = PAYMENT_CONFIG[payStatus];
   const PayIcon = payCfg.icon;
   const canPay = isPayable(rawPaymentStatus);
-
-  const { data: report, loading: reportLoading, notFound: reportNotFound } =
-    useVisitReport(record.id, record.state === "completed");
 
   const scheduledStart = (() => {
     const s = domainBooking?.startedAt;
@@ -458,9 +499,9 @@ function ConsumerBookingDetail() {
               history.map((entry, i) => (
                 <TimelineRow
                   key={entry.id}
-                  label={TIMELINE_LABELS[entry.kind ?? ""] ?? entry.kind ?? "State change"}
-                  note={entry.notes}
-                  ts={entry.ts}
+                  label={TIMELINE_LABELS[entry.action ?? ""] ?? entry.action ?? "State change"}
+                  note={entry.changes ? JSON.stringify(entry.changes) : undefined}
+                  ts={entry.created_at}
                   isLast={i === history.length - 1}
                 />
               ))
