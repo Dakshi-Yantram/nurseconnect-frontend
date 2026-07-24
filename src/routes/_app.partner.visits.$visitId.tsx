@@ -54,7 +54,11 @@ type WorkflowResponse = {
     checklist: Array<{ question_id: string; answer_json: any }>;
     documentation: Array<{ field_id: string; value_json: any; file_url: string | null }>;
   };
-  completion_status: { can_checkout: boolean; missing_items: string[]; blocking_items: string[] };
+  completion_status: {
+    can_checkout: boolean;
+    missing_items: Array<string | { type?: string; id?: string; label?: string; kind?: string; blocks_checkout?: boolean }>;
+    blocking_items: Array<string | { type?: string; id?: string; label?: string; kind?: string; blocks_checkout?: boolean }>;
+  };
 };
 
 function optionValue(o: string | { label: string; value: string }): string {
@@ -329,6 +333,24 @@ function ExecutionPanel({
     } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
   }
 
+  async function uploadChecklistPhoto(questionId: string, file: File) {
+    setError(null); setUploading(questionId);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("field_id", questionId);
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "http://localhost:8000")}/api/care/workflow/${bookingId}/documentation/file`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setAnswers(s => ({ ...s, [questionId]: { file_url: data.file_url } }));
+    } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
+  }
+
   async function uploadDocPhoto(fieldId: string, file: File) {
     setError(null); setUploading(fieldId);
     try {
@@ -447,11 +469,32 @@ function ExecutionPanel({
           <>
             <div className="space-y-3">
               {workflow.checklist_template.questions.map((q) => (
-                <WorkflowField
-                  key={q.id}
-                  id={q.id} type={q.type} label={q.text} required={q.required} options={q.options}
-                  value={answers[q.id]} onChange={(val) => setAnswers((s) => ({ ...s, [q.id]: val }))}
-                />
+                q.type === "photo" ? (
+                  <div key={q.id}>
+                    <label className="text-[11px] font-semibold text-muted-foreground">
+                      {q.text}{q.required ? " *" : ""}
+                    </label>
+                    <input type="file" accept="image/*"
+                      onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadChecklistPhoto(q.id, file); }}
+                      className="mt-0.5 w-full text-[12px]" disabled={uploading === q.id} />
+                    {uploading === q.id && <p className="mt-1 text-[11px] text-muted-foreground">Uploading…</p>}
+                    {answers[q.id]?.file_url && (
+                      <p className="mt-1 text-[11px] text-emerald-700">Uploaded ✓</p>
+                    )}
+                  </div>
+                ) : q.type === "consent_confirmation" ? (
+                  <label key={q.id} className="flex items-center gap-2 text-[12.5px] text-foreground">
+                    <input type="checkbox" checked={!!answers[q.id]?.consented}
+                      onChange={(e) => setAnswers((s) => ({ ...s, [q.id]: { consented: e.target.checked } }))} />
+                    {q.text}{q.required ? " *" : ""}
+                  </label>
+                ) : (
+                  <WorkflowField
+                    key={q.id}
+                    id={q.id} type={q.type} label={q.text} required={q.required} options={q.options}
+                    value={answers[q.id]} onChange={(val) => setAnswers((s) => ({ ...s, [q.id]: val }))}
+                  />
+                )
               ))}
             </div>
             <button onClick={submitChecklist} disabled={busy !== null}
@@ -501,7 +544,9 @@ function ExecutionPanel({
 
       {workflow && !workflow.completion_status.can_checkout && workflow.completion_status.blocking_items.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-800">
-          Before checkout: {workflow.completion_status.blocking_items.join(", ")}
+          Before checkout: {workflow.completion_status.blocking_items
+            .map((it: any) => (typeof it === "string" ? it : it.label ?? it.id))
+            .join(", ")}
         </div>
       )}
 
