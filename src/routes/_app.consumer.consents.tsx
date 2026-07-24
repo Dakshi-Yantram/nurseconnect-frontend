@@ -94,6 +94,25 @@ function ConsumerConsents() {
         }),
       });
 
+      // Photo consent is a separate consent_type on the backend (required
+      // before a nurse can upload any wound/procedure photo during a visit —
+      // see require_consent(consent_type=ConsentType.photo) in
+      // care_workflow.py). Without this second record, photo uploads for
+      // every visit for this patient will keep failing with 403
+      // PHOTO_CONSENT_MISSING, even after the service consent above is given.
+      if (values.photo_consent) {
+        await apiFetch("/api/consents", {
+          method: "POST",
+          body: JSON.stringify({
+            patient_id: selectedPatientId,
+            consent_type: "photo",
+            consented_by_name: user?.name ?? "Consumer",
+            relationship_to_patient: "self",
+            capture_method: "digital_checkbox",
+          }),
+        });
+      }
+
       store.annotate(
         "booking",
         "consent_record",
