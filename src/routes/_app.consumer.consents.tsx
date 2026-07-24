@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/shared/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConsentStatusCard } from "@/components/entity/EntityCards";
 import { SchemaForm } from "@/lib/forms/SchemaForm";
 import { CONSENT_SCHEMA } from "@/lib/forms/templates";
-import { useConsumerPatients, usePatientConsentsById } from "@/lib/domain";
+import { useConsumerPatients, type ConsentEntity } from "@/lib/domain";
 import { useOrchestration } from "@/lib/orchestration";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
@@ -16,6 +16,17 @@ export const Route = createFileRoute("/_app/consumer/consents")({
   component: ConsumerConsents,
   head: () => ({ meta: [{ title: "Consents — NurseConnect" }] }),
 });
+
+function mapConsentRecord(r: any, patientName: string): ConsentEntity {
+  return {
+    id: r.id,
+    patientName,
+    type: r.consent_type ?? "consent",
+    version: r.consent_text_version ?? "—",
+    rawStatus: r.status ?? "given",
+    signedAt: r.given_at ? new Date(r.given_at).toLocaleDateString() : "—",
+  };
+}
 
 function ConsumerConsents() {
   const store = useOrchestration();
@@ -32,8 +43,37 @@ function ConsumerConsents() {
     }
   }, [patients, selectedPatientId]);
 
-  const consents = usePatientConsentsById(selectedPatientId || null);
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
+
+  // The domain context never actually fetches real consents (it always
+  // returns static mock data), so this page fetches the selected patient's
+  // real consent history directly from the backend instead.
+  const [consents, setConsents] = useState<ConsentEntity[]>([]);
+  const [consentsLoading, setConsentsLoading] = useState(false);
+
+  const fetchConsents = useCallback(async (patientId: string, patientName: string) => {
+    if (!patientId) { setConsents([]); return; }
+    setConsentsLoading(true);
+    try {
+      const list = await apiFetch(`/api/consents/patient/${patientId}`);
+      const items = Array.isArray(list) ? list : (list?.items ?? []);
+      setConsents(items.map((r: any) => mapConsentRecord(r, patientName)));
+    } catch (err) {
+      console.error("Failed to load consents for patient:", err);
+      setConsents([]);
+    } finally {
+      setConsentsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedPatientId) {
+      fetchConsents(selectedPatientId, selectedPatient?.name ?? "Patient");
+    } else {
+      setConsents([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPatientId]);
 
   const onSubmit = async (values: Record<string, unknown>) => {
     if (!selectedPatientId) {
@@ -63,6 +103,9 @@ function ConsumerConsents() {
       );
 
       toast.success("Consent submitted and recorded");
+
+      // Refresh the list so the just-submitted consent shows up immediately.
+      await fetchConsents(selectedPatientId, selectedPatient?.name ?? "Patient");
     } catch (err) {
       console.error("Consent submission failed:", err);
       toast.error("Failed to submit consent. Please try again.");
@@ -90,9 +133,11 @@ function ConsumerConsents() {
       )}
 
       <Card title="Active consents" padded={false}>
-        {consents.length === 0
-          ? <div className="p-5"><EmptyState icon={FileSignature} title="No consents on file" /></div>
-          : consents.map(c => <ConsentStatusCard key={c.id} c={c} />)}
+        {consentsLoading
+          ? <div className="p-5 text-sm text-neutral-500">Loading…</div>
+          : consents.length === 0
+            ? <div className="p-5"><EmptyState icon={FileSignature} title="No consents on file" /></div>
+            : consents.map(c => <ConsentStatusCard key={c.id} c={c} />)}
       </Card>
 
       <SchemaForm
