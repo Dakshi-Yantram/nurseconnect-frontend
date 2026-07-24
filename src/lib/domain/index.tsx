@@ -359,7 +359,16 @@ export function DomainProvider({ children }: { children: ReactNode }) {
             ? patientsRes.value
             : (patientsRes.value?.items ?? [])
           ).map(mapPatient)
-          : mock.patients;
+          : [];
+
+      if (patientsRes.status !== "fulfilled") {
+        // Do NOT fall back to mock.patients here — those have fake string ids
+        // (e.g. "PAT-1001") that are not valid UUIDs and will break any
+        // downstream API call (consents, ABHA records, etc.) that expects
+        // a real Patient.id. An empty state is safer than silently handing
+        // the UI fake data that looks real but can never be submitted.
+        console.warn("Patients API failed — showing empty state instead of mock data:", patientsRes.reason);
+      }
 
       const services: ServiceEntity[] =
         servicesRes.status === "fulfilled"
