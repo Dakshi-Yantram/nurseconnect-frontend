@@ -163,7 +163,7 @@ function mapBooking(
     id: b.id ?? "",
     patientId: b.patient_id ?? undefined,
     patientName,
-    nurseName: b.worker_name ?? "",
+    nurseName: b.worker_name ?? "Unassigned",
     service,
     area,
     startedAt,
