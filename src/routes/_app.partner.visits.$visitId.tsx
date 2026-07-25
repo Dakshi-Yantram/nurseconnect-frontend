@@ -7,6 +7,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
 import { ChatPanel } from "@/components/shared/ChatPanel";
+import { CallButton } from "@/components/calling/CallButton";
 
 export const Route = createFileRoute("/_app/partner/visits/$visitId")({
   component: PartnerVisitDetail,
@@ -54,7 +55,11 @@ type WorkflowResponse = {
     checklist: Array<{ question_id: string; answer_json: any }>;
     documentation: Array<{ field_id: string; value_json: any; file_url: string | null }>;
   };
-  completion_status: { can_checkout: boolean; missing_items: string[]; blocking_items: string[] };
+  completion_status: {
+    can_checkout: boolean;
+    missing_items: Array<string | { type?: string; id?: string; label?: string; kind?: string; blocks_checkout?: boolean }>;
+    blocking_items: Array<string | { type?: string; id?: string; label?: string; kind?: string; blocks_checkout?: boolean }>;
+  };
 };
 
 function optionValue(o: string | { label: string; value: string }): string {
@@ -99,15 +104,39 @@ function PartnerVisitDetail() {
 
   function parseErr(e: any): string {
     let msg = String(e?.message ?? e);
-    try { const j = JSON.parse(msg); msg = j.detail?.message ?? j.message ?? j.detail ?? msg; } catch { /* keep */ }
+    try {
+      const j = JSON.parse(msg);
+      const detail = j.detail;
+      if (Array.isArray(detail)) {
+        // FastAPI 422 validation errors: array of {msg, loc, type} objects.
+        msg = detail.map((d: any) => (typeof d === "string" ? d : d?.msg ?? JSON.stringify(d))).join(", ");
+      } else if (detail && typeof detail === "object") {
+        msg = detail.message ?? JSON.stringify(detail);
+      } else if (typeof detail === "string") {
+        msg = detail;
+      } else if (typeof j.message === "string") {
+        msg = j.message;
+      }
+    } catch { /* keep raw msg */ }
     return msg;
   }
 
   async function startVisit() {
     setError(null); setBusy("start");
     try {
+      // Backend's VisitStartOtpVerifyRequest requires otp + latitude + longitude.
+      // Previously only otp was sent, causing a 422 "Field required" x2 on every attempt.
+      const coords: { latitude: number; longitude: number } = await new Promise((resolve) => {
+        const fallback = { latitude: Number(b?.latitude ?? 0), longitude: Number(b?.longitude ?? 0) };
+        if (!navigator.geolocation) return resolve(fallback);
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+          () => resolve(fallback),
+          { timeout: 4000 },
+        );
+      });
       await apiFetch(`/api/visits/${visitId}/verify-start-otp`, {
-        method: "POST", body: JSON.stringify({ otp: otp.trim() }),
+        method: "POST", body: JSON.stringify({ otp: otp.trim(), ...coords }),
       });
       setOtp("");
       await load();
@@ -179,6 +208,10 @@ function PartnerVisitDetail() {
             <Navigation size={15} /> Navigate with Google Maps
           </a>
         </div>
+
+        {["assigned", "worker_en_route", "worker_arrived", "in_progress"].includes(b.status) && (
+          <CallButton bookingId={visitId} calleeLabel={b.patient_name ?? "customer"} />
+        )}
 
         <ChatPanel scope="booking" id={visitId} />
 
@@ -305,6 +338,24 @@ function ExecutionPanel({
     } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
   }
 
+  async function uploadChecklistPhoto(questionId: string, file: File) {
+    setError(null); setUploading(questionId);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("field_id", questionId);
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "http://localhost:8000")}/api/care/workflow/${bookingId}/documentation/file`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setAnswers(s => ({ ...s, [questionId]: { file_url: data.file_url } }));
+    } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
+  }
+
   async function uploadDocPhoto(fieldId: string, file: File) {
     setError(null); setUploading(fieldId);
     try {
@@ -423,11 +474,32 @@ function ExecutionPanel({
           <>
             <div className="space-y-3">
               {workflow.checklist_template.questions.map((q) => (
-                <WorkflowField
-                  key={q.id}
-                  id={q.id} type={q.type} label={q.text} required={q.required} options={q.options}
-                  value={answers[q.id]} onChange={(val) => setAnswers((s) => ({ ...s, [q.id]: val }))}
-                />
+                q.type === "photo" ? (
+                  <div key={q.id}>
+                    <label className="text-[11px] font-semibold text-muted-foreground">
+                      {q.text}{q.required ? " *" : ""}
+                    </label>
+                    <input type="file" accept="image/*"
+                      onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadChecklistPhoto(q.id, file); }}
+                      className="mt-0.5 w-full text-[12px]" disabled={uploading === q.id} />
+                    {uploading === q.id && <p className="mt-1 text-[11px] text-muted-foreground">Uploading…</p>}
+                    {answers[q.id]?.file_url && (
+                      <p className="mt-1 text-[11px] text-emerald-700">Uploaded ✓</p>
+                    )}
+                  </div>
+                ) : q.type === "consent_confirmation" ? (
+                  <label key={q.id} className="flex items-center gap-2 text-[12.5px] text-foreground">
+                    <input type="checkbox" checked={!!answers[q.id]?.consented}
+                      onChange={(e) => setAnswers((s) => ({ ...s, [q.id]: { consented: e.target.checked } }))} />
+                    {q.text}{q.required ? " *" : ""}
+                  </label>
+                ) : (
+                  <WorkflowField
+                    key={q.id}
+                    id={q.id} type={q.type} label={q.text} required={q.required} options={q.options}
+                    value={answers[q.id]} onChange={(val) => setAnswers((s) => ({ ...s, [q.id]: val }))}
+                  />
+                )
               ))}
             </div>
             <button onClick={submitChecklist} disabled={busy !== null}
@@ -477,7 +549,9 @@ function ExecutionPanel({
 
       {workflow && !workflow.completion_status.can_checkout && workflow.completion_status.blocking_items.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-800">
-          Before checkout: {workflow.completion_status.blocking_items.join(", ")}
+          Before checkout: {workflow.completion_status.blocking_items
+            .map((it: any) => (typeof it === "string" ? it : it.label ?? it.id))
+            .join(", ")}
         </div>
       )}
 
