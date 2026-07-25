@@ -1,10 +1,13 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { IncomingCallOverlay } from "@/components/calling/IncomingCallOverlay";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
 
 function ConsumerLayout() {
   const { user, hydrated, signOut } = useAuth();
   const navigate = useNavigate();
+  usePushSubscription(hydrated && !!user && user.role === "consumer");
 
   useEffect(() => {
     if (!hydrated) return;
@@ -25,7 +28,12 @@ function ConsumerLayout() {
   if (!hydrated) return null;
   if (!user || user.role !== "consumer") return null;
 
-  return <Outlet />;
+  return (
+    <>
+      <IncomingCallOverlay />
+      <Outlet />
+    </>
+  );
 }
 
 export const Route = createFileRoute("/_app/consumer")({

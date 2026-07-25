@@ -4,6 +4,14 @@ import { ShieldCheck, Upload, Clock, XCircle, CheckCircle2, Loader2 } from "luci
 import { apiFetch } from "@/lib/api";
 import { WorkerServiceAreaForm } from "@/components/WorkerServiceAreaForm";
 import { WorkerCredentialsForm } from "@/components/WorkerCredentialsForm";
+import { IncomingCallOverlay } from "@/components/calling/IncomingCallOverlay";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
+
+function PartnerCallPushRegistration() {
+  usePushSubscription(true);
+  return null;
+}
+
 export const Route = createFileRoute("/_app/partner")({
   component: PartnerGate,
 });
@@ -59,7 +67,15 @@ function PartnerGate() {
   }
 
   // Approved → full nurse portal is unlocked.
-  if (status === "approved") return <Outlet />;
+  if (status === "approved") {
+    return (
+      <>
+        <IncomingCallOverlay />
+        <PartnerCallPushRegistration />
+        <Outlet />
+      </>
+    );
+  }
 
   // Anything else → show the onboarding flow only.
   return <Onboarding statusHint={status} onApproved={load} />;

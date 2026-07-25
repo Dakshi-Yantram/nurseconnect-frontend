@@ -9,11 +9,12 @@ import {
 import { useBooking, useRefetchBookings } from "@/lib/domain";
 import { ChatPanel } from "@/components/shared/ChatPanel";
 import { Card } from "@/components/shared/Card";
+import { CallButton } from "@/components/calling/CallButton";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
-import { useEntity, useEntityHistory } from "@/lib/orchestration";
+import { useEntity } from "@/lib/orchestration";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
@@ -24,8 +25,6 @@ import {
   bookingService, bookingPatientName, bookingArea,
   bookingStartedAt, bookingDuration, bookingNurseName,
 } from "@/lib/orchestration/links";
-// Shared with _app.consumer.payments.tsx via @/lib/payment-status so the two
-// views can't drift out of sync with each other again.
 import {
   type PaymentStatus,
   derivePaymentStatus,
@@ -40,8 +39,6 @@ export const Route = createFileRoute("/_app/consumer/bookings/$bookingId")({
   head: () => ({ meta: [{ title: "Booking — NurseConnect" }] }),
 });
 
-// ─── Payment derivation ───────────────────────────────────────────────────────
-
 const PAYMENT_CONFIG: Record<PaymentStatus, {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -54,12 +51,6 @@ const PAYMENT_CONFIG: Record<PaymentStatus, {
   refunded: { label: "Refunded", icon: XCircle, classes: "text-muted-foreground bg-muted border-border", description: "Booking cancelled — refund credited within 5–7 working days." },
   failed: { label: "Action needed", icon: AlertCircle, classes: "text-rose-700 bg-rose-50 border-rose-200", description: "Payment issue detected — your care team has been notified." },
 };
-
-// ─── Visit report (real backend data) ─────────────────────────────────────
-// Replaces what used to be entirely hardcoded "sample" content in the Care
-// Summary card below — this is the actual "view the report" flow that was
-// missing: GET /api/visits/{booking_id} for checklist/documentation/notes,
-// plus GET /api/visits/{booking_id}/vitals for the latest recorded vitals.
 
 interface VisitReport {
   checklistResponses: Record<string, any> | null;
@@ -119,18 +110,52 @@ function useVisitReport(bookingId: string, enabled: boolean) {
   return { data, loading, notFound };
 }
 
-
+// Maps AuditLog.action strings (see `audit()` calls across bookings.py,
+// visits.py, care_workflow.py) to human-friendly timeline labels.
 const TIMELINE_LABELS: Record<string, string> = {
-  "entity.created": "Booking created",
-  "workflow.transitioned": "Status updated",
-  "entity.claimed": "Nurse assigned",
-  "entity.released": "Assignment released",
-  "entity.escalated": "Escalated for review",
-  "entity.note_added": "Note added",
-  "entity.cancelled": "Booking cancelled",
-  "entity.completed": "Visit completed",
+  "booking.create": "Booking created",
+  "booking.accept": "Nurse assigned",
+  "booking.worker_cancel_rematch": "Nurse cancelled — finding a replacement",
+  "booking.cancel": "Booking cancelled",
+  "visit.otp_generated": "Start code generated",
+  "visit.checkin": "Nurse checked in",
+  "visit.checkin_via_otp": "Nurse checked in",
+  "visit.vitals": "Vitals recorded",
+  "visit.medication": "Medication administered",
+  "visit.checklist": "Care checklist submitted",
+  "visit.checkout": "Visit completed",
+  "care_workflow.checklist": "Care questionnaire updated",
+  "care_workflow.documentation": "Visit documentation updated",
 };
 
+interface BookingHistoryEntry {
+  id: string;
+  action: string;
+  actor_type: string;
+  changes: Record<string, unknown> | null;
+  created_at: string;
+}
+
+// Real, per-booking event trail from the backend audit log — replaces the
+// previous client-side mock (`useEntityHistory` from "@/lib/orchestration"),
+// which only ever seeded one generic "Imported from operational seed" line
+// per entity and was never wired to actual booking/visit events.
+function useBookingHistory(bookingId: string) {
+  const [entries, setEntries] = useState<BookingHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    apiFetch(`/api/bookings/${bookingId}/history`)
+      .then((rows) => { if (!cancelled) setEntries(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setEntries([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [bookingId]);
+
+  return { entries, loading };
+}
 
 function ConsumerBookingDetail() {
   const { bookingId } = Route.useParams();
@@ -138,17 +163,26 @@ function ConsumerBookingDetail() {
 
   const domainBooking = useBooking(bookingId);
   const refetchBookings = useRefetchBookings();
-  const history = useEntityHistory("booking", bookingId);
+  const { entries: history, loading: historyLoading } = useBookingHistory(bookingId);
   const [paying, setPaying] = useState(false);
   const [refunding, setRefunding] = useState(false);
-
 
   const record = domainBooking ? {
     id: domainBooking.id,
     state: domainBooking.rawStatus,
     enteredAt: domainBooking.startedAt,
+    latitude: (domainBooking as any).latitude ?? null,
+    longitude: (domainBooking as any).longitude ?? null,
     data: {},
   } : null;
+
+  // IMPORTANT: this hook must be called unconditionally, on every render,
+  // in the same order — including before `record` is known/loaded. Calling
+  // it after an early `if (!record) return ...` caused React error #310
+  // ("rendered more hooks than during the previous render") once the
+  // booking finished loading, crashing the whole page.
+  const { data: report, loading: reportLoading, notFound: reportNotFound } =
+    useVisitReport(record?.id ?? "", record?.state === "completed");
 
   if (!record) {
     return (
@@ -160,7 +194,6 @@ function ConsumerBookingDetail() {
             description="It may have been removed or the link is incorrect."
           />
         </Card>
-         
       </div>
     );
   }
@@ -176,18 +209,13 @@ function ConsumerBookingDetail() {
   const rawPaymentStatus = domainBooking?.paymentStatus;
   const payStatus = mapRealPaymentStatus(rawPaymentStatus) ?? derivePaymentStatus(record.state);
   const amount = domainBooking?.totalAmount != null
-    ? Number(domainBooking.totalAmount) // backend stores rupees, not paise
+    ? Number(domainBooking.totalAmount)
     : deriveAmount(service);
 
   const payCfg = PAYMENT_CONFIG[payStatus];
   const PayIcon = payCfg.icon;
   const canPay = isPayable(rawPaymentStatus);
 
-  const { data: report, loading: reportLoading, notFound: reportNotFound } =
-    useVisitReport(record.id, record.state === "completed");
-
-  // 6-hour cancellation window — mirrors the backend policy (which enforces
-  // it regardless); here we just hide the option once the window has closed.
   const scheduledStart = (() => {
     const s = domainBooking?.startedAt;
     if (!s) return null;
@@ -243,11 +271,9 @@ function ConsumerBookingDetail() {
   };
 
   return (
-
     <div className="space-y-5">
       <BackLink />
 
-      {/* ── Booking summary ── */}
       <Card padded={false}>
         <div className="flex items-start justify-between gap-4 px-5 py-4 flex-wrap">
           <div>
@@ -277,8 +303,11 @@ function ConsumerBookingDetail() {
       </Card>
       <TrackNurseMap bookingId={record.id} status={record.state} destLat={record.latitude} destLng={record.longitude} />
       <StartVisitCodeButton bookingId={record.id} status={record.state} />
+      {nurse !== "Unassigned" && ["assigned", "worker_en_route", "worker_arrived", "in_progress"].includes(record.state) && (
+        <CallButton bookingId={record.id} calleeLabel={nurse} />
+      )}
       <ChatPanel scope="booking" id={record.id} />
-      {/* ── Payment status ── */}
+
       <RuntimeBoundary label="Payment">
         <Card
           title={
@@ -300,7 +329,6 @@ function ConsumerBookingDetail() {
                 </div>
               </div>
 
-              {/* Fee breakdown */}
               <div className="mt-3 pt-3 border-t border-current/10 grid grid-cols-3 gap-2 text-[11.5px]">
                 <PayLine label="Service fee" value={formatINR(Math.round(amount * 0.85))} />
                 <PayLine label="Platform fee" value={formatINR(Math.round(amount * 0.12))} />
@@ -366,12 +394,11 @@ function ConsumerBookingDetail() {
                   )}
                 </div>
               )}
-
             </div>
           </div>
         </Card>
       </RuntimeBoundary>
-      {/* ── Care Summary / Report (only when completed) ── */}
+
       {record.state === "completed" && (
         <RuntimeBoundary label="Care summary">
           <Card title={
@@ -395,7 +422,6 @@ function ConsumerBookingDetail() {
 
             {!reportLoading && !reportNotFound && report && (
               <>
-                {/* Visit stats */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="bg-muted/50 rounded-lg px-3 py-2.5">
                     <div className="text-[10.5px] text-muted-foreground uppercase tracking-wide">Duration</div>
@@ -411,7 +437,6 @@ function ConsumerBookingDetail() {
                   </div>
                 </div>
 
-                {/* Tasks completed */}
                 <div className="mb-4">
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Tasks completed</div>
                   <div className="flex flex-wrap gap-2">
@@ -430,7 +455,6 @@ function ConsumerBookingDetail() {
                   </div>
                 </div>
 
-                {/* Vitals */}
                 <div className="mb-4">
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Vitals recorded</div>
                   {report.vitals ? (
@@ -445,7 +469,6 @@ function ConsumerBookingDetail() {
                   )}
                 </div>
 
-                {/* Nurse notes */}
                 <div className="mb-4">
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Nurse's notes</div>
                   <div className="bg-muted/40 rounded-lg px-3 py-2.5 text-[12.5px] text-muted-foreground leading-relaxed">
@@ -453,7 +476,6 @@ function ConsumerBookingDetail() {
                   </div>
                 </div>
 
-                {/* Next steps */}
                 <div>
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Next steps</div>
                   <div className="flex items-start gap-2 text-[12.5px] text-muted-foreground">
@@ -467,12 +489,10 @@ function ConsumerBookingDetail() {
         </RuntimeBoundary>
       )}
 
-      {/* ── Booking timeline ── */}
       <RuntimeBoundary label="Booking history">
         <Card title="Booking history" padded={false}>
           <div className="px-5 py-4 space-y-0">
             {history.length === 0 ? (
-              // Fallback for seed records with no transition events yet
               <TimelineRow
                 label="Entity created"
                 note="Imported from operational seed"
@@ -483,9 +503,9 @@ function ConsumerBookingDetail() {
               history.map((entry, i) => (
                 <TimelineRow
                   key={entry.id}
-                  label={TIMELINE_LABELS[entry.kind ?? ""] ?? entry.kind ?? "State change"}
-                  note={entry.notes}
-                  ts={entry.ts}
+                  label={TIMELINE_LABELS[entry.action ?? ""] ?? entry.action ?? "State change"}
+                  note={entry.changes ? JSON.stringify(entry.changes) : undefined}
+                  ts={entry.created_at}
                   isLast={i === history.length - 1}
                 />
               ))
@@ -496,8 +516,6 @@ function ConsumerBookingDetail() {
     </div>
   );
 }
-
-// ─── Small helpers ────────────────────────────────────────────────────────────
 
 function BackLink() {
   return (
