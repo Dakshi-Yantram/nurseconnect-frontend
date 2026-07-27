@@ -62,6 +62,7 @@ export const CONSENT_SCHEMA: FormSchema = {
       key: "consents", title: "Consent items", fields: [
         { key: "treatment_consent", label: "I consent to clinical treatment", kind: "checkbox", validation: { required: true } },
         { key: "data_consent", label: "I consent to data processing per privacy policy", kind: "checkbox", validation: { required: true } },
+        { key: "photo_consent", label: "I consent to clinical photos (e.g. wound before/after) being taken for care documentation", kind: "checkbox" },
         { key: "family_sharing", label: "Share updates with family contacts", kind: "checkbox" },
         {
           key: "family_contact", label: "Family contact (name & phone)", kind: "text",
