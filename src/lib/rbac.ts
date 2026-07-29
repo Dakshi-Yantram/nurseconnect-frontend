@@ -219,7 +219,6 @@ export const NAV_REGISTRY: NavItem[] = [
   // ---------- NEW ROUTES ----------
   { to: "/roles-permissions",   label: "Roles & Permissions", icon: UserCog,       section: "Users",    permission: "admin.roles",         portal: "admin" },
   { to: "/consumer/addresses",  label: "Addresses",         icon: LayoutDashboard, section: "Account",  permission: "consumer.addresses",  portal: "consumer" },
-  { to: "/partner/services",    label: "Care Packages",     icon: LayoutDashboard, section: "Work",     permission: "partner.services",    portal: "partner" },
 
   // ---------- CLINICAL TRAINING LEAD / TRAINER (admin shell, filtered) ----------
   { to: "/training-review",     label: "Training Review",   icon: GraduationCap,   section: "Training", permission: "training.review_queue", portal: "admin" },
@@ -235,10 +234,13 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/consumer/profile",        label: "Profile",            icon: UserIcon,        section: "Account",        permission: "consumer.profile",          portal: "consumer" },
 
   // ---------- PARTNER ----------
+  // Order matters: nav renders items in array order within a section, so
+  // Workspace sits at the top of Work and Care Packages after Documentation.
   { to: "/partner",                 label: "Workspace",          icon: LayoutDashboard, section: "Work",           permission: "partner.home",              portal: "partner" },
   { to: "/partner/assignments",     label: "Assignments",        icon: Briefcase,       section: "Work",           permission: "partner.assignments",       portal: "partner" },
   { to: "/partner/visits",          label: "Visits",             icon: MapPin,          section: "Work",           permission: "partner.visits",            portal: "partner" },
   { to: "/partner/documentation",   label: "Documentation",      icon: FileText,        section: "Work",           permission: "partner.documentation",     portal: "partner" },
+  { to: "/partner/services",        label: "Care Packages",      icon: Package,         section: "Work",           permission: "partner.services",          portal: "partner" },
   { to: "/partner/earnings",        label: "Earnings",           icon: IndianRupee,     section: "Personal",       permission: "partner.earnings",          portal: "partner" },
   { to: "/partner/training",        label: "Training",           icon: GraduationCap,   section: "Personal",       permission: "partner.training",          portal: "partner" },
   { to: "/partner/assessments",     label: "Assessments",        icon: ClipboardCheck,  section: "Personal",       permission: "partner.assessments",       portal: "partner" },
@@ -277,6 +279,19 @@ export function portalForRole(role: Role | null): Portal | null {
 
 export function portalHome(role: Role | null): string {
   return role ? PORTAL_HOME[role] : "/auth/login";
+}
+
+// Roles that have a dedicated profile/account page. Others fall back to their
+// portal home (they manage their details elsewhere / not at all).
+const PROFILE_HOME: Partial<Record<Role, string>> = {
+  partner: "/partner/profile",
+  consumer: "/consumer/profile",
+};
+
+/** Where the "My profile" menu item should land for a given role. */
+export function profileHome(role: Role | null): string {
+  if (!role) return "/auth/login";
+  return PROFILE_HOME[role] ?? PORTAL_HOME[role];
 }
 
 function matchNav(pathname: string): NavItem | undefined {
