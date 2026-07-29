@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import DyteClient from "@dytesdk/web-core";
+import RealtimeKitClient from "@cloudflare/realtimekit";
 import { apiFetch } from "@/lib/api";
 
 export type CallPhase = "idle" | "connecting" | "in_call" | "ended";
@@ -17,19 +17,19 @@ export interface UseCallResult {
   hangUp: (reason?: "completed" | "declined" | "no_answer") => Promise<void>;
 }
 
-/** Audio-only in-app calling via Dyte. Video track is never requested. */
+/** Audio-only in-app calling via Cloudflare RealtimeKit. Video track is never requested. */
 export function useCall(): UseCallResult {
   const [phase, setPhase] = useState<CallPhase>("idle");
   const [isMuted, setIsMuted] = useState(false);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const meetingRef = useRef<DyteClient | null>(null);
+  const meetingRef = useRef<RealtimeKitClient | null>(null);
   const sessionRef = useRef<{ bookingId: string; callSessionId: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const attachMeeting = useCallback(async (meetingId: string, authToken: string) => {
-    const meeting = await DyteClient.init({
+    const meeting = await RealtimeKitClient.init({
       authToken,
       defaults: { audio: true, video: false },
     });
