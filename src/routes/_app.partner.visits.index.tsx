@@ -26,6 +26,7 @@ function accentFor(state: string) {
 
 interface WorkerVisitRow {
   id: string;
+  bookingRef?: string;
   state: string;
   patientName: string;
   service: string;
@@ -42,6 +43,7 @@ function useWorkerVisits() {
         if (cancelled) return;
         setRows(data.map(b => ({
           id: b.id,
+          bookingRef: b.booking_ref,
           state: b.status ?? "assigned",
           patientName: b.patient_name ?? "—",
           service: b.service_name ?? "—",
@@ -107,7 +109,7 @@ function WorkerVisits() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[13.5px] font-bold text-foreground leading-tight truncate">{patient}</span>
-                        <span className="text-[11px] text-muted-foreground/60 font-mono">#{r.id}</span>
+                        <span className="text-[11px] text-muted-foreground/60 font-mono">#{(r.bookingRef ?? r.id).slice(0, 10)}</span>
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
                         <Stethoscope className="w-3 h-3 text-muted-foreground shrink-0" />
