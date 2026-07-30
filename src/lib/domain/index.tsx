@@ -34,6 +34,7 @@ async function apiFetch(path: string, init?: RequestInit) {
 // ---------------------------------------------------------------- Entity types
 export interface BookingEntity {
   id: string;
+  bookingRef?: string;
   patientId?: string;
   patientName: string;
   nurseName: string;
@@ -161,6 +162,7 @@ function mapBooking(
 
   return {
     id: b.id ?? "",
+    bookingRef: b.booking_ref ?? undefined,
     patientId: b.patient_id ?? undefined,
     patientName,
     nurseName: b.worker_name ?? "Unassigned",
