@@ -103,7 +103,7 @@ export function BookingJourneyPanel({ bookingId }: { bookingId: string }) {
         <JourneyHeader
           workflow="booking" state={state}
           enteredAt={parseEnteredAt(rec.enteredAt)}
-          title={<>#{rec.id} · {b.service ?? "Service"}</>}
+          title={<>#{(b.bookingRef ?? rec.id).slice(0, 10)} · {b.service ?? "Service"}</>}
           subtitle={<>{bookingPatientName(rec) ?? "—"} · {b.area ?? "—"}</>}
         />
         {allowed.length > 0 && (
@@ -174,7 +174,7 @@ export function VisitExecutionPanel({ visitId, readOnly = false }: { visitId: st
         <JourneyHeader
           workflow="booking" state={state}
           enteredAt={parseEnteredAt(rec.enteredAt)}
-          title={<>#{rec.id} · {bookingPatientName(rec) ?? "—"}</>}
+          title={<>#{(v.bookingRef ?? rec.id).slice(0, 10)} · {bookingPatientName(rec) ?? "—"}</>}
           subtitle={<>{v.service ?? "Service"} · {v.area ?? "—"}</>}
         />
         <div className="mt-4 space-y-3">
@@ -346,7 +346,7 @@ export function WorkerTaskPanel({ visitId, compact = false }: { visitId: string;
     <div className={compact ? "p-3 rounded border border-border" : "p-4 rounded-lg border border-border"}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[13px] font-medium truncate">#{rec.id} · {bookingPatientName(rec) ?? "—"}</div>
+          <div className="text-[13px] font-medium truncate">#{(v.bookingRef ?? rec.id).slice(0, 10)} · {bookingPatientName(rec) ?? "—"}</div>
           <div className="text-[12px] text-muted-foreground truncate">{v.service ?? "—"} · {v.area ?? "—"}</div>
         </div>
         <StatusBadge workflow="booking" state={state} />

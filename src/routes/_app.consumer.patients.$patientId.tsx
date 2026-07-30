@@ -107,7 +107,7 @@ function VisitRow({ r, rail }: { r: BookingEntity; rail: string }) {
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium truncate">{r.service ?? "Service"}</div>
           <div className="text-[11.5px] text-muted-foreground truncate">
-            #{r.id} · {r.area ?? "—"}{r.startedAt ? ` · ${r.startedAt}` : ""}
+            #{(r.bookingRef ?? r.id).slice(0, 10)} · {r.area ?? "—"}{r.startedAt ? ` · ${r.startedAt}` : ""}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
