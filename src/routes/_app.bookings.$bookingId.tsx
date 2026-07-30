@@ -239,7 +239,7 @@ function ConsumerBookingDetail() {
         <div className="flex items-start justify-between gap-4 px-5 py-4 flex-wrap">
           <div>
             <div className="text-[15px] font-semibold">
-              #{record.id} · {service}
+              #{(domainBooking?.bookingRef ?? record.id).slice(0, 10)} · {service}
             </div>
             <div className="text-[12.5px] text-muted-foreground mt-0.5">
               {patientName} · {area}
