@@ -5,6 +5,7 @@ import { Navigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-context";
 import { canAccessRoute, portalForRole, routePortal } from "@/lib/rbac";
 import { Unauthorized } from "@/components/shared/Unauthorized";
+import { SOSAlertBanner } from "@/components/shared/SOSAlertBanner";
 
 /**
  * Role + portal-aware web portal shell.
@@ -81,6 +82,7 @@ export function AppShell() {
       <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar onOpenMobileNav={() => setMobileNavOpen(true)} />
+        <SOSAlertBanner enabled={user.role === "admin"} />
         <main className="flex-1 p-3 sm:p-4 lg:p-6 nc-scroll">
           {allowed ? <Outlet /> : <Unauthorized />}
         </main>

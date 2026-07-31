@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
 import { ChatPanel } from "@/components/shared/ChatPanel";
 import { CallButton } from "@/components/calling/CallButton";
+import { SOSButton } from "@/components/shared/SOSButton";
 
 export const Route = createFileRoute("/_app/partner/visits/$visitId")({
   component: PartnerVisitDetail,
@@ -210,7 +211,10 @@ function PartnerVisitDetail() {
         </div>
 
         {["assigned", "worker_en_route", "worker_arrived", "in_progress"].includes(b.status) && (
-          <CallButton bookingId={visitId} calleeLabel={b.patient_name ?? "customer"} />
+          <div className="flex flex-wrap items-center gap-2">
+            <CallButton bookingId={visitId} calleeLabel={b.patient_name ?? "customer"} />
+            <SOSButton bookingId={visitId} />
+          </div>
         )}
 
         <ChatPanel scope="booking" id={visitId} />
