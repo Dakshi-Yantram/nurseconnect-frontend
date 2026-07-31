@@ -30,7 +30,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import {
   AlertOctagon, CheckCircle2, Clock, AlertTriangle,
   User, RefreshCw, MessageSquare, Loader2, ChevronDown,
-  Inbox, ShieldAlert, Zap, UserCheck,
+  Inbox, ShieldAlert, Zap, UserCheck, Siren,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
@@ -365,17 +365,19 @@ function SupportDashboard() {
 
                   {/* Level indicator */}
                   <div className={`h-10 w-10 rounded-lg grid place-items-center shrink-0 ${
+                    esc.trigger_type === "safety_sos" ? "bg-rose-600 text-white animate-pulse" :
                     esc.level === "emergency" ? "bg-rose-50 text-rose-600" :
                     esc.level === "contact_doctor" ? "bg-amber-50 text-amber-600" :
                     "bg-sky-50 text-sky-600"
                   }`}>
-                    <AlertOctagon className="h-5 w-5" />
+                    {esc.trigger_type === "safety_sos" ? <Siren className="h-5 w-5" /> : <AlertOctagon className="h-5 w-5" />}
                   </div>
 
                   {/* Main info */}
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-[11.5px] text-muted-foreground">#{esc.id.slice(0, 8)}</span>
+                      {esc.trigger_type === "safety_sos" && <StatusChip tone="danger" label="SAFETY SOS" dot />}
                       <StatusChip tone={levelTone(esc.level)} label={levelLabel(esc.level)} dot />
                       <StatusChip tone={statusTone(esc.status)} label={esc.status} />
                       {sla.urgent && <StatusChip tone="danger" label={sla.label} />}
@@ -388,7 +390,7 @@ function SupportDashboard() {
                     </div>
 
                     <div className="text-[13px] font-medium">
-                      {esc.notes ?? `${esc.trigger_type} escalation`}
+                      {esc.notes ?? (esc.trigger_type === "safety_sos" ? "Safety SOS — personal safety concern" : `${esc.trigger_type} escalation`)}
                     </div>
 
                     <div className="text-[11.5px] text-muted-foreground flex flex-wrap gap-3">

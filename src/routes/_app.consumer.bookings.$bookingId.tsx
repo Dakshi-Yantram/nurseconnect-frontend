@@ -10,6 +10,7 @@ import { useBooking, useRefetchBookings } from "@/lib/domain";
 import { ChatPanel } from "@/components/shared/ChatPanel";
 import { Card } from "@/components/shared/Card";
 import { CallButton } from "@/components/calling/CallButton";
+import { SOSButton } from "@/components/shared/SOSButton";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -304,7 +305,10 @@ function ConsumerBookingDetail() {
       <TrackNurseMap bookingId={record.id} status={record.state} destLat={record.latitude} destLng={record.longitude} />
       <StartVisitCodeButton bookingId={record.id} status={record.state} />
       {nurse !== "Unassigned" && ["assigned", "worker_en_route", "worker_arrived", "in_progress"].includes(record.state) && (
-        <CallButton bookingId={record.id} calleeLabel={nurse} />
+        <div className="flex flex-wrap items-center gap-2">
+          <CallButton bookingId={record.id} calleeLabel={nurse} />
+          <SOSButton bookingId={record.id} />
+        </div>
       )}
       <ChatPanel scope="booking" id={record.id} />
 
