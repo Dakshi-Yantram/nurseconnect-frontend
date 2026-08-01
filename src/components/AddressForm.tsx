@@ -66,27 +66,36 @@ export function AddressForm({
     setError(null); setLocating(true);
     if (!navigator.geolocation) { setError("Location not available"); setLocating(false); return; }
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        const g = await reverseGeocode(latitude, longitude);
-        setF((s) => ({ ...s, latitude, longitude, ...(g ?? {}) }));
-        setAccuracy(accuracy);
-        if (accuracy > 300) {
-          setError(`Location approx hai (±${Math.round(accuracy)}m). Neeche city/pincode check karke sahi kar lo.`);
-        }
-        setLocating(false);
-      },
-      (err) => {
-        setError(
-          err.code === 1
-            ? "Location permission block hai. Browser settings se allow karo."
-            : "Sahi location nahi mili. Address manually enter karo."
-        );
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }, // 8000 -> 15000, maximumAge add
+  navigator.geolocation.getCurrentPosition(
+  async (pos) => {
+    const { latitude, longitude, accuracy } = pos.coords;
+    setAccuracy(accuracy);
+
+    if (accuracy > 5000) {
+      // Bahut kharab accuracy (IP-based) — city/pincode autofill mat karo
+      setError(`Location bahut approx hai (±${Math.round(accuracy / 1000)}km) — ye desktop/network-based location lag rahi hai. Mobile pe GPS on karke try karo, ya address manually bharo.`);
+      setF((s) => ({ ...s, latitude, longitude })); // sirf pin save karo, city/pincode overwrite mat karo
+      setLocating(false);
+      return;
+    }
+
+    const g = await reverseGeocode(latitude, longitude);
+    setF((s) => ({ ...s, latitude, longitude, ...(g ?? {}) }));
+    if (accuracy > 300) {
+      setError(`Location approx hai (±${Math.round(accuracy)}m). Neeche city/pincode check karke sahi kar lo.`);
+    }
+    setLocating(false);
+  },
+  (err) => {
+    setError(
+      err.code === 1
+        ? "Location permission block hai. Browser settings se allow karo."
+        : "Sahi location nahi mili. Address manually enter karo."
     );
+    setLocating(false);
+  },
+  { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+);
   }
 
   async function save() {
