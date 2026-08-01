@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Loader2, MapPin, Plus, Check, Home, Pencil, Trash2, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { AddressForm, EMPTY_ADDRESS, type Address, type AddressFormValue } from "@/components/AddressForm";
@@ -20,15 +20,25 @@ export function AddressPicker({
   const [editing, setEditing] = useState<Address | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // `load` is only created once (see the empty deps array below), so it
+  // can't close over the latest `value` prop directly — that used to make
+  // every reload silently fall back toward the account default instead of
+  // whatever the family member had actually selected for this booking.
+  // Reading through a ref keeps `load`'s identity stable while still
+  // seeing the current selection.
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
+
   const load = useCallback(async (selectId?: string) => {
     setLoading(true);
     try {
       const data: Address[] = await apiFetch("/api/consumers/me/addresses");
       setRows(data);
       // Auto-select: explicit id > current value > default > first.
+      const currentValue = valueRef.current;
       const pick =
         (selectId && data.find((a) => a.id === selectId)?.id) ||
-        (value && data.find((a) => a.id === value)?.id) ||
+        (currentValue && data.find((a) => a.id === currentValue)?.id) ||
         data.find((a) => a.is_default)?.id ||
         data[0]?.id ||
         null;

@@ -119,10 +119,15 @@ function ConsumerBookings() {
   );
 
   // "+ New Booking" — blank modal, full package dropdown to choose from.
+  // Also clears the previously-selected service address: each booking is
+  // for a specific patient, and a family account may have patients at
+  // different locations, so the address choice must never silently carry
+  // over from whichever booking was created last.
   const openNewBooking = () => {
     setPrefillNotes(undefined);
     setPrefillPackageId(undefined);
     setSelectedPackageId(undefined);
+    setAddressId(null);
     setOpen(true);
   };
 
@@ -132,6 +137,7 @@ function ConsumerBookings() {
     setPrefillNotes(`Package: ${pkg.name}`);
     setPrefillPackageId(pkg.id);
     setSelectedPackageId(pkg.id);
+    setAddressId(null);
     setOpen(true);
   };
 
