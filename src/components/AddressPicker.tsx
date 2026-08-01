@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, MapPin, Plus, Check, Home } from "lucide-react";
+import { Loader2, MapPin, Plus, Check, Home, Pencil, Trash2, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { AddressForm, EMPTY_ADDRESS, type Address } from "@/components/AddressForm";
+import { AddressForm, EMPTY_ADDRESS, type Address, type AddressFormValue } from "@/components/AddressForm";
 import { cn } from "@/lib/utils";
 
 // Swiggy-style address selector for the booking flow. Loads saved addresses,
@@ -17,6 +17,8 @@ export function AddressPicker({
   const [rows, setRows] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Address | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async (selectId?: string) => {
     setLoading(true);
@@ -58,36 +60,79 @@ export function AddressPicker({
         <p className="text-[12px] text-muted-foreground">No saved addresses. Add one to continue.</p>
       )}
 
-      {!adding && rows.map((a) => {
+      {!adding && editing == null && rows.map((a) => {
         const selected = value === a.id;
         return (
-          <button
+          <div
             key={a.id}
-            type="button"
-            onClick={() => onChange(a.id)}
             className={cn(
-              "w-full text-left rounded-lg border px-3 py-2.5 flex items-start gap-2.5 transition-all",
+              "w-full rounded-lg border px-3 py-2.5 flex items-start gap-2.5 transition-all",
               selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
             )}
           >
-            <span className={cn("mt-0.5 flex h-7 w-7 items-center justify-center rounded-md", selected ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
-              {a.label === "Home" ? <Home size={14} /> : <MapPin size={14} />}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[12.5px] font-semibold text-foreground">{a.label}</span>
-                {a.is_default && <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-semibold text-emerald-700">Default</span>}
+            <button type="button" onClick={() => onChange(a.id)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
+              <span className={cn("mt-0.5 flex h-7 w-7 items-center justify-center rounded-md", selected ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
+                {a.label === "Home" ? <Home size={14} /> : <MapPin size={14} />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12.5px] font-semibold text-foreground">{a.label}</span>
+                  {a.is_default && <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-semibold text-emerald-700">Default</span>}
+                </div>
+                <p className="text-[11.5px] text-muted-foreground truncate">
+                  {[a.line1, a.line2, a.city, a.pincode].filter(Boolean).join(", ")}
+                </p>
               </div>
-              <p className="text-[11.5px] text-muted-foreground truncate">
-                {[a.line1, a.line2, a.city, a.pincode].filter(Boolean).join(", ")}
-              </p>
+              {selected && <Check size={16} className="text-primary flex-shrink-0" />}
+            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setEditing(a)}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label={`Edit ${a.label} address`}
+                title="Edit address"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={deletingId === a.id}
+                onClick={async () => {
+                  setDeletingId(a.id);
+                  try {
+                    await apiFetch(`/api/consumers/me/addresses/${a.id}`, { method: "DELETE" });
+                    if (value === a.id) onChange(null);
+                    await load();
+                  } finally {
+                    setDeletingId(null);
+                  }
+                }}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
+                aria-label={`Remove ${a.label} address`}
+                title="Remove address"
+              >
+                {deletingId === a.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              </button>
             </div>
-            {selected && <Check size={16} className="text-primary flex-shrink-0" />}
-          </button>
+          </div>
         );
       })}
 
-      {adding && (
+      {editing && (
+        <div className="space-y-2">
+          <button type="button" onClick={() => setEditing(null)} className="inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground">
+            <X size={13} /> Close edit
+          </button>
+          <AddressForm
+            initial={editing as AddressFormValue}
+            onCancel={() => setEditing(null)}
+            onSaved={async (saved) => { setEditing(null); await load(saved.id); }}
+          />
+        </div>
+      )}
+
+      {adding && editing == null && (
         <AddressForm
           initial={{ ...EMPTY_ADDRESS, is_default: rows.length === 0 }}
           onCancel={() => setAdding(false)}
