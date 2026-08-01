@@ -25,6 +25,8 @@ export const EMPTY_ADDRESS = {
   longitude: null as number | null, is_default: false,
 };
 
+export type AddressFormValue = typeof EMPTY_ADDRESS & { id?: string };
+
 // Reverse-geocode GPS to an address via OpenStreetMap Nominatim (free, no key).
 export async function reverseGeocode(lat: number, lng: number) {
   try {
@@ -49,7 +51,7 @@ export async function reverseGeocode(lat: number, lng: number) {
 export function AddressForm({
   initial, onCancel, onSaved,
 }: {
-  initial: typeof EMPTY_ADDRESS & { id?: string };
+  initial: AddressFormValue;
   onCancel: () => void;
   onSaved: (saved: Address) => void | Promise<void>;
 }) {
