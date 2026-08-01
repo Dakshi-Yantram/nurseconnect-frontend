@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import {
   Loader2, ShieldCheck, Clock, AlertTriangle, UserCheck,
@@ -9,6 +9,9 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/nurse-approval")({
   component: NurseApproval,
+  validateSearch: (s: Record<string, unknown>): { worker?: string } => ({
+    worker: typeof s.worker === "string" ? s.worker : undefined,
+  }),
   head: () => ({ meta: [{ title: "Nurse Approval — NurseConnect" }] }),
 });
 
@@ -47,6 +50,7 @@ function priorityBadge(p: string) {
 }
 
 function NurseApproval() {
+  const { worker: requestedWorkerId } = useSearch({ from: "/_app/nurse-approval" });
   const [tickets, setTickets] = useState<TicketEntry[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<TicketEntry | null>(null);
   const [detail, setDetail] = useState<WorkerDetail | null>(null);
@@ -54,6 +58,10 @@ function NurseApproval() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True once we've tried to honour a ?worker= deep link but found no ticket
+  // for that nurse — lets the UI say so instead of silently showing someone
+  // else's application (the bug this was written to fix).
+  const [requestedWorkerMissing, setRequestedWorkerMissing] = useState(false);
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -69,11 +77,17 @@ function NurseApproval() {
         ...(clarify.status === "fulfilled" ? clarify.value : []),
       ];
       setTickets(all);
-      if (all.length > 0) setSelectedTicket((prev) => prev ?? all[0]);
+      if (requestedWorkerId) {
+        const match = all.find((t) => t.nurse_id === requestedWorkerId);
+        setRequestedWorkerMissing(!match);
+        setSelectedTicket(match ?? null);
+      } else if (all.length > 0) {
+        setSelectedTicket((prev) => prev ?? all[0]);
+      }
     } catch (e: any) { setError(String(e?.message ?? e)); } finally { setLoading(false); }
-  }, []);
+  }, [requestedWorkerId]);
 
-  useEffect(() => { loadQueue(); }, []);
+  useEffect(() => { loadQueue(); }, [loadQueue]);
 
   // Extracted so `act()` can call the exact same detail-fetch logic after a
   // mutation, not just on ticket selection change.
@@ -165,7 +179,11 @@ function NurseApproval() {
           </div>
         )}
 
-        {tickets.length === 0 ? (
+        {requestedWorkerId && requestedWorkerMissing ? (
+          <div className="rounded-xl border border-border bg-card px-5 py-12 text-center text-[13px] text-muted-foreground">
+            This nurse doesn't have a review ticket yet — nothing has been submitted for review.
+          </div>
+        ) : tickets.length === 0 ? (
           <div className="rounded-xl border border-border bg-card px-5 py-12 text-center text-[13px] text-muted-foreground">
             No tickets assigned to you right now.
           </div>
