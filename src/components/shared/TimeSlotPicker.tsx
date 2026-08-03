@@ -107,31 +107,33 @@ export function TimeSlotPicker({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* Header — back arrow + title, no popup chrome */}
-      <div className="flex items-center gap-3 border-b border-border px-4 py-3.5 flex-shrink-0">
-        <button type="button" onClick={onClose}
-          className="h-9 w-9 grid place-items-center rounded-full bg-muted hover:bg-muted/70">
-          <ArrowLeft size={18} />
-        </button>
-        <h1 className="text-[17px] font-bold text-foreground">Select slot</h1>
-      </div>
+    <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center sm:bg-slate-900/40 sm:backdrop-blur-sm sm:p-4">
+      <div className="flex flex-col w-full h-full bg-background sm:h-auto sm:max-h-[85vh] sm:max-w-md sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl sm:overflow-hidden">
+        {/* Header — back arrow + title, no popup chrome */}
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3.5 flex-shrink-0">
+          <button type="button" onClick={onClose}
+            className="h-9 w-9 grid place-items-center rounded-full bg-muted hover:bg-muted/70">
+            <ArrowLeft size={18} />
+          </button>
+          <h1 className="text-[17px] font-bold text-foreground">Select slot</h1>
+        </div>
 
-      {/* Slot list — fills remaining height, scrolls independently */}
-      <div className="flex-1 overflow-y-auto nc-scroll">
-        <TimeSlotList slots={slots} value={picked} onChange={setPicked} />
-      </div>
+        {/* Slot list — fills remaining height, scrolls independently */}
+        <div className="flex-1 overflow-y-auto nc-scroll">
+          <TimeSlotList slots={slots} value={picked} onChange={setPicked} />
+        </div>
 
-      {/* Sticky confirm button */}
-      <div className="flex-shrink-0 border-t border-border px-4 py-3 bg-background">
-        <button
-          type="button"
-          disabled={!picked}
-          onClick={() => { onConfirm(picked); onClose(); }}
-          className="w-full rounded-xl bg-[#ff5a4e] px-4 py-3.5 text-[15px] font-bold text-white hover:opacity-90 disabled:opacity-40"
-        >
-          Confirm slot
-        </button>
+        {/* Sticky confirm button */}
+        <div className="flex-shrink-0 border-t border-border px-4 py-3 bg-background">
+          <button
+            type="button"
+            disabled={!picked}
+            onClick={() => { onConfirm(picked); onClose(); }}
+            className="w-full rounded-xl bg-[#ff5a4e] px-4 py-3.5 text-[15px] font-bold text-white hover:opacity-90 disabled:opacity-40"
+          >
+            Confirm slot
+          </button>
+        </div>
       </div>
     </div>,
     document.body,
