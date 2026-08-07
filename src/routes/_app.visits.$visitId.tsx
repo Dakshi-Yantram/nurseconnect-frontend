@@ -1,10 +1,82 @@
 import { createFileRoute, useParams, useRouter } from "@tanstack/react-router";
+import { useState } from "react";
 import { Card } from "@/components/shared/Card";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { Timeline } from "@/components/shared/Timeline";
-import { ArrowLeft, Calendar, Clock, Timer, MapPin, Star, User, Stethoscope } from "lucide-react";
+import { Modal } from "@/components/shared/Modal";
+import { ArrowLeft, Calendar, Clock, Timer, MapPin, Star, User, Stethoscope, Trash2 } from "lucide-react";
 import { VISITS } from "@/lib/mock-data";
 import { getNewVisits } from "@/lib/visit-store";
+import { useAuth } from "@/lib/auth-context";
+import { apiFetch } from "@/lib/api";
+
+// Admin-only, permanent delete of a booking/visit report. This is
+// intentionally not exposed anywhere else in the product — no other role,
+// and no other page, gets a path to this action.
+function DeleteVisitButton({ bookingId }: { bookingId: string }) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (user?.role !== "admin") return null;
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError(null);
+    try {
+      await apiFetch(`/api/admin/bookings/${bookingId}`, { method: "DELETE" });
+      setOpen(false);
+      router.navigate({ to: "/visits" });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 text-[13px] font-medium text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-md border border-destructive/30"
+      >
+        <Trash2 className="h-3.5 w-3.5" /> Delete permanently
+      </button>
+      <Modal
+        open={open}
+        onClose={() => !deleting && setOpen(false)}
+        title="Delete this visit permanently?"
+        description="Are you sure you want to delete it permanently?"
+        footer={
+          <>
+            <button
+              onClick={() => setOpen(false)}
+              disabled={deleting}
+              className="text-[13px] font-medium px-3.5 py-2 rounded-md border border-border hover:bg-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-[13px] font-medium px-3.5 py-2 rounded-md bg-destructive text-destructive-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              {deleting ? "Deleting…" : "Yes, delete permanently"}
+            </button>
+          </>
+        }
+      >
+        <p className="text-[13px] text-muted-foreground">
+          This removes the booking, its visit report, and all checklist and documentation
+          entries under it from the database. This cannot be undone.
+        </p>
+        {error && <p className="text-[13px] text-destructive mt-3">{error}</p>}
+      </Modal>
+    </>
+  );
+}
 
 export const Route = createFileRoute("/_app/visits/$visitId")({ component: VisitDetailPage });
 
@@ -62,7 +134,10 @@ function VisitDetailPage() {
         >
           <ArrowLeft className="h-4 w-4" /> Back to Visits
         </button>
-        <StatusChip tone={statusTone(v.status)} label={v.status} dot />
+        <div className="flex items-center gap-3">
+          <StatusChip tone={statusTone(v.status)} label={v.status} dot />
+          <DeleteVisitButton bookingId={v.id} />
+        </div>
       </div>
 
       <Card>
