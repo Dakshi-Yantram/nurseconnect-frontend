@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/shared/Card";
+import { HelpBotChat } from "@/components/shared/HelpBotChat";
 import { apiFetch } from "@/lib/api";
 import { ChevronRight, LifeBuoy, RefreshCw, Send } from "lucide-react";
 
@@ -146,6 +147,10 @@ function PartnerHelpPage() {
           <p className="text-[12.5px] text-muted-foreground">FAQs and support tickets for care professionals</p>
         </div>
       </div>
+
+      <Card title="Chat with us">
+        <HelpBotChat />
+      </Card>
 
       <Card title="Frequently Asked Questions" padded={false}>
         {faqs.length === 0 && <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">No FAQs published yet.</div>}
