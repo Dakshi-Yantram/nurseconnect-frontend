@@ -51,7 +51,9 @@ interface CarePackage {
   version: number;
   available_cities?: string[];
   gate?: string;
+  required_training_module_codes?: string[] | null;
   required_assessment_codes?: string[] | null;
+  required_specialty_tags?: string[] | null;
   practical_checklist_items?: string[] | null;
   created_at: string;
 }
@@ -75,6 +77,7 @@ interface PackageFormValues {
   insurance_covered: boolean;
   available_cities: string; // comma-separated
   gate: string;
+  required_training_module_codes: string; // comma-separated
   required_assessment_codes: string; // comma-separated
   practical_checklist_items: string; // one per line
 }
@@ -98,6 +101,7 @@ const EMPTY_FORM: PackageFormValues = {
   insurance_covered: true,
   available_cities: "",
   gate: "credential_only",
+  required_training_module_codes: "",
   required_assessment_codes: "",
   practical_checklist_items: "",
 };
@@ -233,6 +237,9 @@ function CarePackagesPage() {
           ? values.available_cities.split(",").map(c => c.trim()).filter(Boolean)
           : null,
         gate: values.gate,
+        required_training_module_codes: values.required_training_module_codes
+          ? values.required_training_module_codes.split(",").map(c => c.trim()).filter(Boolean)
+          : null,
         required_assessment_codes: values.required_assessment_codes
           ? values.required_assessment_codes.split(",").map(c => c.trim()).filter(Boolean)
           : null,
@@ -404,6 +411,9 @@ function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle, onDe
   onDelete: () => void;
 }) {
   const disabled = !pkg.is_active;
+  const moduleCodes = pkg.required_training_module_codes ?? [];
+  const assessmentCodes = pkg.required_assessment_codes ?? [];
+  const competencyIds = pkg.required_specialty_tags ?? [];
 
   return (
     <div
@@ -458,6 +468,30 @@ function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle, onDe
           {pkg.available_cities && pkg.available_cities.length > 0 && (
             <div className="mt-2 text-[11px] text-muted-foreground">
               Cities: {pkg.available_cities.join(", ")}
+            </div>
+          )}
+
+          {(moduleCodes.length > 0 || assessmentCodes.length > 0 || competencyIds.length > 0) && (
+            <div className="mt-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+              {moduleCodes.length > 0 && (
+                <div>
+                  <span className="font-medium text-foreground">Modules:</span>{" "}
+                  {moduleCodes.slice(0, 4).join(", ")}
+                  {moduleCodes.length > 4 ? ` +${moduleCodes.length - 4}` : ""}
+                </div>
+              )}
+              {assessmentCodes.length > 0 && (
+                <div className="mt-1">
+                  <span className="font-medium text-foreground">Assessments:</span>{" "}
+                  {assessmentCodes.join(", ")}
+                </div>
+              )}
+              {competencyIds.length > 0 && (
+                <div className="mt-1">
+                  <span className="font-medium text-foreground">Competencies:</span>{" "}
+                  {competencyIds.length} mapped skill{competencyIds.length === 1 ? "" : "s"}
+                </div>
+              )}
             </div>
           )}
         </>
@@ -536,6 +570,7 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
         insurance_covered: pkg.insurance_covered ?? true,
         available_cities: pkg.available_cities?.join(", ") ?? "",
         gate: pkg.gate ?? "credential_only",
+        required_training_module_codes: pkg.required_training_module_codes?.join(", ") ?? "",
         required_assessment_codes: pkg.required_assessment_codes?.join(", ") ?? "",
         practical_checklist_items: pkg.practical_checklist_items?.join("\n") ?? "",
       });
@@ -636,6 +671,14 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
             ))}
           </div>
         </div>
+
+        <Field
+          label="Required training module codes (comma-separated)"
+          value={form.required_training_module_codes}
+          onChange={v => set("required_training_module_codes", v)}
+          placeholder="e.g. TRN-PP, TRN-IPS, TRN-PA"
+          full
+        />
 
         {(form.gate === "theory_verified" || form.gate === "practical_verified") && (
           <Field
