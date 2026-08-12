@@ -18,7 +18,7 @@ import type { Role } from "@/lib/rbac";
 
 export type FieldKind =
   | "text" | "textarea" | "number" | "select" | "radio"
-  | "checkbox" | "date" | "signature" | "readonly" | "slot_picker";
+  | "checkbox" | "date" | "signature" | "readonly";
 
 export interface FieldOption { label: string; value: string }
 

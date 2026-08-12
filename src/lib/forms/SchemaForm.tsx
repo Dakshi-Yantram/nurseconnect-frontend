@@ -11,8 +11,6 @@ import {
   type FieldError, type FieldSchema, type FormSchema, type FormValues,
 } from "./schema";
 import { toast } from "sonner";
-import { CalendarClock } from "lucide-react";
-import { TimeSlotPicker } from "@/components/shared/TimeSlotPicker";
 interface Props {
   schema: FormSchema;
   initialValues?: FormValues;
@@ -119,28 +117,6 @@ export function SchemaForm({
   );
 }
 
-function SlotPickerField({
-  value, onChange, disabled,
-}: { value: unknown; onChange: (v: unknown) => void; disabled: boolean }) {
-  const [open, setOpen] = useState(false);
-  const selected = value ? String(value) : "";
-  return (
-    <>
-      <button type="button" disabled={disabled} onClick={() => setOpen(true)}
-        className={cn(baseInput, "flex items-center justify-between text-left", !selected && "text-muted-foreground")}>
-        <span>{selected || "Tap to select a slot"}</span>
-        <CalendarClock size={15} className="text-muted-foreground flex-shrink-0" />
-      </button>
-      <TimeSlotPicker
-        open={open}
-        onClose={() => setOpen(false)}
-        value={selected}
-        onConfirm={(v) => onChange(v)}
-      />
-    </>
-  );
-}
-
 function Label({ field }: { field: FieldSchema }) {
   if (field.kind === "checkbox") return null;
   return (
@@ -206,8 +182,6 @@ function FieldInput({
       );
     case "readonly":
       return <div className={cn(baseInput, "bg-muted/30 text-muted-foreground")}>{String(value ?? "—")}</div>;
-    case "slot_picker":
-      return <SlotPickerField value={value} onChange={onChange} disabled={disabled} />;
     case "text":
     default:
       return <input type="text" disabled={disabled} className={baseInput}

@@ -188,8 +188,3 @@
   .shadow-card { box-shadow: var(--shadow-card); }
   .shadow-elevated { box-shadow: var(--shadow-elevated); }
 }
-
-/* Hide the "Edit with Lovable" badge that the platform injects into published sites */
-#lovable-badge {
-  display: none !important;
-}

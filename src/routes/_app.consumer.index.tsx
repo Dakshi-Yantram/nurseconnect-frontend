@@ -95,7 +95,7 @@ function ConsumerHome() {
                 <Link key={r.id} to="/consumer/bookings/$bookingId" params={{ bookingId: r.id }}
                   className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0 hover:bg-muted/30">
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium truncate">#{(r.bookingRef ?? r.id).slice(0, 10)} · {r.service ?? "Service"} · {r.patientName ?? "—"}</div>
+                    <div className="text-[13px] font-medium truncate">#{r.id} · {r.service ?? "Service"} · {r.patientName ?? "—"}</div>
                     <div className="text-[11.5px] text-muted-foreground">Escalated — your care team is actively reviewing this visit.</div>
                   </div>
                   <StatusBadge workflow="booking" state={state} />
@@ -232,7 +232,7 @@ function JourneyList({
                       {r.patientName ?? "—"} · {r.service ?? "Service"}
                     </div>
                     <div className="text-[11.5px] text-muted-foreground truncate">
-                      #{(r.bookingRef ?? r.id).slice(0, 10)} · {r.area ?? "—"}{r.startedAt ? ` · ${r.startedAt}` : ""}
+                      #{r.id} · {r.area ?? "—"}{r.startedAt ? ` · ${r.startedAt}` : ""}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
