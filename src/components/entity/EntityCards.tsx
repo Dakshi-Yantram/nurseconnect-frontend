@@ -55,7 +55,7 @@ export function BookingSummaryCard({ b, to }: { b: BookingEntity; to?: string })
   return (
     <EntityRow
       icon={CalendarCheck}
-      title={<>#{(b.bookingRef ?? b.id).slice(0, 10)} · {b.service}</>}
+      title={<>#{b.id} · {b.service}</>}
       subtitle={<>{b.patientName} · {b.area} · {b.startedAt} · {b.duration}</>}
       status={<StatusBadge workflow="booking" state={state} />}
       sla={<SLAIndicator workflow="booking" state={state} enteredAt={parseEnteredAt(b.startedAt)} />}
@@ -70,7 +70,7 @@ export function VisitSummaryCard({ v, role = "worker" }: { v: VisitEntity; role?
   return (
     <EntityRow
       icon={MapPin}
-      title={<>#{(v.bookingRef ?? v.id).slice(0, 10)} · {v.patientName}</>}
+      title={<>#{v.id} · {v.patientName}</>}
       subtitle={<>{v.service} · {v.area}</>}
       status={<StatusBadge workflow="booking" state={state} />}
       sla={<SLAIndicator workflow="booking" state={state} enteredAt={parseEnteredAt(v.startedAt)} />}

@@ -121,7 +121,7 @@ function ConsumerNotifications() {
             >
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-medium truncate">
-                  #{(b.bookingRef ?? b.id).slice(0, 10)} — {b.service}
+                  #{b.id} — {b.service}
                 </div>
                 <div className="text-[11.5px] text-muted-foreground truncate">
                   {b.patientName} · {b.area}

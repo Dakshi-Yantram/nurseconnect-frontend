@@ -145,7 +145,7 @@ export const BOOKING_REQUEST_SCHEMA: FormSchema = {
     {
       key: "schedule", title: "Schedule", fields: [
         { key: "preferred_date", label: "Preferred date", kind: "date", validation: { required: true } },
-        { key: "preferred_time", label: "Preferred time", kind: "slot_picker", validation: { required: true } },
+        { key: "preferred_time", label: "Preferred time", kind: "text", placeholder: "10:00 AM" },
       ]
     },
     {

@@ -40,6 +40,97 @@ export const Route = createFileRoute("/_app/consumer/bookings")({
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
+// ── City → approximate coordinates map ──────────────────────────────────────
+// Used as a fallback when the consumer profile has no stored lat/lng.
+// Covers the major Indian cities NurseConnect operates in.
+const CITY_COORDS: Record<string, { lat: number; lng: number; state: string; pincode: string }> = {
+  "hyderabad": { lat: 17.3850, lng: 78.4867, state: "Telangana", pincode: "500001" },
+  "bangalore": { lat: 12.9716, lng: 77.5946, state: "Karnataka", pincode: "560001" },
+  "bengaluru": { lat: 12.9716, lng: 77.5946, state: "Karnataka", pincode: "560001" },
+  "chennai": { lat: 13.0827, lng: 80.2707, state: "Tamil Nadu", pincode: "600001" },
+  "mumbai": { lat: 19.0760, lng: 72.8777, state: "Maharashtra", pincode: "400001" },
+  "delhi": { lat: 28.6139, lng: 77.2090, state: "Delhi", pincode: "110001" },
+  "delhi ncr": { lat: 28.6139, lng: 77.2090, state: "Delhi", pincode: "110001" },
+  "kolkata": { lat: 22.5726, lng: 88.3639, state: "West Bengal", pincode: "700001" },
+  "kochi": { lat: 9.9312, lng: 76.2673, state: "Kerala", pincode: "682001" },
+  "thrissur": { lat: 10.5276, lng: 76.2144, state: "Kerala", pincode: "680001" },
+  "pune": { lat: 18.5204, lng: 73.8567, state: "Maharashtra", pincode: "411001" },
+  "coimbatore": { lat: 11.0168, lng: 76.9558, state: "Tamil Nadu", pincode: "641001" },
+  "jaipur": { lat: 26.9124, lng: 75.7873, state: "Rajasthan", pincode: "302001" },
+  "warangal": { lat: 17.9784, lng: 79.5941, state: "Telangana", pincode: "506001" },
+  "visakhapatnam": { lat: 17.6868, lng: 83.2185, state: "Andhra Pradesh", pincode: "530001" },
+  "vijayawada": { lat: 16.5062, lng: 80.6480, state: "Andhra Pradesh", pincode: "520001" },
+};
+
+// Resolve coordinates and address fields for a booking.
+// Priority: (1) browser Geolocation API, (2) consumer profile stored lat/lng,
+// (3) city name lookup, (4) Hyderabad default.
+async function resolveLocation(
+  consumerCity?: string | null,
+  consumerState?: string | null,
+  consumerPincode?: string | null,
+  consumerLat?: number | null,
+  consumerLng?: number | null,
+): Promise<{ latitude: number; longitude: number; state: string; pincode: string; city: string }> {
+
+  // 1) Try browser Geolocation (best accuracy, real-time)
+  const browserCoords = await new Promise<GeolocationCoordinates | null>((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos.coords),
+      () => resolve(null),
+      { timeout: 4000, maximumAge: 60000 },
+    );
+  });
+
+  if (browserCoords) {
+    const cityKey = (consumerCity ?? "").toLowerCase().trim();
+    const cityData = CITY_COORDS[cityKey];
+    return {
+      latitude: browserCoords.latitude,
+      longitude: browserCoords.longitude,
+      state: consumerState ?? cityData?.state ?? "India",
+      pincode: consumerPincode ?? cityData?.pincode ?? "000000",
+      city: consumerCity ?? "Unknown",
+    };
+  }
+
+  // 2) Consumer profile stored coordinates
+  if (consumerLat && consumerLng) {
+    const cityKey = (consumerCity ?? "").toLowerCase().trim();
+    const cityData = CITY_COORDS[cityKey];
+    return {
+      latitude: consumerLat,
+      longitude: consumerLng,
+      state: consumerState ?? cityData?.state ?? "India",
+      pincode: consumerPincode ?? cityData?.pincode ?? "000000",
+      city: consumerCity ?? "Unknown",
+    };
+  }
+
+  // 3) City name lookup from consumer profile
+  const cityKey = (consumerCity ?? "").toLowerCase().trim();
+  if (cityKey && CITY_COORDS[cityKey]) {
+    const cityData = CITY_COORDS[cityKey];
+    return {
+      latitude: cityData.lat,
+      longitude: cityData.lng,
+      state: consumerState ?? cityData.state,
+      pincode: consumerPincode ?? cityData.pincode,
+      city: consumerCity ?? cityKey,
+    };
+  }
+
+  // 4) Hyderabad default (NurseConnect HQ city)
+  return {
+    latitude: 17.3850,
+    longitude: 78.4867,
+    state: "Telangana",
+    pincode: "500001",
+    city: consumerCity ?? "Hyderabad",
+  };
+}
+
 async function apiPost(path: string, body: unknown) {
   const token = localStorage.getItem("access_token");
   const res = await fetch(`${API}${path}`, {
@@ -59,6 +150,21 @@ async function apiPost(path: string, body: unknown) {
   return res.json();
 }
 
+// Fetch the logged-in consumer's profile to get stored location fields.
+async function fetchConsumerProfile() {
+  const token = localStorage.getItem("access_token");
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API}/api/consumers/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 function BookingsLayout() {
   const pathname = useRouterState({ select: s => s.location.pathname });
   if (pathname === "/consumer/bookings") return <ConsumerBookings />;
@@ -73,6 +179,8 @@ function ConsumerBookings() {
   const [submitting, setSubmitting] = useState(false);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [pendingBooking, setPendingBooking] = useState<any>(null);
+  // Store consumer profile for location resolution
+  const [consumerProfile, setConsumerProfile] = useState<any>(null);
   // Prefill notes + selection when arriving from a Care Package's "Book" button
   const [prefillNotes, setPrefillNotes] = useState<string | undefined>(undefined);
   const [prefillPackageId, setPrefillPackageId] = useState<string | undefined>(undefined);
@@ -85,6 +193,10 @@ function ConsumerBookings() {
   const packages = usePackages();
   const refetchBookings = useRefetchBookings();
 
+  // Load consumer profile on mount for location fields
+  useEffect(() => {
+    fetchConsumerProfile().then(setConsumerProfile);
+  }, []);
 
   // Auto-open "New booking" modal when navigated here with ?new=1
   // (e.g. clicking "Book" on a Care Package card) — skips the extra click.
@@ -119,15 +231,10 @@ function ConsumerBookings() {
   );
 
   // "+ New Booking" — blank modal, full package dropdown to choose from.
-  // Also clears the previously-selected service address: each booking is
-  // for a specific patient, and a family account may have patients at
-  // different locations, so the address choice must never silently carry
-  // over from whichever booking was created last.
   const openNewBooking = () => {
     setPrefillNotes(undefined);
     setPrefillPackageId(undefined);
     setSelectedPackageId(undefined);
-    setAddressId(null);
     setOpen(true);
   };
 
@@ -137,7 +244,6 @@ function ConsumerBookings() {
     setPrefillNotes(`Package: ${pkg.name}`);
     setPrefillPackageId(pkg.id);
     setSelectedPackageId(pkg.id);
-    setAddressId(null);
     setOpen(true);
   };
 
@@ -212,13 +318,18 @@ function ConsumerBookings() {
       toast.error("Select a care package");
       return;
     }
-    if (!addressId) {
-      toast.error("Select or add the patient's Rohini service address");
-      return;
-    }
 
     setSubmitting(true);
     try {
+      // ── PATCH 1: Resolve real location instead of hardcoded Bangalore ──
+      const location = await resolveLocation(
+        consumerProfile?.city,
+        consumerProfile?.state,
+        consumerProfile?.pincode,
+        consumerProfile?.latitude ? Number(consumerProfile.latitude) : null,
+        consumerProfile?.longitude ? Number(consumerProfile.longitude) : null,
+      );
+
       const created = await apiPost("/api/bookings/", {
         patient_id: patient.id,
         // Prices from the package's own package_price/per_visit_price —
@@ -234,7 +345,12 @@ function ConsumerBookings() {
           return `${String(hours24).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
         })(),
         is_urgent: false,
-        address_id: addressId,
+        address_id: addressId || undefined,
+        // fallback inline address when no saved address selected
+        ...(!addressId ? {
+          address: { line1: location.city || "—", city: location.city, state: location.state, pincode: location.pincode },
+          latitude: location.latitude, longitude: location.longitude,
+        } : {}),
         special_instructions: values.notes || undefined,
       });
 

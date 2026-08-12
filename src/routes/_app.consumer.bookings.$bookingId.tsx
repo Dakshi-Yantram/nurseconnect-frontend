@@ -10,12 +10,10 @@ import { useBooking, useRefetchBookings } from "@/lib/domain";
 import { ChatPanel } from "@/components/shared/ChatPanel";
 import { Card } from "@/components/shared/Card";
 import { CallButton } from "@/components/calling/CallButton";
-import { SOSButton } from "@/components/shared/SOSButton";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
-import { Modal } from "@/components/shared/Modal";
 import { useEntity } from "@/lib/orchestration";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import { useAuth } from "@/lib/auth-context";
@@ -23,7 +21,6 @@ import { apiFetch } from "@/lib/api";
 import { payForBooking, refundBooking } from "@/lib/payments";
 import { StartVisitCodeButton } from "@/components/StartVisitCodeButton";
 import { TrackNurseMap } from "@/components/TrackNurseMap";
-import { AddressPicker } from "@/components/AddressPicker";
 import {
   bookingService, bookingPatientName, bookingArea,
   bookingStartedAt, bookingDuration, bookingNurseName,
@@ -169,9 +166,6 @@ function ConsumerBookingDetail() {
   const { entries: history, loading: historyLoading } = useBookingHistory(bookingId);
   const [paying, setPaying] = useState(false);
   const [refunding, setRefunding] = useState(false);
-  const [addressEditorOpen, setAddressEditorOpen] = useState(false);
-  const [replacementAddressId, setReplacementAddressId] = useState<string | null>(null);
-  const [updatingAddress, setUpdatingAddress] = useState(false);
 
   const record = domainBooking ? {
     id: domainBooking.id,
@@ -211,7 +205,6 @@ function ConsumerBookingDetail() {
   const started = domainBooking?.startedAt ?? "—";
   const duration = domainBooking?.duration ?? "—";
   const nurse = domainBooking?.nurseName ?? "Unassigned";
-  const canEditLocation = record.state === "draft" || record.state === "pending_payment";
 
   const rawPaymentStatus = domainBooking?.paymentStatus;
   const payStatus = mapRealPaymentStatus(rawPaymentStatus) ?? derivePaymentStatus(record.state);
@@ -277,27 +270,6 @@ function ConsumerBookingDetail() {
     }
   };
 
-  const handleUpdateAddress = async () => {
-    if (!replacementAddressId) {
-      toast.error("Select the patient's correct service address");
-      return;
-    }
-    setUpdatingAddress(true);
-    try {
-      await apiFetch("/api/bookings/" + record.id + "/address", {
-        method: "PUT",
-        body: JSON.stringify({ address_id: replacementAddressId }),
-      });
-      toast.success("Service address updated");
-      setAddressEditorOpen(false);
-      await refetchBookings();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not update service address");
-    } finally {
-      setUpdatingAddress(false);
-    }
-  };
-
   return (
     <div className="space-y-5">
       <BackLink />
@@ -306,7 +278,7 @@ function ConsumerBookingDetail() {
         <div className="flex items-start justify-between gap-4 px-5 py-4 flex-wrap">
           <div>
             <div className="text-[15px] font-semibold">
-              #{(domainBooking?.bookingRef ?? record.id).slice(0, 10)} · {service}
+              #{record.id} · {service}
             </div>
             <div className="text-[12.5px] text-muted-foreground mt-0.5">
               {patientName} · {area}
@@ -328,51 +300,11 @@ function ConsumerBookingDetail() {
           <Detail icon={Clock} label="Time" value={started !== "—" ? `${started}${duration !== "—" ? ` · ${duration}` : ""}` : "—"} />
           <Detail icon={IndianRupee} label="Nurse" value={nurse} />
         </div>
-        {canEditLocation && (
-          <div className="border-t border-border px-5 py-3">
-            <button
-              type="button"
-              onClick={() => setAddressEditorOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 px-3 py-2 text-[12.5px] font-semibold text-primary hover:bg-primary/5"
-            >
-              <MapPin className="h-3.5 w-3.5" /> Change service address
-            </button>
-          </div>
-        )}
       </Card>
-      <Modal
-        open={addressEditorOpen}
-        onClose={() => setAddressEditorOpen(false)}
-        title="Change service address"
-      >
-        <div className="space-y-4">
-          <AddressPicker value={replacementAddressId} onChange={setReplacementAddressId} />
-          <div className="flex justify-end gap-2 border-t border-border pt-3">
-            <button
-              type="button"
-              onClick={() => setAddressEditorOpen(false)}
-              className="rounded-md px-3 py-2 text-[13px] font-medium hover:bg-muted/50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={updatingAddress || !replacementAddressId}
-              onClick={handleUpdateAddress}
-              className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-            >
-              {updatingAddress ? "Updating..." : "Update address"}
-            </button>
-          </div>
-        </div>
-      </Modal>
       <TrackNurseMap bookingId={record.id} status={record.state} destLat={record.latitude} destLng={record.longitude} />
       <StartVisitCodeButton bookingId={record.id} status={record.state} />
       {nurse !== "Unassigned" && ["assigned", "worker_en_route", "worker_arrived", "in_progress"].includes(record.state) && (
-        <div className="flex flex-wrap items-center gap-2">
-          <CallButton bookingId={record.id} calleeLabel={nurse} />
-          <SOSButton bookingId={record.id} />
-        </div>
+        <CallButton bookingId={record.id} calleeLabel={nurse} />
       )}
       <ChatPanel scope="booking" id={record.id} />
 

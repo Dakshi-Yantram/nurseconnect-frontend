@@ -25,8 +25,6 @@ export const EMPTY_ADDRESS = {
   longitude: null as number | null, is_default: false,
 };
 
-export type AddressFormValue = typeof EMPTY_ADDRESS & { id?: string };
-
 // Reverse-geocode GPS to an address via OpenStreetMap Nominatim (free, no key).
 export async function reverseGeocode(lat: number, lng: number) {
   try {
@@ -51,7 +49,7 @@ export async function reverseGeocode(lat: number, lng: number) {
 export function AddressForm({
   initial, onCancel, onSaved,
 }: {
-  initial: AddressFormValue;
+  initial: typeof EMPTY_ADDRESS & { id?: string };
   onCancel: () => void;
   onSaved: (saved: Address) => void | Promise<void>;
 }) {
@@ -59,43 +57,21 @@ export function AddressForm({
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [accuracy, setAccuracy] = useState<number | null>(null);
   const set = (k: string, v: any) => setF((s) => ({ ...s, [k]: v }));
 
   async function useMyLocation() {
     setError(null); setLocating(true);
     if (!navigator.geolocation) { setError("Location not available"); setLocating(false); return; }
-
-  navigator.geolocation.getCurrentPosition(
-  async (pos) => {
-    const { latitude, longitude, accuracy } = pos.coords;
-    setAccuracy(accuracy);
-
-    if (accuracy > 5000) {
-      // Bahut kharab accuracy (IP-based) — city/pincode autofill mat karo
-      setError(`Location bahut approx hai (±${Math.round(accuracy / 1000)}km) — ye desktop/network-based location lag rahi hai. Mobile pe GPS on karke try karo, ya address manually bharo.`);
-      setF((s) => ({ ...s, latitude, longitude })); // sirf pin save karo, city/pincode overwrite mat karo
-      setLocating(false);
-      return;
-    }
-
-    const g = await reverseGeocode(latitude, longitude);
-    setF((s) => ({ ...s, latitude, longitude, ...(g ?? {}) }));
-    if (accuracy > 300) {
-      setError(`Location approx hai (±${Math.round(accuracy)}m). Neeche city/pincode check karke sahi kar lo.`);
-    }
-    setLocating(false);
-  },
-  (err) => {
-    setError(
-      err.code === 1
-        ? "Location permission block hai. Browser settings se allow karo."
-        : "Sahi location nahi mili. Address manually enter karo."
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const g = await reverseGeocode(latitude, longitude);
+        setF((s) => ({ ...s, latitude, longitude, ...(g ?? {}) }));
+        setLocating(false);
+      },
+      () => { setError("Couldn't get your location. Enter it manually."); setLocating(false); },
+      { enableHighAccuracy: true, timeout: 8000 },
     );
-    setLocating(false);
-  },
-  { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-);
   }
 
   async function save() {
@@ -125,13 +101,7 @@ export function AddressForm({
         {locating ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
         Use my current location
       </button>
-      {f.latitude != null && (
-        <p className={cn("mb-2 text-[11px]", accuracy != null && accuracy > 300 ? "text-amber-600" : "text-emerald-700")}>
-          {accuracy != null
-            ? `Location captured · ±${Math.round(accuracy)}m accuracy${accuracy > 300 ? " · please verify city below" : ""}`
-            : "Location captured · pin set"}
-        </p>
-      )}
+      {f.latitude != null && <p className="mb-2 text-[11px] text-emerald-700">Location captured · pin set</p>}
 
       <div className="grid grid-cols-2 gap-2">
         <select value={f.label} onChange={(e) => set("label", e.target.value)}
