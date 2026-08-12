@@ -8,7 +8,6 @@ import { apiFetch } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
 import { ChatPanel } from "@/components/shared/ChatPanel";
 import { CallButton } from "@/components/calling/CallButton";
-import { SOSButton } from "@/components/shared/SOSButton";
 
 export const Route = createFileRoute("/_app/partner/visits/$visitId")({
   component: PartnerVisitDetail,
@@ -44,23 +43,11 @@ function mapsUrl(b: Booking): string {
 
 type WorkflowQuestion = {
   id: string; type: string; text: string; required?: boolean; options?: Array<string | { label: string; value: string }>;
-  consumables?: string[];
-  required_materials?: Array<{ name: string; qty?: string }>;
 };
 type WorkflowFieldDef = {
   field_id: string; type: string; label: string; required?: boolean; blocks_checkout?: boolean;
   options?: Array<string | { label: string; value: string }>;
-  // Packaging Integrity Check — list of consumables the nurse must confirm
-  // are sealed + within expiry (e.g. syringe, gloves, catheter kit).
-  consumables?: string[];
-  // Material Availability Check — the auto-generated "items to buy" list,
-  // shown to the nurse when they mark materials unavailable.
-  required_materials?: Array<{ name: string; qty?: string }>;
 };
-
-type PackagingItemAnswer = { name: string; sealed: boolean; not_expired: boolean; expiry_date?: string };
-type PackagingCheckAnswer = { items: PackagingItemAnswer[]; photo_file_url?: string };
-type MaterialCheckAnswer = { available?: boolean; missing_items?: string[]; prescription_file_url?: string };
 type WorkflowResponse = {
   checklist_template: { id: string; code: string; version: number; questions: WorkflowQuestion[] } | null;
   documentation_template: { id: string; template_code: string; version: number; mandatory_fields: WorkflowFieldDef[] } | null;
@@ -223,10 +210,7 @@ function PartnerVisitDetail() {
         </div>
 
         {["assigned", "worker_en_route", "worker_arrived", "in_progress"].includes(b.status) && (
-          <div className="flex flex-wrap items-center gap-2">
-            <CallButton bookingId={visitId} calleeLabel={b.patient_name ?? "customer"} />
-            <SOSButton bookingId={visitId} />
-          </div>
+          <CallButton bookingId={visitId} calleeLabel={b.patient_name ?? "customer"} />
         )}
 
         <ChatPanel scope="booking" id={visitId} />
@@ -390,46 +374,6 @@ function ExecutionPanel({
     } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
   }
 
-  // Shared multipart upload — same endpoint as uploadDocPhoto, but merges the
-  // returned file_url into a nested answer shape instead of replacing it,
-  // since packaging-check and material-check answers carry other fields too.
-  async function uploadFile(fieldId: string, file: File): Promise<string> {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("field_id", fieldId);
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "http://localhost:8000")}/api/care/workflow/${bookingId}/documentation/file`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: form,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    return data.file_url as string;
-  }
-
-  async function uploadPackagingPhoto(fieldId: string, file: File) {
-    setError(null); setUploading(fieldId);
-    try {
-      const file_url = await uploadFile(fieldId, file);
-      setDocAnswers((s) => {
-        const prev = (s[fieldId] as PackagingCheckAnswer | undefined) ?? { items: [] };
-        return { ...s, [fieldId]: { ...prev, photo_file_url: file_url } };
-      });
-    } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
-  }
-
-  async function uploadPrescriptionPhoto(fieldId: string, file: File) {
-    setError(null); setUploading(fieldId);
-    try {
-      const file_url = await uploadFile(fieldId, file);
-      setDocAnswers((s) => {
-        const prev = (s[fieldId] as MaterialCheckAnswer | undefined) ?? {};
-        return { ...s, [fieldId]: { ...prev, prescription_file_url: file_url } };
-      });
-    } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
-  }
-
   async function submitDocumentation() {
     if (!workflow?.documentation_template) return;
     setError(null); setBusy("documentation");
@@ -535,7 +479,7 @@ function ExecutionPanel({
                     <label className="text-[11px] font-semibold text-muted-foreground">
                       {q.text}{q.required ? " *" : ""}
                     </label>
-                    <input type="file" accept="image/*" capture="environment"
+                    <input type="file" accept="image/*"
                       onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadChecklistPhoto(q.id, file); }}
                       className="mt-0.5 w-full text-[12px]" disabled={uploading === q.id} />
                     {uploading === q.id && <p className="mt-1 text-[11px] text-muted-foreground">Uploading…</p>}
@@ -580,31 +524,13 @@ function ExecutionPanel({
                   <label className="text-[11px] font-semibold text-muted-foreground">
                     {f.label}{f.required ? " *" : ""}
                   </label>
-                  <input type="file" accept="image/*" capture="environment"
+                  <input type="file" accept="image/*"
                     onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocPhoto(f.field_id, file); }}
                     className="mt-0.5 w-full text-[12px]" disabled={uploading === f.field_id} />
                   {docAnswers[f.field_id]?.file_url && (
                     <p className="mt-1 text-[11px] text-emerald-700">Uploaded ✓</p>
                   )}
                 </div>
-              ) : f.type === "packaging_integrity_check" ? (
-                <PackagingIntegrityField
-                  key={f.field_id}
-                  field={f}
-                  value={docAnswers[f.field_id] as PackagingCheckAnswer | undefined}
-                  onChange={(val) => setDocAnswers((s) => ({ ...s, [f.field_id]: val }))}
-                  uploading={uploading === f.field_id}
-                  onUploadPhoto={(file) => uploadPackagingPhoto(f.field_id, file)}
-                />
-              ) : f.type === "material_check" ? (
-                <MaterialAvailabilityField
-                  key={f.field_id}
-                  field={f}
-                  value={docAnswers[f.field_id] as MaterialCheckAnswer | undefined}
-                  onChange={(val) => setDocAnswers((s) => ({ ...s, [f.field_id]: val }))}
-                  uploading={uploading === f.field_id}
-                  onUploadPrescription={(file) => uploadPrescriptionPhoto(f.field_id, file)}
-                />
               ) : (
                 <WorkflowField
                   key={f.field_id}
@@ -648,142 +574,6 @@ function ExecutionPanel({
         </button>
       </div>
     </>
-  );
-}
-
-// Packaging Integrity Check — before starting an injection, catheter change,
-// or other invasive procedure, the nurse confirms each patient-provided
-// consumable is sealed and within its expiry date, and photo-verifies the
-// laid-out packaging. Driven entirely by the template's `consumables` list.
-function PackagingIntegrityField({
-  field, value, onChange, uploading, onUploadPhoto,
-}: {
-  field: WorkflowFieldDef;
-  value: PackagingCheckAnswer | undefined;
-  onChange: (val: PackagingCheckAnswer) => void;
-  uploading: boolean;
-  onUploadPhoto: (file: File) => void;
-}) {
-  const consumables = field.consumables?.length ? field.consumables : ["Consumables"];
-  const items: PackagingItemAnswer[] = consumables.map((name) => {
-    const existing = value?.items?.find((it) => it.name === name);
-    return existing ?? { name, sealed: false, not_expired: false, expiry_date: undefined };
-  });
-
-  function updateItem(name: string, patch: Partial<PackagingItemAnswer>) {
-    const nextItems = items.map((it) => (it.name === name ? { ...it, ...patch } : it));
-    onChange({ items: nextItems, photo_file_url: value?.photo_file_url });
-  }
-
-  const allVerified = items.length > 0 && items.every((it) => it.sealed && it.not_expired);
-
-  return (
-    <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
-      <label className="text-[11px] font-semibold text-muted-foreground">
-        {field.label}{field.required ? " *" : ""}
-      </label>
-      <div className="mt-2 space-y-2">
-        {items.map((it) => (
-          <div key={it.name} className="rounded-md border border-border bg-background px-3 py-2">
-            <p className="text-[12.5px] font-medium text-foreground">{it.name}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <label className="flex items-center gap-1.5 text-[12px] text-foreground">
-                <input type="checkbox" checked={it.sealed}
-                  onChange={(e) => updateItem(it.name, { sealed: e.target.checked })} />
-                Sealed / unopened
-              </label>
-              <label className="flex items-center gap-1.5 text-[12px] text-foreground">
-                <input type="checkbox" checked={it.not_expired}
-                  onChange={(e) => updateItem(it.name, { not_expired: e.target.checked })} />
-                Within expiry
-              </label>
-              <input type="date" value={it.expiry_date ?? ""}
-                onChange={(e) => updateItem(it.name, { expiry_date: e.target.value || undefined })}
-                className="rounded-md border border-border bg-background px-2 py-1 text-[12px]" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-2">
-        <label className="text-[11px] font-semibold text-muted-foreground">Photo of the packaging *</label>
-        <input type="file" accept="image/*" capture="environment"
-          onChange={(e) => { const file = e.target.files?.[0]; if (file) onUploadPhoto(file); }}
-          className="mt-0.5 w-full text-[12px]" disabled={uploading} />
-        {value?.photo_file_url && <p className="mt-1 text-[11px] text-emerald-700">Uploaded ✓</p>}
-      </div>
-      {!allVerified && (
-        <p className="mt-2 flex items-center gap-1 text-[11px] text-amber-700">
-          <AlertTriangle size={12} /> Confirm every item is sealed and within expiry before starting the procedure.
-        </p>
-      )}
-    </div>
-  );
-}
-
-// Material Availability Check — if the patient/family doesn't already have
-// the required consumables, the app auto-generates a shopping list from the
-// template's `required_materials` and prompts the nurse to capture the
-// prescription so the family/ops can arrange procurement.
-function MaterialAvailabilityField({
-  field, value, onChange, uploading, onUploadPrescription,
-}: {
-  field: WorkflowFieldDef;
-  value: MaterialCheckAnswer | undefined;
-  onChange: (val: MaterialCheckAnswer) => void;
-  uploading: boolean;
-  onUploadPrescription: (file: File) => void;
-}) {
-  const materials = field.required_materials ?? [];
-  const missing = value?.missing_items ?? [];
-
-  function setAvailable(available: boolean) {
-    onChange({ ...value, available, missing_items: available ? [] : (value?.missing_items ?? materials.map((m) => m.name)) });
-  }
-  function toggleMissing(name: string) {
-    const next = missing.includes(name) ? missing.filter((n) => n !== name) : [...missing, name];
-    onChange({ ...value, missing_items: next });
-  }
-
-  return (
-    <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
-      <label className="text-[11px] font-semibold text-muted-foreground">
-        {field.label}{field.required ? " *" : ""}
-      </label>
-      <div className="mt-2 flex gap-2">
-        <button type="button" onClick={() => setAvailable(true)}
-          className={`flex-1 rounded-lg border px-3 py-2 text-[12.5px] font-semibold ${value?.available === true ? "border-emerald-400 bg-emerald-50 text-emerald-800" : "border-border text-foreground"}`}>
-          Yes, all available
-        </button>
-        <button type="button" onClick={() => setAvailable(false)}
-          className={`flex-1 rounded-lg border px-3 py-2 text-[12.5px] font-semibold ${value?.available === false ? "border-amber-400 bg-amber-50 text-amber-800" : "border-border text-foreground"}`}>
-          No, some missing
-        </button>
-      </div>
-
-      {value?.available === false && (
-        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
-          <p className="text-[12px] font-semibold text-amber-900">Items to buy</p>
-          <p className="mt-0.5 text-[11px] text-amber-800">
-            Auto-generated for this procedure — untick anything the family already has.
-          </p>
-          <div className="mt-2 space-y-1">
-            {materials.map((m) => (
-              <label key={m.name} className="flex items-center gap-2 text-[12px] text-foreground">
-                <input type="checkbox" checked={missing.includes(m.name)} onChange={() => toggleMissing(m.name)} />
-                {m.name}{m.qty ? ` — ${m.qty}` : ""}
-              </label>
-            ))}
-          </div>
-          <div className="mt-3">
-            <label className="text-[11px] font-semibold text-amber-900">Upload the doctor's prescription *</label>
-            <input type="file" accept="image/*" capture="environment"
-              onChange={(e) => { const file = e.target.files?.[0]; if (file) onUploadPrescription(file); }}
-              className="mt-0.5 w-full text-[12px]" disabled={uploading} />
-            {value?.prescription_file_url && <p className="mt-1 text-[11px] text-emerald-700">Uploaded ✓</p>}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 

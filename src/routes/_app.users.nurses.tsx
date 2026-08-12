@@ -131,7 +131,7 @@ function NursesPage() {
                       {new Date(r.created_at).toLocaleDateString("en-IN")}
                     </td>
                     <td className="px-4 py-3">
-                      <Link to="/nurse-approval" search={{ worker: r.worker_id }} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11.5px] hover:bg-muted">
+                      <Link to="/nurse-approval" className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11.5px] hover:bg-muted">
                         <Eye size={12} /> Review
                       </Link>
                     </td>

@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import {
-  LayoutDashboard, Users, UserCheck, Network, Activity, AlertOctagon, ClipboardCheck,
+  LayoutDashboard, Users, UserCheck, Network, Activity, AlertOctagon, ClipboardCheck, FileCheck,
   ShieldCheck, Wallet, AlertTriangle, CreditCard, Package, BookOpen, MessageSquare,
   Scale, FileSearch, Database, Settings, ScrollText, HeartHandshake,
   CalendarCheck, FileText, Bell, User as UserIcon,
@@ -78,6 +78,7 @@ export type Permission =
   // Admin shared
   | "overview.view" | "ops.view" | "system.view"
   | "users.view" | "users.approve" | "onboarding.review" | "background.review"
+  | "prescription.review"
   | "clinical.escalation" | "clinical.packages" | "clinical.rules" | "clinical.insurance"
   | "finance.reconciliation" | "finance.subscriptions" | "finance.disputes"
   | "trust.incidents" | "trust.complaints"
@@ -104,6 +105,7 @@ export type Permission =
 const ADMIN_ALL: Permission[] = [
   "overview.view", "ops.view", "system.view",
   "users.view", "users.approve", "onboarding.review", "background.review",
+  "prescription.review",
   "clinical.escalation", "clinical.packages", "clinical.rules", "clinical.insurance",
   "finance.reconciliation", "finance.subscriptions", "finance.disputes",
   "trust.incidents", "trust.complaints",
@@ -117,6 +119,7 @@ const ADMIN_ALL: Permission[] = [
 const REVIEWER_PERMISSIONS: Permission[] = [
   "users.approve",       // Nurse Approval
   "onboarding.review",   // Onboarding Review
+  "prescription.review", // Pharmacist Rx review (Step 2 of both care workflows)
   "background.review",   // Background Check
   "review.training",     // Training + assessment review
 ];
@@ -197,6 +200,7 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/nurse-approval",          label: "Nurse",              icon: UserCheck,       section: "Users",          permission: "users.approve",             portal: "admin", group: "Onboarding" },
   { to: "/reviewer-management",     label: "Reviewer",           icon: UserCog,         section: "Users",          permission: "admin.reviewer.mgmt",       portal: "admin", group: "Onboarding" },
   { to: "/onboarding-review",       label: "Onboarding Review",  icon: ClipboardCheck,  section: "Users",          permission: "onboarding.review",         portal: "admin" },
+  { to: "/prescription-review",     label: "Prescription Review", icon: FileCheck,      section: "Clinical",       permission: "prescription.review",       portal: "admin" },
   { to: "/moderation/training",     label: "Training Review",    icon: GraduationCap,   section: "Users",          permission: "review.training",           portal: "admin" },
 
   { to: "/clinical-escalation",     label: "Clinical Escalation",icon: AlertOctagon,    section: "Clinical",       permission: "clinical.escalation",       portal: "admin" },

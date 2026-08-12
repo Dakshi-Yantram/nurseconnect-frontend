@@ -19,7 +19,7 @@ import { Card } from "@/components/shared/Card";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { Modal } from "@/components/shared/Modal";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Copy, History, Edit2, Plus, RefreshCw, AlertTriangle, Package, Trash2 } from "lucide-react";
+import { Copy, History, Edit2, Plus, RefreshCw, AlertTriangle, Package } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/care-packages")({ component: CarePackagesPage });
@@ -47,13 +47,10 @@ interface CarePackage {
   requires_prescription: boolean;
   insurance_covered: boolean;
   is_active: boolean;
-  is_deleted?: boolean;
   version: number;
   available_cities?: string[];
   gate?: string;
-  required_training_module_codes?: string[] | null;
   required_assessment_codes?: string[] | null;
-  required_specialty_tags?: string[] | null;
   practical_checklist_items?: string[] | null;
   created_at: string;
 }
@@ -77,7 +74,6 @@ interface PackageFormValues {
   insurance_covered: boolean;
   available_cities: string; // comma-separated
   gate: string;
-  required_training_module_codes: string; // comma-separated
   required_assessment_codes: string; // comma-separated
   practical_checklist_items: string; // one per line
 }
@@ -101,7 +97,6 @@ const EMPTY_FORM: PackageFormValues = {
   insurance_covered: true,
   available_cities: "",
   gate: "credential_only",
-  required_training_module_codes: "",
   required_assessment_codes: "",
   practical_checklist_items: "",
 };
@@ -144,8 +139,6 @@ function CarePackagesPage() {
   const [historyTarget, setHistoryTarget] = useState<CarePackage | null>(null);
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<CarePackage | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const fetchPackages = useCallback(async () => {
     setLoading(true);
@@ -196,23 +189,6 @@ function CarePackagesPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      // DELETE /api/admin/care-packages/:id — soft delete, blocked server-side
-      // if the package still has active/paused/rematch-pending bookings.
-      await apiFetch(`/api/admin/care-packages/${deleteTarget.id}`, { method: "DELETE" });
-      setPackages(prev => prev.filter(p => p.id !== deleteTarget.id));
-      toast.success("Package deleted");
-      setDeleteTarget(null);
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to delete package");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const handleSave = async (values: PackageFormValues) => {
     setSaving(true);
     try {
@@ -237,9 +213,6 @@ function CarePackagesPage() {
           ? values.available_cities.split(",").map(c => c.trim()).filter(Boolean)
           : null,
         gate: values.gate,
-        required_training_module_codes: values.required_training_module_codes
-          ? values.required_training_module_codes.split(",").map(c => c.trim()).filter(Boolean)
-          : null,
         required_assessment_codes: values.required_assessment_codes
           ? values.required_assessment_codes.split(",").map(c => c.trim()).filter(Boolean)
           : null,
@@ -333,7 +306,6 @@ function CarePackagesPage() {
                 onClone={() => openClone(p)}
                 onHistory={() => setHistoryTarget(p)}
                 onToggle={() => handleToggleActive(p)}
-                onDelete={() => setDeleteTarget(p)}
               />
             ))}
           </div>
@@ -356,76 +328,24 @@ function CarePackagesPage() {
           onClose={() => setHistoryTarget(null)}
         />
       )}
-
-      {/* Delete confirmation */}
-      {deleteTarget && (
-        <Modal
-          open={true}
-          onClose={() => setDeleteTarget(null)}
-          title="Delete this package?"
-          size="sm"
-          footer={
-            <>
-              <button
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-                className="px-4 py-2 text-[13px] rounded-md border border-border"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="px-4 py-2 text-[13px] rounded-md bg-rose-600 text-white disabled:opacity-60"
-              >
-                {deleting ? "Deleting…" : "Delete permanently"}
-              </button>
-            </>
-          }
-        >
-          <p className="text-[13px] text-foreground">
-            <strong>{deleteTarget.name}</strong> ({deleteTarget.package_code}) will be removed from every
-            list — this can't be undone from here.
-          </p>
-          <p className="text-[12px] text-muted-foreground mt-2">
-            If it still has active bookings, this will be blocked — disable the package instead to stop
-            new bookings while existing ones finish.
-          </p>
-        </Modal>
-      )}
     </div>
   );
 }
 
 // ─── Package card ─────────────────────────────────────────────────────────────
-// Inactive packages are greyed out and read-only: no edit, no clone, no
-// details beyond name/status. The status chip (toggle) and delete button stay
-// live, so an admin can always re-enable or permanently remove it.
-function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle, onDelete }: {
+function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle }: {
   pkg: CarePackage;
   toggling: boolean;
   onEdit: () => void;
   onClone: () => void;
   onHistory: () => void;
   onToggle: () => void;
-  onDelete: () => void;
 }) {
-  const disabled = !pkg.is_active;
-  const moduleCodes = pkg.required_training_module_codes ?? [];
-  const assessmentCodes = pkg.required_assessment_codes ?? [];
-  const competencyIds = pkg.required_specialty_tags ?? [];
-
   return (
-    <div
-      className={`p-4 rounded-lg border transition ${
-        disabled ? "border-border bg-muted/30 opacity-60" : "border-border hover:border-primary/40"
-      }`}
-    >
+    <div className="p-4 rounded-lg border border-border hover:border-primary/40 transition">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className={`text-[14px] font-semibold truncate ${disabled ? "text-muted-foreground" : ""}`}>
-            {pkg.name}
-          </div>
+          <div className="text-[14px] font-semibold truncate">{pkg.name}</div>
           <div className="text-[11px] text-muted-foreground">{pkg.package_code} · v{pkg.version}</div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -440,7 +360,7 @@ function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle, onDe
               dot
             />
           </button>
-          {!disabled && pkg.gate && pkg.gate !== "credential_only" && (
+          {pkg.gate && pkg.gate !== "credential_only" && (
             <StatusChip
               tone={pkg.gate === "practical_verified" ? "danger" : "warning"}
               label={pkg.gate === "practical_verified" ? "Gate 3" : "Gate 2"}
@@ -449,72 +369,38 @@ function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle, onDe
         </div>
       </div>
 
-      {disabled ? (
-        <p className="text-[12px] text-muted-foreground mt-3">
-          Disabled — re-enable to view details, edit, or clone this package.
-        </p>
-      ) : (
-        <>
-          {pkg.target_condition && (
-            <p className="text-[12px] text-muted-foreground mt-2 line-clamp-2">{pkg.target_condition}</p>
-          )}
+      {pkg.target_condition && (
+        <p className="text-[12px] text-muted-foreground mt-2 line-clamp-2">{pkg.target_condition}</p>
+      )}
 
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[12px]">
-            <Stat l="Visits" v={pkg.visits_per_cycle} />
-            <Stat l="Days" v={pkg.cycle_duration_days} />
-            <Stat l="Tier" v={pkg.min_tier.replace("tier", "T")} />
-          </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[12px]">
+        <Stat l="Visits" v={pkg.visits_per_cycle} />
+        <Stat l="Days" v={pkg.cycle_duration_days} />
+        <Stat l="Tier" v={pkg.min_tier.replace("tier", "T")} />
+      </div>
 
-          {pkg.available_cities && pkg.available_cities.length > 0 && (
-            <div className="mt-2 text-[11px] text-muted-foreground">
-              Cities: {pkg.available_cities.join(", ")}
-            </div>
-          )}
-
-          {(moduleCodes.length > 0 || assessmentCodes.length > 0 || competencyIds.length > 0) && (
-            <div className="mt-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-              {moduleCodes.length > 0 && (
-                <div>
-                  <span className="font-medium text-foreground">Modules:</span>{" "}
-                  {moduleCodes.slice(0, 4).join(", ")}
-                  {moduleCodes.length > 4 ? ` +${moduleCodes.length - 4}` : ""}
-                </div>
-              )}
-              {assessmentCodes.length > 0 && (
-                <div className="mt-1">
-                  <span className="font-medium text-foreground">Assessments:</span>{" "}
-                  {assessmentCodes.join(", ")}
-                </div>
-              )}
-              {competencyIds.length > 0 && (
-                <div className="mt-1">
-                  <span className="font-medium text-foreground">Competencies:</span>{" "}
-                  {competencyIds.length} mapped skill{competencyIds.length === 1 ? "" : "s"}
-                </div>
-              )}
-            </div>
-          )}
-        </>
+      {pkg.available_cities && pkg.available_cities.length > 0 && (
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          Cities: {pkg.available_cities.join(", ")}
+        </div>
       )}
 
       <div className="mt-3 flex items-center justify-between">
-        <div className={`text-[15px] font-semibold ${disabled ? "text-muted-foreground" : ""}`}>
-          {disabled ? "—" : `₹${Number(pkg.package_price).toLocaleString("en-IN")}`}
+        <div className="text-[15px] font-semibold">
+          ₹{Number(pkg.package_price).toLocaleString("en-IN")}
         </div>
         <div className="flex gap-1">
           <button
             onClick={onEdit}
-            disabled={disabled}
-            className="h-8 w-8 grid place-items-center rounded hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none"
-            title={disabled ? "Re-enable to edit" : "Edit"}
+            className="h-8 w-8 grid place-items-center rounded hover:bg-secondary"
+            title="Edit"
           >
             <Edit2 className="h-4 w-4 text-muted-foreground" />
           </button>
           <button
             onClick={onClone}
-            disabled={disabled}
-            className="h-8 w-8 grid place-items-center rounded hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none"
-            title={disabled ? "Re-enable to clone" : "Clone"}
+            className="h-8 w-8 grid place-items-center rounded hover:bg-secondary"
+            title="Clone"
           >
             <Copy className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -524,13 +410,6 @@ function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle, onDe
             title="Version history"
           >
             <History className="h-4 w-4 text-muted-foreground" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="h-8 w-8 grid place-items-center rounded hover:bg-rose-50"
-            title="Delete permanently"
-          >
-            <Trash2 className="h-4 w-4 text-rose-600" />
           </button>
         </div>
       </div>
@@ -570,7 +449,6 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
         insurance_covered: pkg.insurance_covered ?? true,
         available_cities: pkg.available_cities?.join(", ") ?? "",
         gate: pkg.gate ?? "credential_only",
-        required_training_module_codes: pkg.required_training_module_codes?.join(", ") ?? "",
         required_assessment_codes: pkg.required_assessment_codes?.join(", ") ?? "",
         practical_checklist_items: pkg.practical_checklist_items?.join("\n") ?? "",
       });
@@ -671,14 +549,6 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
             ))}
           </div>
         </div>
-
-        <Field
-          label="Required training module codes (comma-separated)"
-          value={form.required_training_module_codes}
-          onChange={v => set("required_training_module_codes", v)}
-          placeholder="e.g. TRN-PP, TRN-IPS, TRN-PA"
-          full
-        />
 
         {(form.gate === "theory_verified" || form.gate === "practical_verified") && (
           <Field

@@ -9,246 +9,101 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthLoginRouteImport } from './routes/auth.login'
-import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
-import { Route as AppVisitsRouteImport } from './routes/_app.visits'
-import { Route as AppTrainingReviewRouteImport } from './routes/_app.training-review'
-import { Route as AppTrainingAuthoringRouteImport } from './routes/_app.training-authoring'
-import { Route as AppSystemIndexRouteImport } from './routes/_app.system-index'
-import { Route as AppSupportTicketsRouteImport } from './routes/_app.support-tickets'
-import { Route as AppSupportDashboardRouteImport } from './routes/_app.support-dashboard'
-import { Route as AppSubscriptionSubsidyRouteImport } from './routes/_app.subscription-subsidy'
-import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppRolesPermissionsRouteImport } from './routes/_app.roles-permissions'
-import { Route as AppReviewerManagementRouteImport } from './routes/_app.reviewer-management'
-import { Route as AppRetentionDashboardRouteImport } from './routes/_app.retention-dashboard'
-import { Route as AppPartnerRouteImport } from './routes/_app.partner'
-import { Route as AppOpsDashboardRouteImport } from './routes/_app.ops-dashboard'
-import { Route as AppOperationsRouteImport } from './routes/_app.operations'
-import { Route as AppOnboardingReviewRouteImport } from './routes/_app.onboarding-review'
-import { Route as AppNurseApprovalRouteImport } from './routes/_app.nurse-approval'
-import { Route as AppModerationRouteImport } from './routes/_app.moderation'
-import { Route as AppInsuranceReviewRouteImport } from './routes/_app.insurance-review'
-import { Route as AppIncidentsRouteImport } from './routes/_app.incidents'
-import { Route as AppFinancialReconciliationRouteImport } from './routes/_app.financial-reconciliation'
-import { Route as AppDisputesRouteImport } from './routes/_app.disputes'
-import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
-import { Route as AppConsumerRouteImport } from './routes/_app.consumer'
-import { Route as AppComplianceRouteImport } from './routes/_app.compliance'
-import { Route as AppComplaintsRouteImport } from './routes/_app.complaints'
-import { Route as AppClinicalRuleSetsRouteImport } from './routes/_app.clinical-rule-sets'
-import { Route as AppClinicalEscalationRouteImport } from './routes/_app.clinical-escalation'
-import { Route as AppCarePackagesRouteImport } from './routes/_app.care-packages'
-import { Route as AppBackgroundVerificationRouteImport } from './routes/_app.background-verification'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppAuditLogsRouteImport } from './routes/_app.audit-logs'
-import { Route as AppPartnerIndexRouteImport } from './routes/_app.partner.index'
-import { Route as AppOperationsIndexRouteImport } from './routes/_app.operations.index'
-import { Route as AppConsumerIndexRouteImport } from './routes/_app.consumer.index'
-import { Route as AppVisitsVisitIdRouteImport } from './routes/_app.visits.$visitId'
-import { Route as AppUsersPatientsRouteImport } from './routes/_app.users.patients'
-import { Route as AppUsersNursesRouteImport } from './routes/_app.users.nurses'
-import { Route as AppPatientsPatientIdRouteImport } from './routes/_app.patients.$patientId'
-import { Route as AppPartnerVisitsRouteImport } from './routes/_app.partner.visits'
-import { Route as AppPartnerTrainingRouteImport } from './routes/_app.partner.training'
-import { Route as AppPartnerServicesRouteImport } from './routes/_app.partner.services'
-import { Route as AppPartnerProfileRouteImport } from './routes/_app.partner.profile'
-import { Route as AppPartnerNotificationsRouteImport } from './routes/_app.partner.notifications'
-import { Route as AppPartnerHelpRouteImport } from './routes/_app.partner.help'
-import { Route as AppPartnerEarningsRouteImport } from './routes/_app.partner.earnings'
-import { Route as AppPartnerDocumentationRouteImport } from './routes/_app.partner.documentation'
-import { Route as AppPartnerAvailabilityRouteImport } from './routes/_app.partner.availability'
-import { Route as AppPartnerAssignmentsRouteImport } from './routes/_app.partner.assignments'
-import { Route as AppPartnerAssessmentsRouteImport } from './routes/_app.partner.assessments'
-import { Route as AppOperationsStaffRouteImport } from './routes/_app.operations.staff'
-import { Route as AppOperationsFaqRouteImport } from './routes/_app.operations.faq'
-import { Route as AppOnboardingReviewApplicationIdRouteImport } from './routes/_app.onboarding-review.$applicationId'
-import { Route as AppNursesNurseIdRouteImport } from './routes/_app.nurses.$nurseId'
-import { Route as AppModerationTrainingRouteImport } from './routes/_app.moderation.training'
-import { Route as AppInsuranceReviewReviewIdRouteImport } from './routes/_app.insurance-review.$reviewId'
-import { Route as AppIncidentsIncidentIdRouteImport } from './routes/_app.incidents.$incidentId'
-import { Route as AppFinancialReconciliationBatchIdRouteImport } from './routes/_app.financial-reconciliation.$batchId'
-import { Route as AppDisputesDisputeIdRouteImport } from './routes/_app.disputes.$disputeId'
-import { Route as AppConsumerProfileRouteImport } from './routes/_app.consumer.profile_'
-import { Route as AppConsumerPaymentsRouteImport } from './routes/_app.consumer.payments'
-import { Route as AppConsumerPatientsRouteImport } from './routes/_app.consumer.patients'
-import { Route as AppConsumerNotificationsRouteImport } from './routes/_app.consumer.notifications'
-import { Route as AppConsumerConsentsRouteImport } from './routes/_app.consumer.consents'
-import { Route as AppConsumerBookingsRouteImport } from './routes/_app.consumer.bookings'
-import { Route as AppConsumerAddressesRouteImport } from './routes/_app.consumer.addresses'
-import { Route as AppComplaintsComplaintIdRouteImport } from './routes/_app.complaints.$complaintId'
-import { Route as AppClinicalRuleSetsRuleIdRouteImport } from './routes/_app.clinical-rule-sets.$ruleId'
-import { Route as AppClinicalEscalationCaseIdRouteImport } from './routes/_app.clinical-escalation.$caseId'
-import { Route as AppCarePackagesPackageIdRouteImport } from './routes/_app.care-packages.$packageId'
+import { Route as AppBackgroundVerificationRouteImport } from './routes/_app.background-verification'
+import { Route as AppCarePackagesRouteImport } from './routes/_app.care-packages'
+import { Route as AppClinicalEscalationRouteImport } from './routes/_app.clinical-escalation'
+import { Route as AppClinicalRuleSetsRouteImport } from './routes/_app.clinical-rule-sets'
+import { Route as AppComplaintsRouteImport } from './routes/_app.complaints'
+import { Route as AppComplianceRouteImport } from './routes/_app.compliance'
+import { Route as AppConsumerRouteImport } from './routes/_app.consumer'
+import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppDisputesRouteImport } from './routes/_app.disputes'
+import { Route as AppFinancialReconciliationRouteImport } from './routes/_app.financial-reconciliation'
+import { Route as AppIncidentsRouteImport } from './routes/_app.incidents'
+import { Route as AppInsuranceReviewRouteImport } from './routes/_app.insurance-review'
+import { Route as AppModerationRouteImport } from './routes/_app.moderation'
+import { Route as AppNurseApprovalRouteImport } from './routes/_app.nurse-approval'
+import { Route as AppOnboardingReviewRouteImport } from './routes/_app.onboarding-review'
+import { Route as AppOperationsRouteImport } from './routes/_app.operations'
+import { Route as AppOpsDashboardRouteImport } from './routes/_app.ops-dashboard'
+import { Route as AppPartnerRouteImport } from './routes/_app.partner'
+import { Route as AppPrescriptionReviewRouteImport } from './routes/_app.prescription-review'
+import { Route as AppRetentionDashboardRouteImport } from './routes/_app.retention-dashboard'
+import { Route as AppReviewerManagementRouteImport } from './routes/_app.reviewer-management'
+import { Route as AppRolesPermissionsRouteImport } from './routes/_app.roles-permissions'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppSubscriptionSubsidyRouteImport } from './routes/_app.subscription-subsidy'
+import { Route as AppSupportDashboardRouteImport } from './routes/_app.support-dashboard'
+import { Route as AppSupportTicketsRouteImport } from './routes/_app.support-tickets'
+import { Route as AppSystemIndexRouteImport } from './routes/_app.system-index'
+import { Route as AppTrainingAuthoringRouteImport } from './routes/_app.training-authoring'
+import { Route as AppTrainingReviewRouteImport } from './routes/_app.training-review'
+import { Route as AppVisitsRouteImport } from './routes/_app.visits'
+import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
+import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AppBookingsBookingIdRouteImport } from './routes/_app.bookings.$bookingId'
+import { Route as AppCarePackagesPackageIdRouteImport } from './routes/_app.care-packages.$packageId'
+import { Route as AppClinicalEscalationCaseIdRouteImport } from './routes/_app.clinical-escalation.$caseId'
+import { Route as AppClinicalRuleSetsRuleIdRouteImport } from './routes/_app.clinical-rule-sets.$ruleId'
+import { Route as AppComplaintsComplaintIdRouteImport } from './routes/_app.complaints.$complaintId'
+import { Route as AppConsumerIndexRouteImport } from './routes/_app.consumer.index'
+import { Route as AppConsumerAddressesRouteImport } from './routes/_app.consumer.addresses'
+import { Route as AppConsumerBookingsRouteImport } from './routes/_app.consumer.bookings'
+import { Route as AppConsumerConsentsRouteImport } from './routes/_app.consumer.consents'
+import { Route as AppConsumerNotificationsRouteImport } from './routes/_app.consumer.notifications'
+import { Route as AppConsumerPatientsRouteImport } from './routes/_app.consumer.patients'
+import { Route as AppConsumerPaymentsRouteImport } from './routes/_app.consumer.payments'
+import { Route as AppConsumerProfileRouteImport } from './routes/_app.consumer.profile_'
+import { Route as AppDisputesDisputeIdRouteImport } from './routes/_app.disputes.$disputeId'
+import { Route as AppFinancialReconciliationBatchIdRouteImport } from './routes/_app.financial-reconciliation.$batchId'
+import { Route as AppIncidentsIncidentIdRouteImport } from './routes/_app.incidents.$incidentId'
+import { Route as AppInsuranceReviewReviewIdRouteImport } from './routes/_app.insurance-review.$reviewId'
+import { Route as AppModerationTrainingRouteImport } from './routes/_app.moderation.training'
+import { Route as AppNursesNurseIdRouteImport } from './routes/_app.nurses.$nurseId'
+import { Route as AppOnboardingReviewApplicationIdRouteImport } from './routes/_app.onboarding-review.$applicationId'
+import { Route as AppOperationsIndexRouteImport } from './routes/_app.operations.index'
+import { Route as AppOperationsFaqRouteImport } from './routes/_app.operations.faq'
+import { Route as AppOperationsStaffRouteImport } from './routes/_app.operations.staff'
+import { Route as AppPartnerIndexRouteImport } from './routes/_app.partner.index'
+import { Route as AppPartnerAssessmentsRouteImport } from './routes/_app.partner.assessments'
+import { Route as AppPartnerAssignmentsRouteImport } from './routes/_app.partner.assignments'
+import { Route as AppPartnerAvailabilityRouteImport } from './routes/_app.partner.availability'
+import { Route as AppPartnerDocumentationRouteImport } from './routes/_app.partner.documentation'
+import { Route as AppPartnerEarningsRouteImport } from './routes/_app.partner.earnings'
+import { Route as AppPartnerHelpRouteImport } from './routes/_app.partner.help'
+import { Route as AppPartnerNotificationsRouteImport } from './routes/_app.partner.notifications'
+import { Route as AppPartnerProfileRouteImport } from './routes/_app.partner.profile'
+import { Route as AppPartnerServicesRouteImport } from './routes/_app.partner.services'
+import { Route as AppPartnerTrainingRouteImport } from './routes/_app.partner.training'
+import { Route as AppPartnerVisitsRouteImport } from './routes/_app.partner.visits'
+import { Route as AppPatientsPatientIdRouteImport } from './routes/_app.patients.$patientId'
+import { Route as AppUsersNursesRouteImport } from './routes/_app.users.nurses'
+import { Route as AppUsersPatientsRouteImport } from './routes/_app.users.patients'
+import { Route as AppVisitsVisitIdRouteImport } from './routes/_app.visits.$visitId'
+import { Route as AppConsumerBookingsBookingIdRouteImport } from './routes/_app.consumer.bookings.$bookingId'
+import { Route as AppConsumerPatientsPatientIdRouteImport } from './routes/_app.consumer.patients.$patientId'
+import { Route as AppConsumerProfileHelpRouteImport } from './routes/_app.consumer.profile_.help'
+import { Route as AppConsumerProfilePersonalRouteImport } from './routes/_app.consumer.profile_.personal'
+import { Route as AppConsumerProfilePreferencesRouteImport } from './routes/_app.consumer.profile_.preferences'
+import { Route as AppConsumerProfileSettingsRouteImport } from './routes/_app.consumer.profile_.settings'
 import { Route as AppPartnerVisitsIndexRouteImport } from './routes/_app.partner.visits.index'
 import { Route as AppPartnerVisitsVisitIdRouteImport } from './routes/_app.partner.visits.$visitId'
-import { Route as AppConsumerProfileSettingsRouteImport } from './routes/_app.consumer.profile_.settings'
-import { Route as AppConsumerProfilePreferencesRouteImport } from './routes/_app.consumer.profile_.preferences'
-import { Route as AppConsumerProfilePersonalRouteImport } from './routes/_app.consumer.profile_.personal'
-import { Route as AppConsumerProfileHelpRouteImport } from './routes/_app.consumer.profile_.help'
-import { Route as AppConsumerPatientsPatientIdRouteImport } from './routes/_app.consumer.patients.$patientId'
-import { Route as AppConsumerBookingsBookingIdRouteImport } from './routes/_app.consumer.bookings.$bookingId'
 
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthLoginRoute = AuthLoginRouteImport.update({
-  id: '/auth/login',
-  path: '/auth/login',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
-  id: '/auth/forgot-password',
-  path: '/auth/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppVisitsRoute = AppVisitsRouteImport.update({
-  id: '/visits',
-  path: '/visits',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppTrainingReviewRoute = AppTrainingReviewRouteImport.update({
-  id: '/training-review',
-  path: '/training-review',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppTrainingAuthoringRoute = AppTrainingAuthoringRouteImport.update({
-  id: '/training-authoring',
-  path: '/training-authoring',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSystemIndexRoute = AppSystemIndexRouteImport.update({
-  id: '/system-index',
-  path: '/system-index',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSupportTicketsRoute = AppSupportTicketsRouteImport.update({
-  id: '/support-tickets',
-  path: '/support-tickets',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSupportDashboardRoute = AppSupportDashboardRouteImport.update({
-  id: '/support-dashboard',
-  path: '/support-dashboard',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSubscriptionSubsidyRoute = AppSubscriptionSubsidyRouteImport.update({
-  id: '/subscription-subsidy',
-  path: '/subscription-subsidy',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppRolesPermissionsRoute = AppRolesPermissionsRouteImport.update({
-  id: '/roles-permissions',
-  path: '/roles-permissions',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppReviewerManagementRoute = AppReviewerManagementRouteImport.update({
-  id: '/reviewer-management',
-  path: '/reviewer-management',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppRetentionDashboardRoute = AppRetentionDashboardRouteImport.update({
-  id: '/retention-dashboard',
-  path: '/retention-dashboard',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPartnerRoute = AppPartnerRouteImport.update({
-  id: '/partner',
-  path: '/partner',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOpsDashboardRoute = AppOpsDashboardRouteImport.update({
-  id: '/ops-dashboard',
-  path: '/ops-dashboard',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOperationsRoute = AppOperationsRouteImport.update({
-  id: '/operations',
-  path: '/operations',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOnboardingReviewRoute = AppOnboardingReviewRouteImport.update({
-  id: '/onboarding-review',
-  path: '/onboarding-review',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppNurseApprovalRoute = AppNurseApprovalRouteImport.update({
-  id: '/nurse-approval',
-  path: '/nurse-approval',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppModerationRoute = AppModerationRouteImport.update({
-  id: '/moderation',
-  path: '/moderation',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppInsuranceReviewRoute = AppInsuranceReviewRouteImport.update({
-  id: '/insurance-review',
-  path: '/insurance-review',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppIncidentsRoute = AppIncidentsRouteImport.update({
-  id: '/incidents',
-  path: '/incidents',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppFinancialReconciliationRoute =
-  AppFinancialReconciliationRouteImport.update({
-    id: '/financial-reconciliation',
-    path: '/financial-reconciliation',
-    getParentRoute: () => AppRoute,
-  } as any)
-const AppDisputesRoute = AppDisputesRouteImport.update({
-  id: '/disputes',
-  path: '/disputes',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDashboardRoute = AppDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppConsumerRoute = AppConsumerRouteImport.update({
-  id: '/consumer',
-  path: '/consumer',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppComplianceRoute = AppComplianceRouteImport.update({
-  id: '/compliance',
-  path: '/compliance',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppComplaintsRoute = AppComplaintsRouteImport.update({
-  id: '/complaints',
-  path: '/complaints',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppClinicalRuleSetsRoute = AppClinicalRuleSetsRouteImport.update({
-  id: '/clinical-rule-sets',
-  path: '/clinical-rule-sets',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppClinicalEscalationRoute = AppClinicalEscalationRouteImport.update({
-  id: '/clinical-escalation',
-  path: '/clinical-escalation',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppCarePackagesRoute = AppCarePackagesRouteImport.update({
-  id: '/care-packages',
-  path: '/care-packages',
+const AppAuditLogsRoute = AppAuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBackgroundVerificationRoute =
@@ -257,162 +112,209 @@ const AppBackgroundVerificationRoute =
     path: '/background-verification',
     getParentRoute: () => AppRoute,
   } as any)
-const AppAuditLogsRoute = AppAuditLogsRouteImport.update({
-  id: '/audit-logs',
-  path: '/audit-logs',
+const AppCarePackagesRoute = AppCarePackagesRouteImport.update({
+  id: '/care-packages',
+  path: '/care-packages',
   getParentRoute: () => AppRoute,
 } as any)
-const AppPartnerIndexRoute = AppPartnerIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppPartnerRoute,
+const AppClinicalEscalationRoute = AppClinicalEscalationRouteImport.update({
+  id: '/clinical-escalation',
+  path: '/clinical-escalation',
+  getParentRoute: () => AppRoute,
 } as any)
-const AppOperationsIndexRoute = AppOperationsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppOperationsRoute,
+const AppClinicalRuleSetsRoute = AppClinicalRuleSetsRouteImport.update({
+  id: '/clinical-rule-sets',
+  path: '/clinical-rule-sets',
+  getParentRoute: () => AppRoute,
 } as any)
+const AppComplaintsRoute = AppComplaintsRouteImport.update({
+  id: '/complaints',
+  path: '/complaints',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppComplianceRoute = AppComplianceRouteImport.update({
+  id: '/compliance',
+  path: '/compliance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppConsumerRoute = AppConsumerRouteImport.update({
+  id: '/consumer',
+  path: '/consumer',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDisputesRoute = AppDisputesRouteImport.update({
+  id: '/disputes',
+  path: '/disputes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFinancialReconciliationRoute =
+  AppFinancialReconciliationRouteImport.update({
+    id: '/financial-reconciliation',
+    path: '/financial-reconciliation',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppIncidentsRoute = AppIncidentsRouteImport.update({
+  id: '/incidents',
+  path: '/incidents',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInsuranceReviewRoute = AppInsuranceReviewRouteImport.update({
+  id: '/insurance-review',
+  path: '/insurance-review',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppModerationRoute = AppModerationRouteImport.update({
+  id: '/moderation',
+  path: '/moderation',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNurseApprovalRoute = AppNurseApprovalRouteImport.update({
+  id: '/nurse-approval',
+  path: '/nurse-approval',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOnboardingReviewRoute = AppOnboardingReviewRouteImport.update({
+  id: '/onboarding-review',
+  path: '/onboarding-review',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOperationsRoute = AppOperationsRouteImport.update({
+  id: '/operations',
+  path: '/operations',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOpsDashboardRoute = AppOpsDashboardRouteImport.update({
+  id: '/ops-dashboard',
+  path: '/ops-dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPartnerRoute = AppPartnerRouteImport.update({
+  id: '/partner',
+  path: '/partner',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrescriptionReviewRoute = AppPrescriptionReviewRouteImport.update({
+  id: '/prescription-review',
+  path: '/prescription-review',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRetentionDashboardRoute = AppRetentionDashboardRouteImport.update({
+  id: '/retention-dashboard',
+  path: '/retention-dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReviewerManagementRoute = AppReviewerManagementRouteImport.update({
+  id: '/reviewer-management',
+  path: '/reviewer-management',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRolesPermissionsRoute = AppRolesPermissionsRouteImport.update({
+  id: '/roles-permissions',
+  path: '/roles-permissions',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSubscriptionSubsidyRoute = AppSubscriptionSubsidyRouteImport.update({
+  id: '/subscription-subsidy',
+  path: '/subscription-subsidy',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSupportDashboardRoute = AppSupportDashboardRouteImport.update({
+  id: '/support-dashboard',
+  path: '/support-dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSupportTicketsRoute = AppSupportTicketsRouteImport.update({
+  id: '/support-tickets',
+  path: '/support-tickets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSystemIndexRoute = AppSystemIndexRouteImport.update({
+  id: '/system-index',
+  path: '/system-index',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTrainingAuthoringRoute = AppTrainingAuthoringRouteImport.update({
+  id: '/training-authoring',
+  path: '/training-authoring',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTrainingReviewRoute = AppTrainingReviewRouteImport.update({
+  id: '/training-review',
+  path: '/training-review',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVisitsRoute = AppVisitsRouteImport.update({
+  id: '/visits',
+  path: '/visits',
+  getParentRoute: () => AppRoute,
+} as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/auth/forgot-password',
+  path: '/auth/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/auth/login',
+  path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppBookingsBookingIdRoute = AppBookingsBookingIdRouteImport.update({
+  id: '/bookings/$bookingId',
+  path: '/bookings/$bookingId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCarePackagesPackageIdRoute =
+  AppCarePackagesPackageIdRouteImport.update({
+    id: '/$packageId',
+    path: '/$packageId',
+    getParentRoute: () => AppCarePackagesRoute,
+  } as any)
+const AppClinicalEscalationCaseIdRoute =
+  AppClinicalEscalationCaseIdRouteImport.update({
+    id: '/$caseId',
+    path: '/$caseId',
+    getParentRoute: () => AppClinicalEscalationRoute,
+  } as any)
+const AppClinicalRuleSetsRuleIdRoute =
+  AppClinicalRuleSetsRuleIdRouteImport.update({
+    id: '/$ruleId',
+    path: '/$ruleId',
+    getParentRoute: () => AppClinicalRuleSetsRoute,
+  } as any)
+const AppComplaintsComplaintIdRoute =
+  AppComplaintsComplaintIdRouteImport.update({
+    id: '/$complaintId',
+    path: '/$complaintId',
+    getParentRoute: () => AppComplaintsRoute,
+  } as any)
 const AppConsumerIndexRoute = AppConsumerIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppConsumerRoute,
 } as any)
-const AppVisitsVisitIdRoute = AppVisitsVisitIdRouteImport.update({
-  id: '/$visitId',
-  path: '/$visitId',
-  getParentRoute: () => AppVisitsRoute,
-} as any)
-const AppUsersPatientsRoute = AppUsersPatientsRouteImport.update({
-  id: '/users/patients',
-  path: '/users/patients',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppUsersNursesRoute = AppUsersNursesRouteImport.update({
-  id: '/users/nurses',
-  path: '/users/nurses',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPatientsPatientIdRoute = AppPatientsPatientIdRouteImport.update({
-  id: '/patients/$patientId',
-  path: '/patients/$patientId',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPartnerVisitsRoute = AppPartnerVisitsRouteImport.update({
-  id: '/visits',
-  path: '/visits',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerTrainingRoute = AppPartnerTrainingRouteImport.update({
-  id: '/training',
-  path: '/training',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerServicesRoute = AppPartnerServicesRouteImport.update({
-  id: '/services',
-  path: '/services',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerProfileRoute = AppPartnerProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerNotificationsRoute = AppPartnerNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerHelpRoute = AppPartnerHelpRouteImport.update({
-  id: '/help',
-  path: '/help',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerEarningsRoute = AppPartnerEarningsRouteImport.update({
-  id: '/earnings',
-  path: '/earnings',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerDocumentationRoute = AppPartnerDocumentationRouteImport.update({
-  id: '/documentation',
-  path: '/documentation',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerAvailabilityRoute = AppPartnerAvailabilityRouteImport.update({
-  id: '/availability',
-  path: '/availability',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerAssignmentsRoute = AppPartnerAssignmentsRouteImport.update({
-  id: '/assignments',
-  path: '/assignments',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppPartnerAssessmentsRoute = AppPartnerAssessmentsRouteImport.update({
-  id: '/assessments',
-  path: '/assessments',
-  getParentRoute: () => AppPartnerRoute,
-} as any)
-const AppOperationsStaffRoute = AppOperationsStaffRouteImport.update({
-  id: '/staff',
-  path: '/staff',
-  getParentRoute: () => AppOperationsRoute,
-} as any)
-const AppOperationsFaqRoute = AppOperationsFaqRouteImport.update({
-  id: '/faq',
-  path: '/faq',
-  getParentRoute: () => AppOperationsRoute,
-} as any)
-const AppOnboardingReviewApplicationIdRoute =
-  AppOnboardingReviewApplicationIdRouteImport.update({
-    id: '/$applicationId',
-    path: '/$applicationId',
-    getParentRoute: () => AppOnboardingReviewRoute,
-  } as any)
-const AppNursesNurseIdRoute = AppNursesNurseIdRouteImport.update({
-  id: '/nurses/$nurseId',
-  path: '/nurses/$nurseId',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppModerationTrainingRoute = AppModerationTrainingRouteImport.update({
-  id: '/training',
-  path: '/training',
-  getParentRoute: () => AppModerationRoute,
-} as any)
-const AppInsuranceReviewReviewIdRoute =
-  AppInsuranceReviewReviewIdRouteImport.update({
-    id: '/$reviewId',
-    path: '/$reviewId',
-    getParentRoute: () => AppInsuranceReviewRoute,
-  } as any)
-const AppIncidentsIncidentIdRoute = AppIncidentsIncidentIdRouteImport.update({
-  id: '/$incidentId',
-  path: '/$incidentId',
-  getParentRoute: () => AppIncidentsRoute,
-} as any)
-const AppFinancialReconciliationBatchIdRoute =
-  AppFinancialReconciliationBatchIdRouteImport.update({
-    id: '/$batchId',
-    path: '/$batchId',
-    getParentRoute: () => AppFinancialReconciliationRoute,
-  } as any)
-const AppDisputesDisputeIdRoute = AppDisputesDisputeIdRouteImport.update({
-  id: '/$disputeId',
-  path: '/$disputeId',
-  getParentRoute: () => AppDisputesRoute,
-} as any)
-const AppConsumerProfileRoute = AppConsumerProfileRouteImport.update({
-  id: '/profile_',
-  path: '/profile',
+const AppConsumerAddressesRoute = AppConsumerAddressesRouteImport.update({
+  id: '/addresses',
+  path: '/addresses',
   getParentRoute: () => AppConsumerRoute,
 } as any)
-const AppConsumerPaymentsRoute = AppConsumerPaymentsRouteImport.update({
-  id: '/payments',
-  path: '/payments',
+const AppConsumerBookingsRoute = AppConsumerBookingsRouteImport.update({
+  id: '/bookings',
+  path: '/bookings',
   getParentRoute: () => AppConsumerRoute,
 } as any)
-const AppConsumerPatientsRoute = AppConsumerPatientsRouteImport.update({
-  id: '/patients',
-  path: '/patients',
+const AppConsumerConsentsRoute = AppConsumerConsentsRouteImport.update({
+  id: '/consents',
+  path: '/consents',
   getParentRoute: () => AppConsumerRoute,
 } as any)
 const AppConsumerNotificationsRoute =
@@ -421,50 +323,189 @@ const AppConsumerNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AppConsumerRoute,
   } as any)
-const AppConsumerConsentsRoute = AppConsumerConsentsRouteImport.update({
-  id: '/consents',
-  path: '/consents',
+const AppConsumerPatientsRoute = AppConsumerPatientsRouteImport.update({
+  id: '/patients',
+  path: '/patients',
   getParentRoute: () => AppConsumerRoute,
 } as any)
-const AppConsumerBookingsRoute = AppConsumerBookingsRouteImport.update({
-  id: '/bookings',
-  path: '/bookings',
+const AppConsumerPaymentsRoute = AppConsumerPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
   getParentRoute: () => AppConsumerRoute,
 } as any)
-const AppConsumerAddressesRoute = AppConsumerAddressesRouteImport.update({
-  id: '/addresses',
-  path: '/addresses',
+const AppConsumerProfileRoute = AppConsumerProfileRouteImport.update({
+  id: '/profile_',
+  path: '/profile',
   getParentRoute: () => AppConsumerRoute,
 } as any)
-const AppComplaintsComplaintIdRoute =
-  AppComplaintsComplaintIdRouteImport.update({
-    id: '/$complaintId',
-    path: '/$complaintId',
-    getParentRoute: () => AppComplaintsRoute,
+const AppDisputesDisputeIdRoute = AppDisputesDisputeIdRouteImport.update({
+  id: '/$disputeId',
+  path: '/$disputeId',
+  getParentRoute: () => AppDisputesRoute,
+} as any)
+const AppFinancialReconciliationBatchIdRoute =
+  AppFinancialReconciliationBatchIdRouteImport.update({
+    id: '/$batchId',
+    path: '/$batchId',
+    getParentRoute: () => AppFinancialReconciliationRoute,
   } as any)
-const AppClinicalRuleSetsRuleIdRoute =
-  AppClinicalRuleSetsRuleIdRouteImport.update({
-    id: '/$ruleId',
-    path: '/$ruleId',
-    getParentRoute: () => AppClinicalRuleSetsRoute,
+const AppIncidentsIncidentIdRoute = AppIncidentsIncidentIdRouteImport.update({
+  id: '/$incidentId',
+  path: '/$incidentId',
+  getParentRoute: () => AppIncidentsRoute,
+} as any)
+const AppInsuranceReviewReviewIdRoute =
+  AppInsuranceReviewReviewIdRouteImport.update({
+    id: '/$reviewId',
+    path: '/$reviewId',
+    getParentRoute: () => AppInsuranceReviewRoute,
   } as any)
-const AppClinicalEscalationCaseIdRoute =
-  AppClinicalEscalationCaseIdRouteImport.update({
-    id: '/$caseId',
-    path: '/$caseId',
-    getParentRoute: () => AppClinicalEscalationRoute,
-  } as any)
-const AppCarePackagesPackageIdRoute =
-  AppCarePackagesPackageIdRouteImport.update({
-    id: '/$packageId',
-    path: '/$packageId',
-    getParentRoute: () => AppCarePackagesRoute,
-  } as any)
-const AppBookingsBookingIdRoute = AppBookingsBookingIdRouteImport.update({
-  id: '/bookings/$bookingId',
-  path: '/bookings/$bookingId',
+const AppModerationTrainingRoute = AppModerationTrainingRouteImport.update({
+  id: '/training',
+  path: '/training',
+  getParentRoute: () => AppModerationRoute,
+} as any)
+const AppNursesNurseIdRoute = AppNursesNurseIdRouteImport.update({
+  id: '/nurses/$nurseId',
+  path: '/nurses/$nurseId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppOnboardingReviewApplicationIdRoute =
+  AppOnboardingReviewApplicationIdRouteImport.update({
+    id: '/$applicationId',
+    path: '/$applicationId',
+    getParentRoute: () => AppOnboardingReviewRoute,
+  } as any)
+const AppOperationsIndexRoute = AppOperationsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppOperationsRoute,
+} as any)
+const AppOperationsFaqRoute = AppOperationsFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => AppOperationsRoute,
+} as any)
+const AppOperationsStaffRoute = AppOperationsStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AppOperationsRoute,
+} as any)
+const AppPartnerIndexRoute = AppPartnerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerAssessmentsRoute = AppPartnerAssessmentsRouteImport.update({
+  id: '/assessments',
+  path: '/assessments',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerAssignmentsRoute = AppPartnerAssignmentsRouteImport.update({
+  id: '/assignments',
+  path: '/assignments',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerAvailabilityRoute = AppPartnerAvailabilityRouteImport.update({
+  id: '/availability',
+  path: '/availability',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerDocumentationRoute = AppPartnerDocumentationRouteImport.update({
+  id: '/documentation',
+  path: '/documentation',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerEarningsRoute = AppPartnerEarningsRouteImport.update({
+  id: '/earnings',
+  path: '/earnings',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerHelpRoute = AppPartnerHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerNotificationsRoute = AppPartnerNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerProfileRoute = AppPartnerProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerServicesRoute = AppPartnerServicesRouteImport.update({
+  id: '/services',
+  path: '/services',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerTrainingRoute = AppPartnerTrainingRouteImport.update({
+  id: '/training',
+  path: '/training',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerVisitsRoute = AppPartnerVisitsRouteImport.update({
+  id: '/visits',
+  path: '/visits',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPatientsPatientIdRoute = AppPatientsPatientIdRouteImport.update({
+  id: '/patients/$patientId',
+  path: '/patients/$patientId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUsersNursesRoute = AppUsersNursesRouteImport.update({
+  id: '/users/nurses',
+  path: '/users/nurses',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUsersPatientsRoute = AppUsersPatientsRouteImport.update({
+  id: '/users/patients',
+  path: '/users/patients',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVisitsVisitIdRoute = AppVisitsVisitIdRouteImport.update({
+  id: '/$visitId',
+  path: '/$visitId',
+  getParentRoute: () => AppVisitsRoute,
+} as any)
+const AppConsumerBookingsBookingIdRoute =
+  AppConsumerBookingsBookingIdRouteImport.update({
+    id: '/$bookingId',
+    path: '/$bookingId',
+    getParentRoute: () => AppConsumerBookingsRoute,
+  } as any)
+const AppConsumerPatientsPatientIdRoute =
+  AppConsumerPatientsPatientIdRouteImport.update({
+    id: '/$patientId',
+    path: '/$patientId',
+    getParentRoute: () => AppConsumerPatientsRoute,
+  } as any)
+const AppConsumerProfileHelpRoute = AppConsumerProfileHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => AppConsumerProfileRoute,
+} as any)
+const AppConsumerProfilePersonalRoute =
+  AppConsumerProfilePersonalRouteImport.update({
+    id: '/personal',
+    path: '/personal',
+    getParentRoute: () => AppConsumerProfileRoute,
+  } as any)
+const AppConsumerProfilePreferencesRoute =
+  AppConsumerProfilePreferencesRouteImport.update({
+    id: '/preferences',
+    path: '/preferences',
+    getParentRoute: () => AppConsumerProfileRoute,
+  } as any)
+const AppConsumerProfileSettingsRoute =
+  AppConsumerProfileSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AppConsumerProfileRoute,
+  } as any)
 const AppPartnerVisitsIndexRoute = AppPartnerVisitsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -475,41 +516,6 @@ const AppPartnerVisitsVisitIdRoute = AppPartnerVisitsVisitIdRouteImport.update({
   path: '/$visitId',
   getParentRoute: () => AppPartnerVisitsRoute,
 } as any)
-const AppConsumerProfileSettingsRoute =
-  AppConsumerProfileSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => AppConsumerProfileRoute,
-  } as any)
-const AppConsumerProfilePreferencesRoute =
-  AppConsumerProfilePreferencesRouteImport.update({
-    id: '/preferences',
-    path: '/preferences',
-    getParentRoute: () => AppConsumerProfileRoute,
-  } as any)
-const AppConsumerProfilePersonalRoute =
-  AppConsumerProfilePersonalRouteImport.update({
-    id: '/personal',
-    path: '/personal',
-    getParentRoute: () => AppConsumerProfileRoute,
-  } as any)
-const AppConsumerProfileHelpRoute = AppConsumerProfileHelpRouteImport.update({
-  id: '/help',
-  path: '/help',
-  getParentRoute: () => AppConsumerProfileRoute,
-} as any)
-const AppConsumerPatientsPatientIdRoute =
-  AppConsumerPatientsPatientIdRouteImport.update({
-    id: '/$patientId',
-    path: '/$patientId',
-    getParentRoute: () => AppConsumerPatientsRoute,
-  } as any)
-const AppConsumerBookingsBookingIdRoute =
-  AppConsumerBookingsBookingIdRouteImport.update({
-    id: '/$bookingId',
-    path: '/$bookingId',
-    getParentRoute: () => AppConsumerBookingsRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -532,6 +538,7 @@ export interface FileRoutesByFullPath {
   '/operations': typeof AppOperationsRouteWithChildren
   '/ops-dashboard': typeof AppOpsDashboardRoute
   '/partner': typeof AppPartnerRouteWithChildren
+  '/prescription-review': typeof AppPrescriptionReviewRoute
   '/retention-dashboard': typeof AppRetentionDashboardRoute
   '/reviewer-management': typeof AppReviewerManagementRoute
   '/roles-permissions': typeof AppRolesPermissionsRoute
@@ -611,6 +618,7 @@ export interface FileRoutesByTo {
   '/nurse-approval': typeof AppNurseApprovalRoute
   '/onboarding-review': typeof AppOnboardingReviewRouteWithChildren
   '/ops-dashboard': typeof AppOpsDashboardRoute
+  '/prescription-review': typeof AppPrescriptionReviewRoute
   '/retention-dashboard': typeof AppRetentionDashboardRoute
   '/reviewer-management': typeof AppReviewerManagementRoute
   '/roles-permissions': typeof AppRolesPermissionsRoute
@@ -694,6 +702,7 @@ export interface FileRoutesById {
   '/_app/operations': typeof AppOperationsRouteWithChildren
   '/_app/ops-dashboard': typeof AppOpsDashboardRoute
   '/_app/partner': typeof AppPartnerRouteWithChildren
+  '/_app/prescription-review': typeof AppPrescriptionReviewRoute
   '/_app/retention-dashboard': typeof AppRetentionDashboardRoute
   '/_app/reviewer-management': typeof AppReviewerManagementRoute
   '/_app/roles-permissions': typeof AppRolesPermissionsRoute
@@ -778,6 +787,7 @@ export interface FileRouteTypes {
     | '/operations'
     | '/ops-dashboard'
     | '/partner'
+    | '/prescription-review'
     | '/retention-dashboard'
     | '/reviewer-management'
     | '/roles-permissions'
@@ -857,6 +867,7 @@ export interface FileRouteTypes {
     | '/nurse-approval'
     | '/onboarding-review'
     | '/ops-dashboard'
+    | '/prescription-review'
     | '/retention-dashboard'
     | '/reviewer-management'
     | '/roles-permissions'
@@ -939,6 +950,7 @@ export interface FileRouteTypes {
     | '/_app/operations'
     | '/_app/ops-dashboard'
     | '/_app/partner'
+    | '/_app/prescription-review'
     | '/_app/retention-dashboard'
     | '/_app/reviewer-management'
     | '/_app/roles-permissions'
@@ -1010,13 +1022,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -1024,214 +1029,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/login': {
-      id: '/auth/login'
-      path: '/auth/login'
-      fullPath: '/auth/login'
-      preLoaderRoute: typeof AuthLoginRouteImport
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/forgot-password': {
-      id: '/auth/forgot-password'
-      path: '/auth/forgot-password'
-      fullPath: '/auth/forgot-password'
-      preLoaderRoute: typeof AuthForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_app/visits': {
-      id: '/_app/visits'
-      path: '/visits'
-      fullPath: '/visits'
-      preLoaderRoute: typeof AppVisitsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/training-review': {
-      id: '/_app/training-review'
-      path: '/training-review'
-      fullPath: '/training-review'
-      preLoaderRoute: typeof AppTrainingReviewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/training-authoring': {
-      id: '/_app/training-authoring'
-      path: '/training-authoring'
-      fullPath: '/training-authoring'
-      preLoaderRoute: typeof AppTrainingAuthoringRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/system-index': {
-      id: '/_app/system-index'
-      path: '/system-index'
-      fullPath: '/system-index'
-      preLoaderRoute: typeof AppSystemIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/support-tickets': {
-      id: '/_app/support-tickets'
-      path: '/support-tickets'
-      fullPath: '/support-tickets'
-      preLoaderRoute: typeof AppSupportTicketsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/support-dashboard': {
-      id: '/_app/support-dashboard'
-      path: '/support-dashboard'
-      fullPath: '/support-dashboard'
-      preLoaderRoute: typeof AppSupportDashboardRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/subscription-subsidy': {
-      id: '/_app/subscription-subsidy'
-      path: '/subscription-subsidy'
-      fullPath: '/subscription-subsidy'
-      preLoaderRoute: typeof AppSubscriptionSubsidyRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/roles-permissions': {
-      id: '/_app/roles-permissions'
-      path: '/roles-permissions'
-      fullPath: '/roles-permissions'
-      preLoaderRoute: typeof AppRolesPermissionsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/reviewer-management': {
-      id: '/_app/reviewer-management'
-      path: '/reviewer-management'
-      fullPath: '/reviewer-management'
-      preLoaderRoute: typeof AppReviewerManagementRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/retention-dashboard': {
-      id: '/_app/retention-dashboard'
-      path: '/retention-dashboard'
-      fullPath: '/retention-dashboard'
-      preLoaderRoute: typeof AppRetentionDashboardRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/partner': {
-      id: '/_app/partner'
-      path: '/partner'
-      fullPath: '/partner'
-      preLoaderRoute: typeof AppPartnerRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/ops-dashboard': {
-      id: '/_app/ops-dashboard'
-      path: '/ops-dashboard'
-      fullPath: '/ops-dashboard'
-      preLoaderRoute: typeof AppOpsDashboardRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/operations': {
-      id: '/_app/operations'
-      path: '/operations'
-      fullPath: '/operations'
-      preLoaderRoute: typeof AppOperationsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/onboarding-review': {
-      id: '/_app/onboarding-review'
-      path: '/onboarding-review'
-      fullPath: '/onboarding-review'
-      preLoaderRoute: typeof AppOnboardingReviewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/nurse-approval': {
-      id: '/_app/nurse-approval'
-      path: '/nurse-approval'
-      fullPath: '/nurse-approval'
-      preLoaderRoute: typeof AppNurseApprovalRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/moderation': {
-      id: '/_app/moderation'
-      path: '/moderation'
-      fullPath: '/moderation'
-      preLoaderRoute: typeof AppModerationRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/insurance-review': {
-      id: '/_app/insurance-review'
-      path: '/insurance-review'
-      fullPath: '/insurance-review'
-      preLoaderRoute: typeof AppInsuranceReviewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/incidents': {
-      id: '/_app/incidents'
-      path: '/incidents'
-      fullPath: '/incidents'
-      preLoaderRoute: typeof AppIncidentsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/financial-reconciliation': {
-      id: '/_app/financial-reconciliation'
-      path: '/financial-reconciliation'
-      fullPath: '/financial-reconciliation'
-      preLoaderRoute: typeof AppFinancialReconciliationRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/disputes': {
-      id: '/_app/disputes'
-      path: '/disputes'
-      fullPath: '/disputes'
-      preLoaderRoute: typeof AppDisputesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/dashboard': {
-      id: '/_app/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AppDashboardRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/consumer': {
-      id: '/_app/consumer'
-      path: '/consumer'
-      fullPath: '/consumer'
-      preLoaderRoute: typeof AppConsumerRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/compliance': {
-      id: '/_app/compliance'
-      path: '/compliance'
-      fullPath: '/compliance'
-      preLoaderRoute: typeof AppComplianceRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/complaints': {
-      id: '/_app/complaints'
-      path: '/complaints'
-      fullPath: '/complaints'
-      preLoaderRoute: typeof AppComplaintsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/clinical-rule-sets': {
-      id: '/_app/clinical-rule-sets'
-      path: '/clinical-rule-sets'
-      fullPath: '/clinical-rule-sets'
-      preLoaderRoute: typeof AppClinicalRuleSetsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/clinical-escalation': {
-      id: '/_app/clinical-escalation'
-      path: '/clinical-escalation'
-      fullPath: '/clinical-escalation'
-      preLoaderRoute: typeof AppClinicalEscalationRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/care-packages': {
-      id: '/_app/care-packages'
-      path: '/care-packages'
-      fullPath: '/care-packages'
-      preLoaderRoute: typeof AppCarePackagesRouteImport
+    '/_app/audit-logs': {
+      id: '/_app/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/audit-logs'
+      preLoaderRoute: typeof AppAuditLogsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/background-verification': {
@@ -1241,242 +1050,263 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBackgroundVerificationRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/audit-logs': {
-      id: '/_app/audit-logs'
-      path: '/audit-logs'
-      fullPath: '/audit-logs'
-      preLoaderRoute: typeof AppAuditLogsRouteImport
+    '/_app/care-packages': {
+      id: '/_app/care-packages'
+      path: '/care-packages'
+      fullPath: '/care-packages'
+      preLoaderRoute: typeof AppCarePackagesRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/partner/': {
-      id: '/_app/partner/'
-      path: '/'
-      fullPath: '/partner/'
-      preLoaderRoute: typeof AppPartnerIndexRouteImport
-      parentRoute: typeof AppPartnerRoute
+    '/_app/clinical-escalation': {
+      id: '/_app/clinical-escalation'
+      path: '/clinical-escalation'
+      fullPath: '/clinical-escalation'
+      preLoaderRoute: typeof AppClinicalEscalationRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_app/operations/': {
-      id: '/_app/operations/'
-      path: '/'
-      fullPath: '/operations/'
-      preLoaderRoute: typeof AppOperationsIndexRouteImport
-      parentRoute: typeof AppOperationsRoute
+    '/_app/clinical-rule-sets': {
+      id: '/_app/clinical-rule-sets'
+      path: '/clinical-rule-sets'
+      fullPath: '/clinical-rule-sets'
+      preLoaderRoute: typeof AppClinicalRuleSetsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/complaints': {
+      id: '/_app/complaints'
+      path: '/complaints'
+      fullPath: '/complaints'
+      preLoaderRoute: typeof AppComplaintsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/compliance': {
+      id: '/_app/compliance'
+      path: '/compliance'
+      fullPath: '/compliance'
+      preLoaderRoute: typeof AppComplianceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/consumer': {
+      id: '/_app/consumer'
+      path: '/consumer'
+      fullPath: '/consumer'
+      preLoaderRoute: typeof AppConsumerRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/disputes': {
+      id: '/_app/disputes'
+      path: '/disputes'
+      fullPath: '/disputes'
+      preLoaderRoute: typeof AppDisputesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/financial-reconciliation': {
+      id: '/_app/financial-reconciliation'
+      path: '/financial-reconciliation'
+      fullPath: '/financial-reconciliation'
+      preLoaderRoute: typeof AppFinancialReconciliationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/incidents': {
+      id: '/_app/incidents'
+      path: '/incidents'
+      fullPath: '/incidents'
+      preLoaderRoute: typeof AppIncidentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/insurance-review': {
+      id: '/_app/insurance-review'
+      path: '/insurance-review'
+      fullPath: '/insurance-review'
+      preLoaderRoute: typeof AppInsuranceReviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/moderation': {
+      id: '/_app/moderation'
+      path: '/moderation'
+      fullPath: '/moderation'
+      preLoaderRoute: typeof AppModerationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/nurse-approval': {
+      id: '/_app/nurse-approval'
+      path: '/nurse-approval'
+      fullPath: '/nurse-approval'
+      preLoaderRoute: typeof AppNurseApprovalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/onboarding-review': {
+      id: '/_app/onboarding-review'
+      path: '/onboarding-review'
+      fullPath: '/onboarding-review'
+      preLoaderRoute: typeof AppOnboardingReviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/operations': {
+      id: '/_app/operations'
+      path: '/operations'
+      fullPath: '/operations'
+      preLoaderRoute: typeof AppOperationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/ops-dashboard': {
+      id: '/_app/ops-dashboard'
+      path: '/ops-dashboard'
+      fullPath: '/ops-dashboard'
+      preLoaderRoute: typeof AppOpsDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/partner': {
+      id: '/_app/partner'
+      path: '/partner'
+      fullPath: '/partner'
+      preLoaderRoute: typeof AppPartnerRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/prescription-review': {
+      id: '/_app/prescription-review'
+      path: '/prescription-review'
+      fullPath: '/prescription-review'
+      preLoaderRoute: typeof AppPrescriptionReviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/retention-dashboard': {
+      id: '/_app/retention-dashboard'
+      path: '/retention-dashboard'
+      fullPath: '/retention-dashboard'
+      preLoaderRoute: typeof AppRetentionDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reviewer-management': {
+      id: '/_app/reviewer-management'
+      path: '/reviewer-management'
+      fullPath: '/reviewer-management'
+      preLoaderRoute: typeof AppReviewerManagementRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roles-permissions': {
+      id: '/_app/roles-permissions'
+      path: '/roles-permissions'
+      fullPath: '/roles-permissions'
+      preLoaderRoute: typeof AppRolesPermissionsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/subscription-subsidy': {
+      id: '/_app/subscription-subsidy'
+      path: '/subscription-subsidy'
+      fullPath: '/subscription-subsidy'
+      preLoaderRoute: typeof AppSubscriptionSubsidyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/support-dashboard': {
+      id: '/_app/support-dashboard'
+      path: '/support-dashboard'
+      fullPath: '/support-dashboard'
+      preLoaderRoute: typeof AppSupportDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/support-tickets': {
+      id: '/_app/support-tickets'
+      path: '/support-tickets'
+      fullPath: '/support-tickets'
+      preLoaderRoute: typeof AppSupportTicketsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/system-index': {
+      id: '/_app/system-index'
+      path: '/system-index'
+      fullPath: '/system-index'
+      preLoaderRoute: typeof AppSystemIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/training-authoring': {
+      id: '/_app/training-authoring'
+      path: '/training-authoring'
+      fullPath: '/training-authoring'
+      preLoaderRoute: typeof AppTrainingAuthoringRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/training-review': {
+      id: '/_app/training-review'
+      path: '/training-review'
+      fullPath: '/training-review'
+      preLoaderRoute: typeof AppTrainingReviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/visits': {
+      id: '/_app/visits'
+      path: '/visits'
+      fullPath: '/visits'
+      preLoaderRoute: typeof AppVisitsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/auth/forgot-password': {
+      id: '/auth/forgot-password'
+      path: '/auth/forgot-password'
+      fullPath: '/auth/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/login': {
+      id: '/auth/login'
+      path: '/auth/login'
+      fullPath: '/auth/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/bookings/$bookingId': {
+      id: '/_app/bookings/$bookingId'
+      path: '/bookings/$bookingId'
+      fullPath: '/bookings/$bookingId'
+      preLoaderRoute: typeof AppBookingsBookingIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/care-packages/$packageId': {
+      id: '/_app/care-packages/$packageId'
+      path: '/$packageId'
+      fullPath: '/care-packages/$packageId'
+      preLoaderRoute: typeof AppCarePackagesPackageIdRouteImport
+      parentRoute: typeof AppCarePackagesRoute
+    }
+    '/_app/clinical-escalation/$caseId': {
+      id: '/_app/clinical-escalation/$caseId'
+      path: '/$caseId'
+      fullPath: '/clinical-escalation/$caseId'
+      preLoaderRoute: typeof AppClinicalEscalationCaseIdRouteImport
+      parentRoute: typeof AppClinicalEscalationRoute
+    }
+    '/_app/clinical-rule-sets/$ruleId': {
+      id: '/_app/clinical-rule-sets/$ruleId'
+      path: '/$ruleId'
+      fullPath: '/clinical-rule-sets/$ruleId'
+      preLoaderRoute: typeof AppClinicalRuleSetsRuleIdRouteImport
+      parentRoute: typeof AppClinicalRuleSetsRoute
+    }
+    '/_app/complaints/$complaintId': {
+      id: '/_app/complaints/$complaintId'
+      path: '/$complaintId'
+      fullPath: '/complaints/$complaintId'
+      preLoaderRoute: typeof AppComplaintsComplaintIdRouteImport
+      parentRoute: typeof AppComplaintsRoute
     }
     '/_app/consumer/': {
       id: '/_app/consumer/'
       path: '/'
       fullPath: '/consumer/'
       preLoaderRoute: typeof AppConsumerIndexRouteImport
-      parentRoute: typeof AppConsumerRoute
-    }
-    '/_app/visits/$visitId': {
-      id: '/_app/visits/$visitId'
-      path: '/$visitId'
-      fullPath: '/visits/$visitId'
-      preLoaderRoute: typeof AppVisitsVisitIdRouteImport
-      parentRoute: typeof AppVisitsRoute
-    }
-    '/_app/users/patients': {
-      id: '/_app/users/patients'
-      path: '/users/patients'
-      fullPath: '/users/patients'
-      preLoaderRoute: typeof AppUsersPatientsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/users/nurses': {
-      id: '/_app/users/nurses'
-      path: '/users/nurses'
-      fullPath: '/users/nurses'
-      preLoaderRoute: typeof AppUsersNursesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/patients/$patientId': {
-      id: '/_app/patients/$patientId'
-      path: '/patients/$patientId'
-      fullPath: '/patients/$patientId'
-      preLoaderRoute: typeof AppPatientsPatientIdRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/partner/visits': {
-      id: '/_app/partner/visits'
-      path: '/visits'
-      fullPath: '/partner/visits'
-      preLoaderRoute: typeof AppPartnerVisitsRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/training': {
-      id: '/_app/partner/training'
-      path: '/training'
-      fullPath: '/partner/training'
-      preLoaderRoute: typeof AppPartnerTrainingRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/services': {
-      id: '/_app/partner/services'
-      path: '/services'
-      fullPath: '/partner/services'
-      preLoaderRoute: typeof AppPartnerServicesRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/profile': {
-      id: '/_app/partner/profile'
-      path: '/profile'
-      fullPath: '/partner/profile'
-      preLoaderRoute: typeof AppPartnerProfileRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/notifications': {
-      id: '/_app/partner/notifications'
-      path: '/notifications'
-      fullPath: '/partner/notifications'
-      preLoaderRoute: typeof AppPartnerNotificationsRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/help': {
-      id: '/_app/partner/help'
-      path: '/help'
-      fullPath: '/partner/help'
-      preLoaderRoute: typeof AppPartnerHelpRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/earnings': {
-      id: '/_app/partner/earnings'
-      path: '/earnings'
-      fullPath: '/partner/earnings'
-      preLoaderRoute: typeof AppPartnerEarningsRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/documentation': {
-      id: '/_app/partner/documentation'
-      path: '/documentation'
-      fullPath: '/partner/documentation'
-      preLoaderRoute: typeof AppPartnerDocumentationRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/availability': {
-      id: '/_app/partner/availability'
-      path: '/availability'
-      fullPath: '/partner/availability'
-      preLoaderRoute: typeof AppPartnerAvailabilityRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/assignments': {
-      id: '/_app/partner/assignments'
-      path: '/assignments'
-      fullPath: '/partner/assignments'
-      preLoaderRoute: typeof AppPartnerAssignmentsRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/partner/assessments': {
-      id: '/_app/partner/assessments'
-      path: '/assessments'
-      fullPath: '/partner/assessments'
-      preLoaderRoute: typeof AppPartnerAssessmentsRouteImport
-      parentRoute: typeof AppPartnerRoute
-    }
-    '/_app/operations/staff': {
-      id: '/_app/operations/staff'
-      path: '/staff'
-      fullPath: '/operations/staff'
-      preLoaderRoute: typeof AppOperationsStaffRouteImport
-      parentRoute: typeof AppOperationsRoute
-    }
-    '/_app/operations/faq': {
-      id: '/_app/operations/faq'
-      path: '/faq'
-      fullPath: '/operations/faq'
-      preLoaderRoute: typeof AppOperationsFaqRouteImport
-      parentRoute: typeof AppOperationsRoute
-    }
-    '/_app/onboarding-review/$applicationId': {
-      id: '/_app/onboarding-review/$applicationId'
-      path: '/$applicationId'
-      fullPath: '/onboarding-review/$applicationId'
-      preLoaderRoute: typeof AppOnboardingReviewApplicationIdRouteImport
-      parentRoute: typeof AppOnboardingReviewRoute
-    }
-    '/_app/nurses/$nurseId': {
-      id: '/_app/nurses/$nurseId'
-      path: '/nurses/$nurseId'
-      fullPath: '/nurses/$nurseId'
-      preLoaderRoute: typeof AppNursesNurseIdRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/moderation/training': {
-      id: '/_app/moderation/training'
-      path: '/training'
-      fullPath: '/moderation/training'
-      preLoaderRoute: typeof AppModerationTrainingRouteImport
-      parentRoute: typeof AppModerationRoute
-    }
-    '/_app/insurance-review/$reviewId': {
-      id: '/_app/insurance-review/$reviewId'
-      path: '/$reviewId'
-      fullPath: '/insurance-review/$reviewId'
-      preLoaderRoute: typeof AppInsuranceReviewReviewIdRouteImport
-      parentRoute: typeof AppInsuranceReviewRoute
-    }
-    '/_app/incidents/$incidentId': {
-      id: '/_app/incidents/$incidentId'
-      path: '/$incidentId'
-      fullPath: '/incidents/$incidentId'
-      preLoaderRoute: typeof AppIncidentsIncidentIdRouteImport
-      parentRoute: typeof AppIncidentsRoute
-    }
-    '/_app/financial-reconciliation/$batchId': {
-      id: '/_app/financial-reconciliation/$batchId'
-      path: '/$batchId'
-      fullPath: '/financial-reconciliation/$batchId'
-      preLoaderRoute: typeof AppFinancialReconciliationBatchIdRouteImport
-      parentRoute: typeof AppFinancialReconciliationRoute
-    }
-    '/_app/disputes/$disputeId': {
-      id: '/_app/disputes/$disputeId'
-      path: '/$disputeId'
-      fullPath: '/disputes/$disputeId'
-      preLoaderRoute: typeof AppDisputesDisputeIdRouteImport
-      parentRoute: typeof AppDisputesRoute
-    }
-    '/_app/consumer/profile_': {
-      id: '/_app/consumer/profile_'
-      path: '/profile'
-      fullPath: '/consumer/profile'
-      preLoaderRoute: typeof AppConsumerProfileRouteImport
-      parentRoute: typeof AppConsumerRoute
-    }
-    '/_app/consumer/payments': {
-      id: '/_app/consumer/payments'
-      path: '/payments'
-      fullPath: '/consumer/payments'
-      preLoaderRoute: typeof AppConsumerPaymentsRouteImport
-      parentRoute: typeof AppConsumerRoute
-    }
-    '/_app/consumer/patients': {
-      id: '/_app/consumer/patients'
-      path: '/patients'
-      fullPath: '/consumer/patients'
-      preLoaderRoute: typeof AppConsumerPatientsRouteImport
-      parentRoute: typeof AppConsumerRoute
-    }
-    '/_app/consumer/notifications': {
-      id: '/_app/consumer/notifications'
-      path: '/notifications'
-      fullPath: '/consumer/notifications'
-      preLoaderRoute: typeof AppConsumerNotificationsRouteImport
-      parentRoute: typeof AppConsumerRoute
-    }
-    '/_app/consumer/consents': {
-      id: '/_app/consumer/consents'
-      path: '/consents'
-      fullPath: '/consumer/consents'
-      preLoaderRoute: typeof AppConsumerConsentsRouteImport
-      parentRoute: typeof AppConsumerRoute
-    }
-    '/_app/consumer/bookings': {
-      id: '/_app/consumer/bookings'
-      path: '/bookings'
-      fullPath: '/consumer/bookings'
-      preLoaderRoute: typeof AppConsumerBookingsRouteImport
       parentRoute: typeof AppConsumerRoute
     }
     '/_app/consumer/addresses': {
@@ -1486,40 +1316,271 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConsumerAddressesRouteImport
       parentRoute: typeof AppConsumerRoute
     }
-    '/_app/complaints/$complaintId': {
-      id: '/_app/complaints/$complaintId'
-      path: '/$complaintId'
-      fullPath: '/complaints/$complaintId'
-      preLoaderRoute: typeof AppComplaintsComplaintIdRouteImport
-      parentRoute: typeof AppComplaintsRoute
+    '/_app/consumer/bookings': {
+      id: '/_app/consumer/bookings'
+      path: '/bookings'
+      fullPath: '/consumer/bookings'
+      preLoaderRoute: typeof AppConsumerBookingsRouteImport
+      parentRoute: typeof AppConsumerRoute
     }
-    '/_app/clinical-rule-sets/$ruleId': {
-      id: '/_app/clinical-rule-sets/$ruleId'
-      path: '/$ruleId'
-      fullPath: '/clinical-rule-sets/$ruleId'
-      preLoaderRoute: typeof AppClinicalRuleSetsRuleIdRouteImport
-      parentRoute: typeof AppClinicalRuleSetsRoute
+    '/_app/consumer/consents': {
+      id: '/_app/consumer/consents'
+      path: '/consents'
+      fullPath: '/consumer/consents'
+      preLoaderRoute: typeof AppConsumerConsentsRouteImport
+      parentRoute: typeof AppConsumerRoute
     }
-    '/_app/clinical-escalation/$caseId': {
-      id: '/_app/clinical-escalation/$caseId'
-      path: '/$caseId'
-      fullPath: '/clinical-escalation/$caseId'
-      preLoaderRoute: typeof AppClinicalEscalationCaseIdRouteImport
-      parentRoute: typeof AppClinicalEscalationRoute
+    '/_app/consumer/notifications': {
+      id: '/_app/consumer/notifications'
+      path: '/notifications'
+      fullPath: '/consumer/notifications'
+      preLoaderRoute: typeof AppConsumerNotificationsRouteImport
+      parentRoute: typeof AppConsumerRoute
     }
-    '/_app/care-packages/$packageId': {
-      id: '/_app/care-packages/$packageId'
-      path: '/$packageId'
-      fullPath: '/care-packages/$packageId'
-      preLoaderRoute: typeof AppCarePackagesPackageIdRouteImport
-      parentRoute: typeof AppCarePackagesRoute
+    '/_app/consumer/patients': {
+      id: '/_app/consumer/patients'
+      path: '/patients'
+      fullPath: '/consumer/patients'
+      preLoaderRoute: typeof AppConsumerPatientsRouteImport
+      parentRoute: typeof AppConsumerRoute
     }
-    '/_app/bookings/$bookingId': {
-      id: '/_app/bookings/$bookingId'
-      path: '/bookings/$bookingId'
-      fullPath: '/bookings/$bookingId'
-      preLoaderRoute: typeof AppBookingsBookingIdRouteImport
+    '/_app/consumer/payments': {
+      id: '/_app/consumer/payments'
+      path: '/payments'
+      fullPath: '/consumer/payments'
+      preLoaderRoute: typeof AppConsumerPaymentsRouteImport
+      parentRoute: typeof AppConsumerRoute
+    }
+    '/_app/consumer/profile_': {
+      id: '/_app/consumer/profile_'
+      path: '/profile'
+      fullPath: '/consumer/profile'
+      preLoaderRoute: typeof AppConsumerProfileRouteImport
+      parentRoute: typeof AppConsumerRoute
+    }
+    '/_app/disputes/$disputeId': {
+      id: '/_app/disputes/$disputeId'
+      path: '/$disputeId'
+      fullPath: '/disputes/$disputeId'
+      preLoaderRoute: typeof AppDisputesDisputeIdRouteImport
+      parentRoute: typeof AppDisputesRoute
+    }
+    '/_app/financial-reconciliation/$batchId': {
+      id: '/_app/financial-reconciliation/$batchId'
+      path: '/$batchId'
+      fullPath: '/financial-reconciliation/$batchId'
+      preLoaderRoute: typeof AppFinancialReconciliationBatchIdRouteImport
+      parentRoute: typeof AppFinancialReconciliationRoute
+    }
+    '/_app/incidents/$incidentId': {
+      id: '/_app/incidents/$incidentId'
+      path: '/$incidentId'
+      fullPath: '/incidents/$incidentId'
+      preLoaderRoute: typeof AppIncidentsIncidentIdRouteImport
+      parentRoute: typeof AppIncidentsRoute
+    }
+    '/_app/insurance-review/$reviewId': {
+      id: '/_app/insurance-review/$reviewId'
+      path: '/$reviewId'
+      fullPath: '/insurance-review/$reviewId'
+      preLoaderRoute: typeof AppInsuranceReviewReviewIdRouteImport
+      parentRoute: typeof AppInsuranceReviewRoute
+    }
+    '/_app/moderation/training': {
+      id: '/_app/moderation/training'
+      path: '/training'
+      fullPath: '/moderation/training'
+      preLoaderRoute: typeof AppModerationTrainingRouteImport
+      parentRoute: typeof AppModerationRoute
+    }
+    '/_app/nurses/$nurseId': {
+      id: '/_app/nurses/$nurseId'
+      path: '/nurses/$nurseId'
+      fullPath: '/nurses/$nurseId'
+      preLoaderRoute: typeof AppNursesNurseIdRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/onboarding-review/$applicationId': {
+      id: '/_app/onboarding-review/$applicationId'
+      path: '/$applicationId'
+      fullPath: '/onboarding-review/$applicationId'
+      preLoaderRoute: typeof AppOnboardingReviewApplicationIdRouteImport
+      parentRoute: typeof AppOnboardingReviewRoute
+    }
+    '/_app/operations/': {
+      id: '/_app/operations/'
+      path: '/'
+      fullPath: '/operations/'
+      preLoaderRoute: typeof AppOperationsIndexRouteImport
+      parentRoute: typeof AppOperationsRoute
+    }
+    '/_app/operations/faq': {
+      id: '/_app/operations/faq'
+      path: '/faq'
+      fullPath: '/operations/faq'
+      preLoaderRoute: typeof AppOperationsFaqRouteImport
+      parentRoute: typeof AppOperationsRoute
+    }
+    '/_app/operations/staff': {
+      id: '/_app/operations/staff'
+      path: '/staff'
+      fullPath: '/operations/staff'
+      preLoaderRoute: typeof AppOperationsStaffRouteImport
+      parentRoute: typeof AppOperationsRoute
+    }
+    '/_app/partner/': {
+      id: '/_app/partner/'
+      path: '/'
+      fullPath: '/partner/'
+      preLoaderRoute: typeof AppPartnerIndexRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/assessments': {
+      id: '/_app/partner/assessments'
+      path: '/assessments'
+      fullPath: '/partner/assessments'
+      preLoaderRoute: typeof AppPartnerAssessmentsRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/assignments': {
+      id: '/_app/partner/assignments'
+      path: '/assignments'
+      fullPath: '/partner/assignments'
+      preLoaderRoute: typeof AppPartnerAssignmentsRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/availability': {
+      id: '/_app/partner/availability'
+      path: '/availability'
+      fullPath: '/partner/availability'
+      preLoaderRoute: typeof AppPartnerAvailabilityRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/documentation': {
+      id: '/_app/partner/documentation'
+      path: '/documentation'
+      fullPath: '/partner/documentation'
+      preLoaderRoute: typeof AppPartnerDocumentationRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/earnings': {
+      id: '/_app/partner/earnings'
+      path: '/earnings'
+      fullPath: '/partner/earnings'
+      preLoaderRoute: typeof AppPartnerEarningsRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/help': {
+      id: '/_app/partner/help'
+      path: '/help'
+      fullPath: '/partner/help'
+      preLoaderRoute: typeof AppPartnerHelpRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/notifications': {
+      id: '/_app/partner/notifications'
+      path: '/notifications'
+      fullPath: '/partner/notifications'
+      preLoaderRoute: typeof AppPartnerNotificationsRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/profile': {
+      id: '/_app/partner/profile'
+      path: '/profile'
+      fullPath: '/partner/profile'
+      preLoaderRoute: typeof AppPartnerProfileRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/services': {
+      id: '/_app/partner/services'
+      path: '/services'
+      fullPath: '/partner/services'
+      preLoaderRoute: typeof AppPartnerServicesRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/training': {
+      id: '/_app/partner/training'
+      path: '/training'
+      fullPath: '/partner/training'
+      preLoaderRoute: typeof AppPartnerTrainingRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/visits': {
+      id: '/_app/partner/visits'
+      path: '/visits'
+      fullPath: '/partner/visits'
+      preLoaderRoute: typeof AppPartnerVisitsRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/patients/$patientId': {
+      id: '/_app/patients/$patientId'
+      path: '/patients/$patientId'
+      fullPath: '/patients/$patientId'
+      preLoaderRoute: typeof AppPatientsPatientIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/users/nurses': {
+      id: '/_app/users/nurses'
+      path: '/users/nurses'
+      fullPath: '/users/nurses'
+      preLoaderRoute: typeof AppUsersNursesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/users/patients': {
+      id: '/_app/users/patients'
+      path: '/users/patients'
+      fullPath: '/users/patients'
+      preLoaderRoute: typeof AppUsersPatientsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/visits/$visitId': {
+      id: '/_app/visits/$visitId'
+      path: '/$visitId'
+      fullPath: '/visits/$visitId'
+      preLoaderRoute: typeof AppVisitsVisitIdRouteImport
+      parentRoute: typeof AppVisitsRoute
+    }
+    '/_app/consumer/bookings/$bookingId': {
+      id: '/_app/consumer/bookings/$bookingId'
+      path: '/$bookingId'
+      fullPath: '/consumer/bookings/$bookingId'
+      preLoaderRoute: typeof AppConsumerBookingsBookingIdRouteImport
+      parentRoute: typeof AppConsumerBookingsRoute
+    }
+    '/_app/consumer/patients/$patientId': {
+      id: '/_app/consumer/patients/$patientId'
+      path: '/$patientId'
+      fullPath: '/consumer/patients/$patientId'
+      preLoaderRoute: typeof AppConsumerPatientsPatientIdRouteImport
+      parentRoute: typeof AppConsumerPatientsRoute
+    }
+    '/_app/consumer/profile_/help': {
+      id: '/_app/consumer/profile_/help'
+      path: '/help'
+      fullPath: '/consumer/profile/help'
+      preLoaderRoute: typeof AppConsumerProfileHelpRouteImport
+      parentRoute: typeof AppConsumerProfileRoute
+    }
+    '/_app/consumer/profile_/personal': {
+      id: '/_app/consumer/profile_/personal'
+      path: '/personal'
+      fullPath: '/consumer/profile/personal'
+      preLoaderRoute: typeof AppConsumerProfilePersonalRouteImport
+      parentRoute: typeof AppConsumerProfileRoute
+    }
+    '/_app/consumer/profile_/preferences': {
+      id: '/_app/consumer/profile_/preferences'
+      path: '/preferences'
+      fullPath: '/consumer/profile/preferences'
+      preLoaderRoute: typeof AppConsumerProfilePreferencesRouteImport
+      parentRoute: typeof AppConsumerProfileRoute
+    }
+    '/_app/consumer/profile_/settings': {
+      id: '/_app/consumer/profile_/settings'
+      path: '/settings'
+      fullPath: '/consumer/profile/settings'
+      preLoaderRoute: typeof AppConsumerProfileSettingsRouteImport
+      parentRoute: typeof AppConsumerProfileRoute
     }
     '/_app/partner/visits/': {
       id: '/_app/partner/visits/'
@@ -1534,48 +1595,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/partner/visits/$visitId'
       preLoaderRoute: typeof AppPartnerVisitsVisitIdRouteImport
       parentRoute: typeof AppPartnerVisitsRoute
-    }
-    '/_app/consumer/profile_/settings': {
-      id: '/_app/consumer/profile_/settings'
-      path: '/settings'
-      fullPath: '/consumer/profile/settings'
-      preLoaderRoute: typeof AppConsumerProfileSettingsRouteImport
-      parentRoute: typeof AppConsumerProfileRoute
-    }
-    '/_app/consumer/profile_/preferences': {
-      id: '/_app/consumer/profile_/preferences'
-      path: '/preferences'
-      fullPath: '/consumer/profile/preferences'
-      preLoaderRoute: typeof AppConsumerProfilePreferencesRouteImport
-      parentRoute: typeof AppConsumerProfileRoute
-    }
-    '/_app/consumer/profile_/personal': {
-      id: '/_app/consumer/profile_/personal'
-      path: '/personal'
-      fullPath: '/consumer/profile/personal'
-      preLoaderRoute: typeof AppConsumerProfilePersonalRouteImport
-      parentRoute: typeof AppConsumerProfileRoute
-    }
-    '/_app/consumer/profile_/help': {
-      id: '/_app/consumer/profile_/help'
-      path: '/help'
-      fullPath: '/consumer/profile/help'
-      preLoaderRoute: typeof AppConsumerProfileHelpRouteImport
-      parentRoute: typeof AppConsumerProfileRoute
-    }
-    '/_app/consumer/patients/$patientId': {
-      id: '/_app/consumer/patients/$patientId'
-      path: '/$patientId'
-      fullPath: '/consumer/patients/$patientId'
-      preLoaderRoute: typeof AppConsumerPatientsPatientIdRouteImport
-      parentRoute: typeof AppConsumerPatientsRoute
-    }
-    '/_app/consumer/bookings/$bookingId': {
-      id: '/_app/consumer/bookings/$bookingId'
-      path: '/$bookingId'
-      fullPath: '/consumer/bookings/$bookingId'
-      preLoaderRoute: typeof AppConsumerBookingsBookingIdRouteImport
-      parentRoute: typeof AppConsumerBookingsRoute
     }
   }
 }
@@ -1861,6 +1880,7 @@ interface AppRouteChildren {
   AppOperationsRoute: typeof AppOperationsRouteWithChildren
   AppOpsDashboardRoute: typeof AppOpsDashboardRoute
   AppPartnerRoute: typeof AppPartnerRouteWithChildren
+  AppPrescriptionReviewRoute: typeof AppPrescriptionReviewRoute
   AppRetentionDashboardRoute: typeof AppRetentionDashboardRoute
   AppReviewerManagementRoute: typeof AppReviewerManagementRoute
   AppRolesPermissionsRoute: typeof AppRolesPermissionsRoute
@@ -1899,6 +1919,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOperationsRoute: AppOperationsRouteWithChildren,
   AppOpsDashboardRoute: AppOpsDashboardRoute,
   AppPartnerRoute: AppPartnerRouteWithChildren,
+  AppPrescriptionReviewRoute: AppPrescriptionReviewRoute,
   AppRetentionDashboardRoute: AppRetentionDashboardRoute,
   AppReviewerManagementRoute: AppReviewerManagementRoute,
   AppRolesPermissionsRoute: AppRolesPermissionsRoute,
