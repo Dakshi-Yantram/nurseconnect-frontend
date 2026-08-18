@@ -34,6 +34,7 @@ import { Route as AppPrescriptionReviewRouteImport } from './routes/_app.prescri
 import { Route as AppRetentionDashboardRouteImport } from './routes/_app.retention-dashboard'
 import { Route as AppReviewerManagementRouteImport } from './routes/_app.reviewer-management'
 import { Route as AppRolesPermissionsRouteImport } from './routes/_app.roles-permissions'
+import { Route as AppServicesCatalogueRouteImport } from './routes/_app.services-catalogue'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppSubscriptionSubsidyRouteImport } from './routes/_app.subscription-subsidy'
 import { Route as AppSupportDashboardRouteImport } from './routes/_app.support-dashboard'
@@ -216,6 +217,11 @@ const AppReviewerManagementRoute = AppReviewerManagementRouteImport.update({
 const AppRolesPermissionsRoute = AppRolesPermissionsRouteImport.update({
   id: '/roles-permissions',
   path: '/roles-permissions',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppServicesCatalogueRoute = AppServicesCatalogueRouteImport.update({
+  id: '/services-catalogue',
+  path: '/services-catalogue',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -542,6 +548,7 @@ export interface FileRoutesByFullPath {
   '/retention-dashboard': typeof AppRetentionDashboardRoute
   '/reviewer-management': typeof AppReviewerManagementRoute
   '/roles-permissions': typeof AppRolesPermissionsRoute
+  '/services-catalogue': typeof AppServicesCatalogueRoute
   '/settings': typeof AppSettingsRoute
   '/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/support-dashboard': typeof AppSupportDashboardRoute
@@ -622,6 +629,7 @@ export interface FileRoutesByTo {
   '/retention-dashboard': typeof AppRetentionDashboardRoute
   '/reviewer-management': typeof AppReviewerManagementRoute
   '/roles-permissions': typeof AppRolesPermissionsRoute
+  '/services-catalogue': typeof AppServicesCatalogueRoute
   '/settings': typeof AppSettingsRoute
   '/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/support-dashboard': typeof AppSupportDashboardRoute
@@ -706,6 +714,7 @@ export interface FileRoutesById {
   '/_app/retention-dashboard': typeof AppRetentionDashboardRoute
   '/_app/reviewer-management': typeof AppReviewerManagementRoute
   '/_app/roles-permissions': typeof AppRolesPermissionsRoute
+  '/_app/services-catalogue': typeof AppServicesCatalogueRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/_app/support-dashboard': typeof AppSupportDashboardRoute
@@ -791,6 +800,7 @@ export interface FileRouteTypes {
     | '/retention-dashboard'
     | '/reviewer-management'
     | '/roles-permissions'
+    | '/services-catalogue'
     | '/settings'
     | '/subscription-subsidy'
     | '/support-dashboard'
@@ -871,6 +881,7 @@ export interface FileRouteTypes {
     | '/retention-dashboard'
     | '/reviewer-management'
     | '/roles-permissions'
+    | '/services-catalogue'
     | '/settings'
     | '/subscription-subsidy'
     | '/support-dashboard'
@@ -954,6 +965,7 @@ export interface FileRouteTypes {
     | '/_app/retention-dashboard'
     | '/_app/reviewer-management'
     | '/_app/roles-permissions'
+    | '/_app/services-catalogue'
     | '/_app/settings'
     | '/_app/subscription-subsidy'
     | '/_app/support-dashboard'
@@ -1195,6 +1207,13 @@ declare module '@tanstack/react-router' {
       path: '/roles-permissions'
       fullPath: '/roles-permissions'
       preLoaderRoute: typeof AppRolesPermissionsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/services-catalogue': {
+      id: '/_app/services-catalogue'
+      path: '/services-catalogue'
+      fullPath: '/services-catalogue'
+      preLoaderRoute: typeof AppServicesCatalogueRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings': {
@@ -1884,6 +1903,7 @@ interface AppRouteChildren {
   AppRetentionDashboardRoute: typeof AppRetentionDashboardRoute
   AppReviewerManagementRoute: typeof AppReviewerManagementRoute
   AppRolesPermissionsRoute: typeof AppRolesPermissionsRoute
+  AppServicesCatalogueRoute: typeof AppServicesCatalogueRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSubscriptionSubsidyRoute: typeof AppSubscriptionSubsidyRoute
   AppSupportDashboardRoute: typeof AppSupportDashboardRoute
@@ -1923,6 +1943,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRetentionDashboardRoute: AppRetentionDashboardRoute,
   AppReviewerManagementRoute: AppReviewerManagementRoute,
   AppRolesPermissionsRoute: AppRolesPermissionsRoute,
+  AppServicesCatalogueRoute: AppServicesCatalogueRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSubscriptionSubsidyRoute: AppSubscriptionSubsidyRoute,
   AppSupportDashboardRoute: AppSupportDashboardRoute,

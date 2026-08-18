@@ -79,7 +79,7 @@ export type Permission =
   | "overview.view" | "ops.view" | "system.view"
   | "users.view" | "users.approve" | "onboarding.review" | "background.review"
   | "prescription.review"
-  | "clinical.escalation" | "clinical.packages" | "clinical.rules" | "clinical.insurance"
+  | "clinical.escalation" | "clinical.packages" | "clinical.services" | "clinical.rules" | "clinical.insurance"
   | "finance.reconciliation" | "finance.subscriptions" | "finance.disputes"
   | "trust.incidents" | "trust.complaints"
   | "compliance.retention" | "compliance.audit" | "compliance.settings"
@@ -106,7 +106,7 @@ const ADMIN_ALL: Permission[] = [
   "overview.view", "ops.view", "system.view",
   "users.view", "users.approve", "onboarding.review", "background.review",
   "prescription.review",
-  "clinical.escalation", "clinical.packages", "clinical.rules", "clinical.insurance",
+  "clinical.escalation", "clinical.packages", "clinical.services", "clinical.rules", "clinical.insurance",
   "finance.reconciliation", "finance.subscriptions", "finance.disputes",
   "trust.incidents", "trust.complaints",
   "compliance.retention", "compliance.audit", "compliance.settings",
@@ -205,6 +205,7 @@ export const NAV_REGISTRY: NavItem[] = [
 
   { to: "/clinical-escalation",     label: "Clinical Escalation",icon: AlertOctagon,    section: "Clinical",       permission: "clinical.escalation",       portal: "admin" },
   { to: "/care-packages",           label: "Care Packages",      icon: Package,         section: "Clinical",       permission: "clinical.packages",         portal: "admin" },
+  { to: "/services-catalogue",      label: "Service Catalogue",  icon: ListChecks,      section: "Clinical",       permission: "clinical.services",         portal: "admin" },
   { to: "/clinical-rule-sets",      label: "Clinical Rule Sets", icon: BookOpen,        section: "Clinical",       permission: "clinical.rules",            portal: "admin" },
   { to: "/insurance-review",        label: "Insurance Review",   icon: FileSearch,      section: "Clinical",       permission: "clinical.insurance",        portal: "admin" },
 

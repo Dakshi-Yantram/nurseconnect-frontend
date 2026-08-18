@@ -52,6 +52,7 @@ interface CarePackage {
   gate?: string;
   required_assessment_codes?: string[] | null;
   practical_checklist_items?: string[] | null;
+  allowed_provider_types?: string[] | null;
   created_at: string;
 }
 
@@ -76,6 +77,7 @@ interface PackageFormValues {
   gate: string;
   required_assessment_codes: string; // comma-separated
   practical_checklist_items: string; // one per line
+  allowed_provider_types: string[]; // empty = unrestricted, matches every provider type
 }
 
 const EMPTY_FORM: PackageFormValues = {
@@ -99,7 +101,18 @@ const EMPTY_FORM: PackageFormValues = {
   gate: "credential_only",
   required_assessment_codes: "",
   practical_checklist_items: "",
+  allowed_provider_types: [],
 };
+
+// Mirrors app/core/provider_types.py PROVIDER_TYPE_LABELS
+const PROVIDER_TYPES: { value: string; label: string }[] = [
+  { value: "nurse", label: "Nurse" },
+  { value: "doctor", label: "Doctor" },
+  { value: "dentist", label: "Dentist" },
+  { value: "physiotherapist", label: "Physiotherapist" },
+  { value: "caregiver", label: "Caregiver" },
+  { value: "mother_baby_caregiver", label: "Mother & Baby Caregiver" },
+];
 
 const TIERS = ["tier1", "tier2", "tier3", "tier4", "tier5"];
 const GENDER_OPTIONS = ["any", "female_only", "male_only"];
@@ -219,6 +232,7 @@ function CarePackagesPage() {
         practical_checklist_items: values.gate === "practical_verified" && values.practical_checklist_items
           ? values.practical_checklist_items.split("\n").map(c => c.trim()).filter(Boolean)
           : null,
+        allowed_provider_types: values.allowed_provider_types.length ? values.allowed_provider_types : null,
       };
 
       const isNew = !editTarget?.id;
@@ -385,6 +399,14 @@ function PackageCard({ pkg, toggling, onEdit, onClone, onHistory, onToggle }: {
         </div>
       )}
 
+      {pkg.allowed_provider_types && pkg.allowed_provider_types.length > 0 && (
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          Providers: {pkg.allowed_provider_types.map(
+            t => PROVIDER_TYPES.find(p => p.value === t)?.label ?? t
+          ).join(", ")}
+        </div>
+      )}
+
       <div className="mt-3 flex items-center justify-between">
         <div className="text-[15px] font-semibold">
           ₹{Number(pkg.package_price).toLocaleString("en-IN")}
@@ -451,6 +473,7 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
         gate: pkg.gate ?? "credential_only",
         required_assessment_codes: pkg.required_assessment_codes?.join(", ") ?? "",
         practical_checklist_items: pkg.practical_checklist_items?.join("\n") ?? "",
+        allowed_provider_types: pkg.allowed_provider_types ?? [],
       });
     } else {
       setForm(EMPTY_FORM);
@@ -459,6 +482,15 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
 
   const set = (key: keyof PackageFormValues, value: string | boolean) =>
     setForm(prev => ({ ...prev, [key]: value }));
+
+  const toggleProviderType = (value: string) => {
+    setForm(prev => ({
+      ...prev,
+      allowed_provider_types: prev.allowed_provider_types.includes(value)
+        ? prev.allowed_provider_types.filter(v => v !== value)
+        : [...prev.allowed_provider_types, value],
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -575,6 +607,26 @@ function PackageEditorModal({ open, pkg, saving, onClose, onSave }: {
             </p>
           </div>
         )}
+
+        <div className="col-span-2 pt-3 mt-1 border-t border-border">
+          <p className="text-[12px] font-semibold text-foreground mb-1">Allowed Provider Types</p>
+          <p className="text-[11px] text-muted-foreground mb-2">
+            Leave all unchecked to allow every provider type (back-compat default). Only checked types will ever be bookable/eligible for this package.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {PROVIDER_TYPES.map(pt => (
+              <label key={pt.value} className="flex items-center gap-2 cursor-pointer text-[12.5px]">
+                <input
+                  type="checkbox"
+                  checked={form.allowed_provider_types.includes(pt.value)}
+                  onChange={() => toggleProviderType(pt.value)}
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                {pt.label}
+              </label>
+            ))}
+          </div>
+        </div>
       </form>
     </Modal>
   );
