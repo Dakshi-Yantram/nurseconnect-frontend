@@ -32,17 +32,38 @@ const STATUS_STYLE: Record<string, string> = {
   onboarding: "bg-muted text-muted-foreground",
 };
 
+// Mirrors app/core/provider_types.py PROVIDER_TYPE_LABELS
+const PROVIDER_TYPES: { value: string; label: string }[] = [
+  { value: "nurse", label: "Nurse" },
+  { value: "doctor", label: "Doctor" },
+  { value: "dentist", label: "Dentist" },
+  { value: "physiotherapist", label: "Physiotherapist" },
+  { value: "caregiver", label: "Caregiver" },
+  { value: "mother_baby_caregiver", label: "Mother & Baby Caregiver" },
+];
+const PROVIDER_TYPE_BADGE: Record<string, string> = {
+  nurse: "bg-blue-100 text-blue-700",
+  doctor: "bg-sky-100 text-sky-700",
+  dentist: "bg-cyan-100 text-cyan-700",
+  physiotherapist: "bg-teal-100 text-teal-700",
+  caregiver: "bg-purple-100 text-purple-700",
+  mother_baby_caregiver: "bg-pink-100 text-pink-700",
+};
+
 function NursesPage() {
   const [rows, setRows] = useState<WorkerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [providerFilter, setProviderFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      // Fetch all workers (any onboarding status) from admin endpoint
-      const data = await apiFetch("/api/admin/workers/all");
+      // Fetch all workers (any onboarding status) from admin endpoint,
+      // filtered server-side by provider_type when a filter is selected.
+      const qs = providerFilter ? `?provider_type=${providerFilter}` : "";
+      const data = await apiFetch(`/api/admin/workers/all${qs}`);
       setRows(Array.isArray(data) ? data : []);
     } catch {
       // Fallback: fetch just the pending ones if /all isn't available yet
@@ -51,7 +72,7 @@ function NursesPage() {
         setRows(Array.isArray(data) ? data : []);
       } catch (e: any) { setError(String(e?.message ?? e)); }
     } finally { setLoading(false); }
-  }, []);
+  }, [providerFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -67,6 +88,15 @@ function NursesPage() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, email or phone…"
             className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-2 text-[13px]" />
         </div>
+        <select
+          value={providerFilter}
+          onChange={(e) => setProviderFilter(e.target.value)}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-[12.5px]"
+          title="Filter by provider type"
+        >
+          <option value="">All provider types</option>
+          {PROVIDER_TYPES.map((pt) => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
+        </select>
         <button onClick={load} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[12.5px] hover:bg-muted">
           <RefreshCw size={13} /> Refresh
         </button>
@@ -106,9 +136,9 @@ function NursesPage() {
                       <div className="font-semibold text-foreground">{r.full_name}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={cn("rounded-full px-2 py-0.5 text-[10.5px] font-semibold capitalize",
-                        r.worker_type === "caregiver" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
-                        {r.worker_type ?? "nurse"}
+                      <span className={cn("rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                        PROVIDER_TYPE_BADGE[r.worker_type ?? "nurse"] ?? "bg-blue-100 text-blue-700")}>
+                        {PROVIDER_TYPES.find((pt) => pt.value === r.worker_type)?.label ?? r.worker_type ?? "Nurse"}
                       </span>
                     </td>
                     <td className="px-4 py-3">

@@ -35,6 +35,7 @@ type Ticket = {
   nurse_id: string;
   nurse_name: string | null;
   nurse_email: string | null;
+  worker_type: string | null;
   specialty: string | null;
   experience_years: number | null;
   city: string | null;
@@ -45,6 +46,16 @@ type Ticket = {
   created_at: string;
 };
 
+// Mirrors app/core/provider_types.py PROVIDER_TYPE_LABELS
+const PROVIDER_TYPES: { value: string; label: string }[] = [
+  { value: "nurse", label: "Nurse" },
+  { value: "doctor", label: "Doctor" },
+  { value: "dentist", label: "Dentist" },
+  { value: "physiotherapist", label: "Physiotherapist" },
+  { value: "caregiver", label: "Caregiver" },
+  { value: "mother_baby_caregiver", label: "Mother & Baby Caregiver" },
+];
+
 type ModalType = "move" | "reject" | "reopen" | "comment" | "request-docs" | "escalate" | null;
 
 function OnboardingPage() {
@@ -53,6 +64,7 @@ function OnboardingPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<ModalType>(null);
+  const [providerFilter, setProviderFilter] = useState("");
 
   const [comment, setComment] = useState("");
   const [requestInstructions, setRequestInstructions] = useState("");
@@ -137,12 +149,31 @@ function OnboardingPage() {
   }
 
   const stageIdx = stageIndexForStatus(selected.status);
+  const visibleTickets = providerFilter ? tickets.filter(t => t.worker_type === providerFilter) : tickets;
 
   return (
     <div className="grid grid-cols-12 gap-6">
-      <Card title="Applications in Pipeline" className="col-span-12 lg:col-span-5" padded={false}>
+      <Card
+        title="Applications in Pipeline"
+        className="col-span-12 lg:col-span-5"
+        padded={false}
+        action={
+          <select
+            value={providerFilter}
+            onChange={(e) => setProviderFilter(e.target.value)}
+            className="rounded-md border border-border bg-background px-2 py-1 text-[11.5px]"
+            title="Filter by provider type"
+          >
+            <option value="">All types</option>
+            {PROVIDER_TYPES.map(pt => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
+          </select>
+        }
+      >
         <ul className="divide-y divide-border max-h-[640px] overflow-y-auto nc-scroll">
-          {tickets.map(t => {
+          {visibleTickets.length === 0 && (
+            <li className="p-4 text-[12.5px] text-muted-foreground text-center">No applications match this filter.</li>
+          )}
+          {visibleTickets.map(t => {
             const idx = stageIndexForStatus(t.status);
             return (
               <li key={t.id} onClick={() => setSelectedId(t.id)} className={`p-4 cursor-pointer ${selected.id === t.id ? "bg-blue-50/60 border-l-2 border-l-primary" : "hover:bg-muted/40"}`}>
@@ -152,6 +183,11 @@ function OnboardingPage() {
                     <Clock className="h-3 w-3" /> {t.sla_due_at ? new Date(t.sla_due_at).toLocaleDateString("en-IN") : "No SLA"}
                   </span>
                 </div>
+                {t.worker_type && (
+                  <span className="inline-block mt-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10.5px] font-semibold text-sky-700">
+                    {PROVIDER_TYPES.find(pt => pt.value === t.worker_type)?.label ?? t.worker_type}
+                  </span>
+                )}
                 <div className="text-[11px] text-muted-foreground">
                   {t.id.slice(0, 8)} · Submitted {new Date(t.created_at).toLocaleDateString("en-IN")}
                 </div>
@@ -174,7 +210,7 @@ function OnboardingPage() {
             <div>
               <div className="text-[16px] font-semibold">{selected.nurse_name ?? "Unnamed applicant"}</div>
               <div className="text-[12px] text-muted-foreground">
-                {selected.id.slice(0, 8)} · {selected.specialty ?? "—"} · {selected.experience_years ?? "—"} yrs · {selected.city ?? "—"}
+                {selected.id.slice(0, 8)} · {selected.worker_type ? (PROVIDER_TYPES.find(pt => pt.value === selected.worker_type)?.label ?? selected.worker_type) : "—"} · {selected.specialty ?? "—"} · {selected.experience_years ?? "—"} yrs · {selected.city ?? "—"}
               </div>
               <div className="mt-2 flex items-center gap-3 text-[12px] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5"><UserCheck className="h-3.5 w-3.5" /> Email: <b className="text-foreground">{selected.nurse_email ?? "—"}</b></span>
