@@ -258,7 +258,13 @@ function SupportEscalationsPage() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    apiFetch(`/api/escalations${filter ? `?status=${filter}` : ""}`)
+    // NOTE: the backend route is GET /api/escalations/ (trailing slash — it's
+    // the router's root "/"). Calling it without the slash makes FastAPI
+    // issue a 307 redirect, and because TLS terminates at the proxy in front
+    // of the backend, that redirect's Location header comes back as
+    // "http://..." — the browser then blocks it as mixed content. Always
+    // hitting the exact "/api/escalations/" path avoids the redirect.
+    apiFetch(`/api/escalations/${filter ? `?status=${filter}` : ""}`)
       .then(setEscalations)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load escalations"))
       .finally(() => setLoading(false));
