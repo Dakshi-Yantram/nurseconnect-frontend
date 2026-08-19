@@ -104,6 +104,22 @@ function normalizePhone(raw: string): string {
 
 const PASSWORD_HINT = "8+ characters, with an uppercase letter, lowercase letter, and a number.";
 
+// Mirrors backend app/core/provider_types.py PROVIDER_TYPE_LABELS /
+// LICENSED_PROVIDER_TYPES. mother_baby_caregiver is deliberately not offered
+// at self-registration — that specialization is set later by admin/ops, not
+// chosen at signup.
+const PARTNER_REGISTER_TYPES: {
+  value: "nurse" | "doctor" | "dentist" | "physiotherapist" | "caregiver";
+  label: string;
+  tagline: string;
+}[] = [
+  { value: "nurse", label: "Nurse", tagline: "Professionally trained, licensed nurse" },
+  { value: "doctor", label: "Doctor", tagline: "Registered medical practitioner (MBBS/MD and above)" },
+  { value: "dentist", label: "Dentist", tagline: "Registered dental practitioner (BDS/MDS)" },
+  { value: "physiotherapist", label: "Physiotherapist", tagline: "Registered physiotherapy professional" },
+  { value: "caregiver", label: "Caregiver / Attendant", tagline: "Care helper / companion (non-clinical)" },
+];
+
 function isPasswordValid(pw: string): boolean {
   return (
     pw.length >= 8 &&
@@ -134,7 +150,9 @@ function LoginPage() {
   const [phone, setPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regRole, setRegRole] = useState<SelfRegisterRole>("consumer");
-  const [workerType, setWorkerType] = useState<"nurse" | "caregiver">("nurse");
+  const [workerType, setWorkerType] = useState<
+    "nurse" | "doctor" | "dentist" | "physiotherapist" | "caregiver"
+  >("nurse");
 
   // Verify
   const [verifyEmail, setVerifyEmail] = useState("");
@@ -491,16 +509,16 @@ function LoginPage() {
                   {regRole === "partner" && (
                     <div>
                       <label className="text-[12px] font-medium text-foreground">I am a</label>
-                      <div className="mt-1.5 grid grid-cols-2 gap-1.5 p-1 rounded-md bg-secondary/60 text-[12px] font-medium">
-                        {(["nurse", "caregiver"] as const).map((t) => (
-                          <button key={t} type="button" onClick={() => setWorkerType(t)}
-                            className={`px-2 py-1.5 rounded-md capitalize transition ${workerType === t ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
-                            {t}
+                      <div className="mt-1.5 grid grid-cols-3 gap-1.5 p-1 rounded-md bg-secondary/60 text-[11.5px] font-medium">
+                        {PARTNER_REGISTER_TYPES.map((t) => (
+                          <button key={t.value} type="button" onClick={() => setWorkerType(t.value)}
+                            className={`px-2 py-1.5 rounded-md transition ${workerType === t.value ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
+                            {t.label}
                           </button>
                         ))}
                       </div>
                       <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        {workerType === "nurse" ? "Professionally trained, licensed nurse" : "Care helper / companion (non-clinical)"}
+                        {PARTNER_REGISTER_TYPES.find((t) => t.value === workerType)?.tagline}
                       </p>
                     </div>
                   )}
