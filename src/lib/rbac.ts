@@ -198,6 +198,7 @@ export const NAV_REGISTRY: NavItem[] = [
   // ---------- ADMIN ----------
   { to: "/dashboard",               label: "Dashboard",          icon: LayoutDashboard, section: "Overview",       permission: "overview.view",             portal: "admin" },
   { to: "/ops-dashboard",           label: "Live Ops",           icon: Activity,        section: "Overview",       permission: "ops.view",                  portal: "admin" },
+  { to: "/location-dashboard",      label: "Location Dashboard", icon: MapPin,          section: "Overview",       permission: "overview.view",             portal: "admin" },
   { to: "/system-index",            label: "System Index",       icon: Network,         section: "Overview",       permission: "system.view",               portal: "admin" },
 
   { to: "/users/patients",          label: "Patients",           icon: Users,           section: "Users",          permission: "users.view",                portal: "admin" },
