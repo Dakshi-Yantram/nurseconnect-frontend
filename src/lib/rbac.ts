@@ -7,6 +7,11 @@ import {
   Briefcase, MapPin, IndianRupee, GraduationCap, Clock, FileSignature, Inbox,
   UserCog, HelpCircle, UserPlus, LifeBuoy,
 } from "lucide-react";
+// ListChecks imported from its own subpath (not the "lucide-react" barrel) —
+// production Rollup/Vite code-splitting was tree-shaking this one named
+// export out of the rbac.ts chunk, causing "ReferenceError: ListChecks is
+// not defined" at runtime (build-only bug, invisible in dev/preview).
+import ListChecks from "lucide-react/dist/esm/icons/list-checks";
 
 // ---------------------------------------------------------------------------
 // Roles + Portals
@@ -255,7 +260,7 @@ export const NAV_REGISTRY: NavItem[] = [
   // ---------- SUPPORT ----------
   { to: "/support-dashboard",   label: "Support Queue",    icon: Inbox,        section: "Support", permission: "support.queue",   portal: "support" },
   { to: "/support-tickets",     label: "Ticket Queue",     icon: LifeBuoy,     section: "Support", permission: "support.tickets", portal: "support" },
-  { to: "/clinical-escalation", label: "All Escalations",  icon: AlertOctagon, section: "Support", permission: "support.queue",   portal: "support" },
+  { to: "/support-escalations", label: "All Escalations",  icon: AlertOctagon, section: "Support", permission: "support.queue",   portal: "support" },
 
   // ---------- OPERATIONS ----------
   { to: "/operations",          label: "Overview",         icon: LayoutDashboard, section: "Operations", permission: "ops.home",  portal: "operations" },
