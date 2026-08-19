@@ -33,6 +33,7 @@ import { Route as AppOperationsRouteImport } from './routes/_app.operations'
 import { Route as AppOnboardingReviewRouteImport } from './routes/_app.onboarding-review'
 import { Route as AppNurseApprovalRouteImport } from './routes/_app.nurse-approval'
 import { Route as AppModerationRouteImport } from './routes/_app.moderation'
+import { Route as AppLocationDashboardRouteImport } from './routes/_app.location-dashboard'
 import { Route as AppInsuranceReviewRouteImport } from './routes/_app.insurance-review'
 import { Route as AppIncidentsRouteImport } from './routes/_app.incidents'
 import { Route as AppFinancialReconciliationRouteImport } from './routes/_app.financial-reconciliation'
@@ -211,6 +212,11 @@ const AppNurseApprovalRoute = AppNurseApprovalRouteImport.update({
 const AppModerationRoute = AppModerationRouteImport.update({
   id: '/moderation',
   path: '/moderation',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLocationDashboardRoute = AppLocationDashboardRouteImport.update({
+  id: '/location-dashboard',
+  path: '/location-dashboard',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInsuranceReviewRoute = AppInsuranceReviewRouteImport.update({
@@ -544,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/financial-reconciliation': typeof AppFinancialReconciliationRouteWithChildren
   '/incidents': typeof AppIncidentsRouteWithChildren
   '/insurance-review': typeof AppInsuranceReviewRouteWithChildren
+  '/location-dashboard': typeof AppLocationDashboardRoute
   '/moderation': typeof AppModerationRouteWithChildren
   '/nurse-approval': typeof AppNurseApprovalRoute
   '/onboarding-review': typeof AppOnboardingReviewRouteWithChildren
@@ -628,6 +635,7 @@ export interface FileRoutesByTo {
   '/financial-reconciliation': typeof AppFinancialReconciliationRouteWithChildren
   '/incidents': typeof AppIncidentsRouteWithChildren
   '/insurance-review': typeof AppInsuranceReviewRouteWithChildren
+  '/location-dashboard': typeof AppLocationDashboardRoute
   '/moderation': typeof AppModerationRouteWithChildren
   '/nurse-approval': typeof AppNurseApprovalRoute
   '/onboarding-review': typeof AppOnboardingReviewRouteWithChildren
@@ -712,6 +720,7 @@ export interface FileRoutesById {
   '/_app/financial-reconciliation': typeof AppFinancialReconciliationRouteWithChildren
   '/_app/incidents': typeof AppIncidentsRouteWithChildren
   '/_app/insurance-review': typeof AppInsuranceReviewRouteWithChildren
+  '/_app/location-dashboard': typeof AppLocationDashboardRoute
   '/_app/moderation': typeof AppModerationRouteWithChildren
   '/_app/nurse-approval': typeof AppNurseApprovalRoute
   '/_app/onboarding-review': typeof AppOnboardingReviewRouteWithChildren
@@ -799,6 +808,7 @@ export interface FileRouteTypes {
     | '/financial-reconciliation'
     | '/incidents'
     | '/insurance-review'
+    | '/location-dashboard'
     | '/moderation'
     | '/nurse-approval'
     | '/onboarding-review'
@@ -883,6 +893,7 @@ export interface FileRouteTypes {
     | '/financial-reconciliation'
     | '/incidents'
     | '/insurance-review'
+    | '/location-dashboard'
     | '/moderation'
     | '/nurse-approval'
     | '/onboarding-review'
@@ -966,6 +977,7 @@ export interface FileRouteTypes {
     | '/_app/financial-reconciliation'
     | '/_app/incidents'
     | '/_app/insurance-review'
+    | '/_app/location-dashboard'
     | '/_app/moderation'
     | '/_app/nurse-approval'
     | '/_app/onboarding-review'
@@ -1212,6 +1224,13 @@ declare module '@tanstack/react-router' {
       path: '/moderation'
       fullPath: '/moderation'
       preLoaderRoute: typeof AppModerationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/location-dashboard': {
+      id: '/_app/location-dashboard'
+      path: '/location-dashboard'
+      fullPath: '/location-dashboard'
+      preLoaderRoute: typeof AppLocationDashboardRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/insurance-review': {
@@ -1912,6 +1931,7 @@ interface AppRouteChildren {
   AppFinancialReconciliationRoute: typeof AppFinancialReconciliationRouteWithChildren
   AppIncidentsRoute: typeof AppIncidentsRouteWithChildren
   AppInsuranceReviewRoute: typeof AppInsuranceReviewRouteWithChildren
+  AppLocationDashboardRoute: typeof AppLocationDashboardRoute
   AppModerationRoute: typeof AppModerationRouteWithChildren
   AppNurseApprovalRoute: typeof AppNurseApprovalRoute
   AppOnboardingReviewRoute: typeof AppOnboardingReviewRouteWithChildren
@@ -1953,6 +1973,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFinancialReconciliationRoute: AppFinancialReconciliationRouteWithChildren,
   AppIncidentsRoute: AppIncidentsRouteWithChildren,
   AppInsuranceReviewRoute: AppInsuranceReviewRouteWithChildren,
+  AppLocationDashboardRoute: AppLocationDashboardRoute,
   AppModerationRoute: AppModerationRouteWithChildren,
   AppNurseApprovalRoute: AppNurseApprovalRoute,
   AppOnboardingReviewRoute: AppOnboardingReviewRouteWithChildren,
