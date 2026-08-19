@@ -50,20 +50,57 @@ const PROVIDER_TYPE_BADGE: Record<string, string> = {
   mother_baby_caregiver: "bg-pink-100 text-pink-700",
 };
 
+// Maps a PROVIDER_TYPES enum value to the plural key the backend returns
+// under `by_provider_type` (GET /api/admin/dashboard/providers). Keeping
+// this as an explicit table rather than guessing "add an s" — the backend
+// keys are hand-written English plurals, not a mechanical transform.
+const PROVIDER_TYPE_TO_COUNT_KEY: Record<string, string> = {
+  nurse: "nurses",
+  doctor: "doctors",
+  dentist: "dentists",
+  physiotherapist: "physiotherapists",
+  caregiver: "caregivers",
+  mother_baby_caregiver: "mother_baby_caregivers",
+};
+
+// Mirrors app/models/enums.py WorkerQualificationStatus
+const QUALIFICATION_STATUSES: { value: string; label: string }[] = [
+  { value: "NOT_QUALIFIED", label: "Not qualified" },
+  { value: "TRAINING_REQUIRED", label: "Training required" },
+  { value: "TEST_FAILED", label: "Test failed" },
+  { value: "QUALIFIED_PENDING_APPROVAL", label: "Qualified — pending approval" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "SUSPENDED", label: "Suspended" },
+  { value: "EXPIRED", label: "Expired" },
+];
+
+type SpecializationGroup = { group_key: string; group_label: string; items: { value: string; label: string }[] };
+
 function NursesPage() {
   const [rows, setRows] = useState<WorkerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [providerFilter, setProviderFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [packageFilter, setPackageFilter] = useState("");
+  const [qualificationFilter, setQualificationFilter] = useState("");
+  const [specializationFilter, setSpecializationFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const [counts, setCounts] = useState<{ total: number; byType: Record<string, number> } | null>(null);
+  const [specGroups, setSpecGroups] = useState<SpecializationGroup[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       // Fetch all workers (any onboarding status) from admin endpoint,
-      // filtered server-side by provider_type when a filter is selected.
-      const qs = providerFilter ? `?provider_type=${providerFilter}` : "";
+      // filtered server-side by whichever filters are active.
+      const params = new URLSearchParams();
+      if (providerFilter) params.set("provider_type", providerFilter);
+      if (cityFilter) params.set("city", cityFilter);
+      if (packageFilter) params.set("package", packageFilter);
+      if (qualificationFilter) params.set("qualification_status", qualificationFilter);
+      if (specializationFilter) params.set("specialization", specializationFilter);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const data = await apiFetch(`/api/admin/workers/all${qs}`);
       setRows(Array.isArray(data) ? data : []);
     } catch {
@@ -73,21 +110,41 @@ function NursesPage() {
         setRows(Array.isArray(data) ? data : []);
       } catch (e: any) { setError(String(e?.message ?? e)); }
     } finally { setLoading(false); }
-  }, [providerFilter]);
+  }, [providerFilter, cityFilter, packageFilter, qualificationFilter, specializationFilter]);
 
   // Live counts per provider type, independent of the current row filter —
-  // powers the clickable summary cards above the table.
+  // powers the clickable summary cards above the table. Backend returns
+  // { total_providers, by_provider_type: { doctors, nurses, ... } }.
   const loadCounts = useCallback(async () => {
     try {
       const data = await apiFetch("/api/admin/dashboard/providers");
-      setCounts(data?.by_type ?? null);
+      if (data?.by_provider_type) {
+        setCounts({ total: data.total_providers ?? 0, byType: data.by_provider_type });
+      } else {
+        setCounts(null);
+      }
     } catch {
       setCounts(null);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadSpecializations = useCallback(async () => {
+    try {
+      const data = await apiFetch("/api/admin/caregiver-specializations");
+      setSpecGroups(Array.isArray(data) ? data : []);
+    } catch {
+      setSpecGroups([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Debounced so free-text City/Package filters don't fire a request per
+    // keystroke; dropdown filters resolve to the same effect near-instantly.
+    const t = setTimeout(load, 300);
+    return () => clearTimeout(t);
+  }, [load]);
   useEffect(() => { loadCounts(); }, [loadCounts]);
+  useEffect(() => { loadSpecializations(); }, [loadSpecializations]);
 
   const filtered = rows.filter((r) =>
     `${r.full_name} ${r.email} ${r.phone} ${r.worker_type ?? ""}`.toLowerCase().includes(q.toLowerCase())
@@ -105,9 +162,7 @@ function NursesPage() {
             )}
           >
             <div className="text-[11px] text-muted-foreground">All types</div>
-            <div className="text-[18px] font-bold text-foreground">
-              {Object.values(counts).reduce((a, b) => a + b, 0)}
-            </div>
+            <div className="text-[18px] font-bold text-foreground">{counts.total}</div>
           </button>
           {PROVIDER_TYPES.map((pt) => (
             <button
@@ -119,14 +174,16 @@ function NursesPage() {
               )}
             >
               <div className="text-[11px] text-muted-foreground truncate">{pt.label}</div>
-              <div className="text-[18px] font-bold text-foreground">{counts[pt.value] ?? 0}</div>
+              <div className="text-[18px] font-bold text-foreground">
+                {counts.byType[PROVIDER_TYPE_TO_COUNT_KEY[pt.value]] ?? 0}
+              </div>
             </button>
           ))}
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, email or phone…"
             className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-2 text-[13px]" />
@@ -140,9 +197,57 @@ function NursesPage() {
           <option value="">All provider types</option>
           {PROVIDER_TYPES.map((pt) => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
         </select>
+        <input
+          value={cityFilter}
+          onChange={(e) => setCityFilter(e.target.value)}
+          placeholder="City"
+          title="Filter by city"
+          className="w-32 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px]"
+        />
+        <input
+          value={packageFilter}
+          onChange={(e) => setPackageFilter(e.target.value)}
+          placeholder="Package / service code"
+          title="Filter by package or service code"
+          className="w-40 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px]"
+        />
+        <select
+          value={qualificationFilter}
+          onChange={(e) => setQualificationFilter(e.target.value)}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-[12.5px]"
+          title="Filter by qualification status"
+        >
+          <option value="">All qualification statuses</option>
+          {QUALIFICATION_STATUSES.map((qs) => <option key={qs.value} value={qs.value}>{qs.label}</option>)}
+        </select>
+        {(providerFilter === "" || providerFilter === "caregiver" || providerFilter === "mother_baby_caregiver") && specGroups.length > 0 && (
+          <select
+            value={specializationFilter}
+            onChange={(e) => setSpecializationFilter(e.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-[12.5px]"
+            title="Filter by caregiver specialization"
+          >
+            <option value="">All specializations</option>
+            {specGroups.map((group) => (
+              <optgroup key={group.group_key} label={group.group_label}>
+                {group.items.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
         <button onClick={load} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[12.5px] hover:bg-muted">
           <RefreshCw size={13} /> Refresh
         </button>
+        {(cityFilter || packageFilter || qualificationFilter || specializationFilter) && (
+          <button
+            onClick={() => { setCityFilter(""); setPackageFilter(""); setQualificationFilter(""); setSpecializationFilter(""); }}
+            className="text-[12px] text-muted-foreground hover:text-foreground underline"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-700">{error}</div>}
