@@ -56,6 +56,7 @@ function NursesPage() {
   const [q, setQ] = useState("");
   const [providerFilter, setProviderFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -74,7 +75,19 @@ function NursesPage() {
     } finally { setLoading(false); }
   }, [providerFilter]);
 
+  // Live counts per provider type, independent of the current row filter —
+  // powers the clickable summary cards above the table.
+  const loadCounts = useCallback(async () => {
+    try {
+      const data = await apiFetch("/api/admin/dashboard/providers");
+      setCounts(data?.by_type ?? null);
+    } catch {
+      setCounts(null);
+    }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadCounts(); }, [loadCounts]);
 
   const filtered = rows.filter((r) =>
     `${r.full_name} ${r.email} ${r.phone} ${r.worker_type ?? ""}`.toLowerCase().includes(q.toLowerCase())
@@ -82,6 +95,36 @@ function NursesPage() {
 
   return (
     <div className="space-y-4">
+      {counts && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <button
+            onClick={() => setProviderFilter("")}
+            className={cn(
+              "rounded-xl border px-3 py-2.5 text-left transition",
+              providerFilter === "" ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/30"
+            )}
+          >
+            <div className="text-[11px] text-muted-foreground">All types</div>
+            <div className="text-[18px] font-bold text-foreground">
+              {Object.values(counts).reduce((a, b) => a + b, 0)}
+            </div>
+          </button>
+          {PROVIDER_TYPES.map((pt) => (
+            <button
+              key={pt.value}
+              onClick={() => setProviderFilter(pt.value)}
+              className={cn(
+                "rounded-xl border px-3 py-2.5 text-left transition",
+                providerFilter === pt.value ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/30"
+              )}
+            >
+              <div className="text-[11px] text-muted-foreground truncate">{pt.label}</div>
+              <div className="text-[18px] font-bold text-foreground">{counts[pt.value] ?? 0}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
