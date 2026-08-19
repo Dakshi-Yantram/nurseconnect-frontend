@@ -119,7 +119,8 @@ function StaffAccountsPage() {
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">Mobile number</label>
-            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="9999900001"
+            <input value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="9999900001"
+              inputMode="numeric" maxLength={10}
               className="mt-1.5 w-full px-3 py-2.5 text-[14px] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40" />
           </div>
           <div className="sm:col-span-2">
