@@ -5,7 +5,7 @@ import {
   Scale, FileSearch, Database, Settings, ScrollText, HeartHandshake,
   CalendarCheck, FileText, Bell, User as UserIcon,
   Briefcase, MapPin, IndianRupee, GraduationCap, Clock, FileSignature, Inbox,
-  UserCog, HelpCircle, UserPlus, LifeBuoy,
+  UserCog, HelpCircle, UserPlus, LifeBuoy, ListChecks,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
