@@ -5,7 +5,7 @@ import {
   Scale, FileSearch, Database, Settings, ScrollText, HeartHandshake,
   CalendarCheck, FileText, Bell, User as UserIcon,
   Briefcase, MapPin, IndianRupee, GraduationCap, Clock, FileSignature, Inbox,
-  UserCog, HelpCircle, UserPlus, LifeBuoy, ListChecks,
+  UserCog, HelpCircle, UserPlus, LifeBuoy,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -255,7 +255,7 @@ export const NAV_REGISTRY: NavItem[] = [
   // ---------- SUPPORT ----------
   { to: "/support-dashboard",   label: "Support Queue",    icon: Inbox,        section: "Support", permission: "support.queue",   portal: "support" },
   { to: "/support-tickets",     label: "Ticket Queue",     icon: LifeBuoy,     section: "Support", permission: "support.tickets", portal: "support" },
-  { to: "/support-escalations", label: "All Escalations",  icon: AlertOctagon, section: "Support", permission: "support.queue",   portal: "support" },
+  { to: "/clinical-escalation", label: "All Escalations",  icon: AlertOctagon, section: "Support", permission: "support.queue",   portal: "support" },
 
   // ---------- OPERATIONS ----------
   { to: "/operations",          label: "Overview",         icon: LayoutDashboard, section: "Operations", permission: "ops.home",  portal: "operations" },
