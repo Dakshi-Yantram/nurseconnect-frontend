@@ -5,7 +5,7 @@ import { StatusChip, statusToneFor } from "@/components/shared/StatusChip";
 import { WorkflowModal, FormField, textareaCls } from "@/components/shared/WorkflowModals";
 import { ChevronRight, Clock, UserCheck, RotateCcw, MessageSquarePlus, FilePlus2, ArrowUpRight, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 // Backend document_type codes -> friendly labels shown to reviewers.
 const DOCUMENT_LABELS: Record<string, string> = {
@@ -19,6 +19,33 @@ const DOCUMENT_LABELS: Record<string, string> = {
 
 function labelForDocument(code: string): string {
   return DOCUMENT_LABELS[code] ?? code.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof Error ? e.message : fallback;
+}
+
+// Works whether `api.ts` throws a plain Error (message = raw/parsed text)
+// or a custom ApiError with a `.detail` object attached — no hard import
+// dependency on api.ts internals, so this file compiles either way.
+function missingDocumentsFrom(e: unknown): { message: string; documents: string[] } | null {
+  const detail = (e as any)?.detail;
+  if (detail && typeof detail === "object" && Array.isArray(detail.documents) && detail.documents.length) {
+    return { message: detail.message ?? "Required documents are not verified", documents: detail.documents };
+  }
+  // Fallback: try to parse it out of a raw JSON message string.
+  if (e instanceof Error) {
+    try {
+      const parsed = JSON.parse(e.message);
+      const d = parsed?.detail;
+      if (d && Array.isArray(d.documents) && d.documents.length) {
+        return { message: d.message ?? "Required documents are not verified", documents: d.documents };
+      }
+    } catch {
+      // not JSON, ignore
+    }
+  }
+  return null;
 }
 
 type MoveBlockedInfo = { message: string; documents: string[] } | null;
@@ -98,7 +125,7 @@ function OnboardingPage() {
         setSelectedId(rows[0].id);
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to load onboarding queue");
+      toast.error(errorMessage(e, "Failed to load onboarding queue"));
     } finally {
       setLoading(false);
     }
@@ -121,7 +148,7 @@ function OnboardingPage() {
       return true;
     } catch (e) {
       if (!opts?.silent) {
-        toast.error(e instanceof Error ? e.message : "Failed to update ticket");
+        toast.error(errorMessage(e, "Failed to update ticket"));
       }
       throw e;
     } finally {
@@ -139,11 +166,11 @@ function OnboardingPage() {
       close();
     } catch (e) {
       // Show missing-document errors inline in the modal instead of a raw toast.
-      if (e instanceof ApiError && e.detail && typeof e.detail === "object" && "documents" in (e.detail as any)) {
-        const d = e.detail as { message: string; documents: string[] };
-        setMoveBlocked({ message: d.message, documents: d.documents });
+      const blocked = missingDocumentsFrom(e);
+      if (blocked) {
+        setMoveBlocked(blocked);
       } else {
-        toast.error(e instanceof Error ? e.message : "Failed to update ticket");
+        toast.error(errorMessage(e, "Failed to update ticket"));
       }
     }
   }
