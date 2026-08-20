@@ -3,9 +3,52 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/shared/Card";
 import { StatusChip, statusToneFor } from "@/components/shared/StatusChip";
 import { WorkflowModal, FormField, textareaCls } from "@/components/shared/WorkflowModals";
-import { ChevronRight, Clock, UserCheck, RotateCcw, MessageSquarePlus, FilePlus2, ArrowUpRight, Loader2 } from "lucide-react";
+import { ChevronRight, Clock, UserCheck, RotateCcw, MessageSquarePlus, FilePlus2, ArrowUpRight, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+
+// Backend document_type codes -> friendly labels shown to reviewers.
+const DOCUMENT_LABELS: Record<string, string> = {
+  aadhaar: "Aadhaar Card",
+  degree_certificate: "Degree Certificate",
+  nursing_license: "Nursing License",
+  police_verification: "Police Verification",
+  resume: "Resume",
+  reference_letter: "Reference Letter",
+};
+
+function labelForDocument(code: string): string {
+  return DOCUMENT_LABELS[code] ?? code.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof Error ? e.message : fallback;
+}
+
+// Works whether `api.ts` throws a plain Error (message = raw/parsed text)
+// or a custom ApiError with a `.detail` object attached — no hard import
+// dependency on api.ts internals, so this file compiles either way.
+function missingDocumentsFrom(e: unknown): { message: string; documents: string[] } | null {
+  const detail = (e as any)?.detail;
+  if (detail && typeof detail === "object" && Array.isArray(detail.documents) && detail.documents.length) {
+    return { message: detail.message ?? "Required documents are not verified", documents: detail.documents };
+  }
+  // Fallback: try to parse it out of a raw JSON message string.
+  if (e instanceof Error) {
+    try {
+      const parsed = JSON.parse(e.message);
+      const d = parsed?.detail;
+      if (d && Array.isArray(d.documents) && d.documents.length) {
+        return { message: d.message ?? "Required documents are not verified", documents: d.documents };
+      }
+    } catch {
+      // not JSON, ignore
+    }
+  }
+  return null;
+}
+
+type MoveBlockedInfo = { message: string; documents: string[] } | null;
 
 export const Route = createFileRoute("/_app/onboarding-review")({ component: OnboardingPage });
 
@@ -71,6 +114,7 @@ function OnboardingPage() {
   const [escalationNotes, setEscalationNotes] = useState("");
   const [rejectNotes, setRejectNotes] = useState("");
   const [transitionNote, setTransitionNote] = useState("");
+  const [moveBlocked, setMoveBlocked] = useState<MoveBlockedInfo>(null);
 
   async function load() {
     setLoading(true);
@@ -81,7 +125,7 @@ function OnboardingPage() {
         setSelectedId(rows[0].id);
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to load onboarding queue");
+      toast.error(errorMessage(e, "Failed to load onboarding queue"));
     } finally {
       setLoading(false);
     }
@@ -90,9 +134,9 @@ function OnboardingPage() {
   useEffect(() => { load(); }, []);
 
   const selected = tickets.find(t => t.id === selectedId) ?? tickets[0];
-  const close = () => setModal(null);
+  const close = () => { setModal(null); setMoveBlocked(null); };
 
-  async function updateStatus(newStatus: string, note?: string) {
+  async function updateStatus(newStatus: string, note?: string, opts?: { silent?: boolean }) {
     if (!selected) return;
     setBusy(true);
     try {
@@ -102,30 +146,56 @@ function OnboardingPage() {
       });
       setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, ...updated } : t));
       return true;
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to update ticket");
-      return false;
+    } catch (e) {
+      if (!opts?.silent) {
+        toast.error(errorMessage(e, "Failed to update ticket"));
+      }
+      throw e;
     } finally {
       setBusy(false);
     }
   }
 
   async function handleMove() {
+    setMoveBlocked(null);
     const nextStatus = selected.status === "PENDING_REVIEW" ? "IN_REVIEW" : "APPROVED";
-    const ok = await updateStatus(nextStatus, transitionNote);
-    if (ok) { toast.success(`Advanced to ${nextStatus.replace("_", " ")}`); setTransitionNote(""); close(); }
+    try {
+      await updateStatus(nextStatus, transitionNote, { silent: true });
+      toast.success(`Advanced to ${nextStatus.replace("_", " ")}`);
+      setTransitionNote("");
+      close();
+    } catch (e) {
+      // Show missing-document errors inline in the modal instead of a raw toast.
+      const blocked = missingDocumentsFrom(e);
+      if (blocked) {
+        setMoveBlocked(blocked);
+      } else {
+        toast.error(errorMessage(e, "Failed to update ticket"));
+      }
+    }
   }
   async function handleReject() {
-    const ok = await updateStatus("REJECTED", rejectNotes);
-    if (ok) { toast.error("Application rejected"); setRejectNotes(""); close(); }
+    try {
+      await updateStatus("REJECTED", rejectNotes);
+      toast.error("Application rejected");
+      setRejectNotes("");
+      close();
+    } catch { /* toast already shown inside updateStatus */ }
   }
   async function handleRequestDocs() {
-    const ok = await updateStatus("NEEDS_CLARIFICATION", requestInstructions);
-    if (ok) { toast.success("Marked as needing clarification"); setRequestInstructions(""); close(); }
+    try {
+      await updateStatus("NEEDS_CLARIFICATION", requestInstructions);
+      toast.success("Marked as needing clarification");
+      setRequestInstructions("");
+      close();
+    } catch { /* toast already shown inside updateStatus */ }
   }
   async function handleReopen() {
-    const ok = await updateStatus("IN_REVIEW", "Re-opened for additional review");
-    if (ok) { toast.success("Stage re-opened"); close(); }
+    try {
+      await updateStatus("IN_REVIEW", "Re-opened for additional review");
+      toast.success("Stage re-opened");
+      close();
+    } catch { /* toast already shown inside updateStatus */ }
   }
   function handleComment() {
     // No backend endpoint exists yet for reviewer notes/comments — this stays
@@ -251,6 +321,15 @@ function OnboardingPage() {
 
       <WorkflowModal open={modal === "move"} onClose={close} title="Move to Next Stage" description={`${selected.nurse_name} – ${selected.id.slice(0, 8)}`} submitLabel="Confirm Transition" onSubmit={handleMove} disabled={busy}>
         <p className="text-[13px]">Move status forward from <b>{selected.status.replace("_", " ")}</b>.</p>
+        {moveBlocked && (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+            <div className="text-[11.5px] leading-snug text-amber-800">
+              <span className="font-medium">Pending verification:</span>{" "}
+              {moveBlocked.documents.map(labelForDocument).join(", ")}
+            </div>
+          </div>
+        )}
         <textarea value={transitionNote} onChange={e => setTransitionNote(e.target.value)} className={`${textareaCls} mt-3`} placeholder="Optional note…" />
       </WorkflowModal>
       <WorkflowModal open={modal === "comment"} onClose={close} title="Internal Comment" submitLabel="Post Comment" onSubmit={handleComment} disabled={comment.trim().length < 5}>
