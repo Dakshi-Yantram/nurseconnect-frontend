@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
@@ -95,6 +97,16 @@ import { Route as AppConsumerProfileHelpRouteImport } from './routes/_app.consum
 import { Route as AppConsumerPatientsPatientIdRouteImport } from './routes/_app.consumer.patients.$patientId'
 import { Route as AppConsumerBookingsBookingIdRouteImport } from './routes/_app.consumer.bookings.$bookingId'
 
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -537,6 +549,8 @@ const AppConsumerBookingsBookingIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/delete-account': typeof DeleteAccountRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/audit-logs': typeof AppAuditLogsRoute
   '/background-verification': typeof AppBackgroundVerificationRoute
   '/care-packages': typeof AppCarePackagesRouteWithChildren
@@ -623,6 +637,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/delete-account': typeof DeleteAccountRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/audit-logs': typeof AppAuditLogsRoute
   '/background-verification': typeof AppBackgroundVerificationRoute
   '/care-packages': typeof AppCarePackagesRouteWithChildren
@@ -707,6 +723,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/delete-account': typeof DeleteAccountRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/_app/audit-logs': typeof AppAuditLogsRoute
   '/_app/background-verification': typeof AppBackgroundVerificationRoute
   '/_app/care-packages': typeof AppCarePackagesRouteWithChildren
@@ -795,6 +813,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/delete-account'
+    | '/privacy-policy'
     | '/audit-logs'
     | '/background-verification'
     | '/care-packages'
@@ -881,6 +901,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/delete-account'
+    | '/privacy-policy'
     | '/audit-logs'
     | '/background-verification'
     | '/care-packages'
@@ -964,6 +986,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/delete-account'
+    | '/privacy-policy'
     | '/_app/audit-logs'
     | '/_app/background-verification'
     | '/_app/care-packages'
@@ -1052,12 +1076,28 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  DeleteAccountRoute: typeof DeleteAccountRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -2006,6 +2046,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  DeleteAccountRoute: DeleteAccountRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
 }
