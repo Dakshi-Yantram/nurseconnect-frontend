@@ -79,7 +79,11 @@ export function AddressForm({
     if (!f.line1.trim()) { setError("Address line 1 is required"); return; }
     setBusy(true);
     try {
-      const body = JSON.stringify(f);
+      const phoneDigits = String(f.recipient_phone ?? "").replace(/^\+?91/, "").replace(/\D/g, "");
+      const body = JSON.stringify({
+        ...f,
+        recipient_phone: phoneDigits ? `+91${phoneDigits}` : f.recipient_phone,
+      });
       const saved: Address = f.id
         ? await apiFetch(`/api/consumers/me/addresses/${f.id}`, { method: "PUT", body })
         : await apiFetch("/api/consumers/me/addresses", { method: "POST", body });
@@ -90,6 +94,22 @@ export function AddressForm({
   const inp = (k: keyof typeof EMPTY_ADDRESS, ph: string, cls = "") => (
     <input value={(f as any)[k] ?? ""} onChange={(e) => set(k as string, e.target.value)} placeholder={ph}
       className={cn("rounded-lg border border-border bg-background px-3 py-2 text-[13px]", cls)} />
+  );
+
+  // Recipient phone gets a fixed +91 prefix; the field itself only ever
+  // holds the 10-digit local number, normalized to E.164 on save.
+  const recipientPhoneDigits = String(f.recipient_phone ?? "").replace(/^\+?91/, "").replace(/\D/g, "").slice(0, 10);
+  const recipientPhoneField = (
+    <div className={cn("flex items-center rounded-lg border border-border bg-background px-3 py-2 text-[13px]", "")}>
+      <span className="mr-1.5 text-muted-foreground select-none">+91</span>
+      <input
+        value={recipientPhoneDigits}
+        onChange={(e) => set("recipient_phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+        placeholder="Recipient phone"
+        inputMode="numeric"
+        className="w-full bg-transparent outline-none"
+      />
+    </div>
   );
 
   return (
@@ -120,7 +140,7 @@ export function AddressForm({
         <p className="text-[11.5px] font-semibold text-muted-foreground mb-2">Booking for someone else? (optional)</p>
         <div className="grid grid-cols-2 gap-2">
           {inp("recipient_name", "Recipient name")}
-          {inp("recipient_phone", "Recipient phone")}
+          {recipientPhoneField}
         </div>
       </div>
 
