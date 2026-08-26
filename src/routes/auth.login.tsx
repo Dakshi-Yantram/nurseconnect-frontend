@@ -458,17 +458,20 @@ function LoginPage() {
                   </div>
                   <div>
                     <label className="text-[12px] font-medium text-foreground">Mobile Number</label>
-                    <input
-                      value={phone}
-                      onChange={(e) => {
-                        const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
-                        setPhone(digitsOnly);
-                      }}
-                      placeholder="9999900001"
-                      inputMode="numeric"
-                      maxLength={10}
-                      className="mt-1.5 w-full px-3 py-2.5 text-[14px] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40"
-                    />
+                    <div className="mt-1.5 flex items-center rounded-md border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-ring/40">
+                      <span className="mr-1.5 text-[14px] text-muted-foreground select-none">+91</span>
+                      <input
+                        value={phone}
+                        onChange={(e) => {
+                          const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setPhone(digitsOnly);
+                        }}
+                        placeholder="9999900001"
+                        inputMode="numeric"
+                        maxLength={10}
+                        className="w-full py-2.5 text-[14px] bg-transparent focus:outline-none"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="text-[12px] font-medium text-foreground">Password</label>
@@ -609,17 +612,18 @@ function LoginPage() {
                 <form className="mt-6 space-y-4" onSubmit={submitOtpSend}>
                   <div>
                     <label className="text-[12px] font-medium text-foreground">Mobile Number</label>
-                    <div className="relative mt-1.5">
+                    <div className="relative mt-1.5 flex items-center rounded-md border border-border bg-card pl-10 pr-3 focus-within:ring-2 focus-within:ring-ring/40">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[14px]">
                         <Smartphone className="h-4 w-4" />
                       </span>
+                      <span className="mr-1.5 text-[14px] text-muted-foreground select-none">+91</span>
                       <input
                         value={otpPhone}
                         onChange={(e) => setOtpPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                         placeholder="9999900001"
                         inputMode="numeric"
                         maxLength={10}
-                        className="w-full pl-10 pr-3 py-2.5 text-[14px] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40"
+                        className="w-full py-2.5 text-[14px] bg-transparent focus:outline-none"
                       />
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">Enter 10-digit mobile number (India)</p>
