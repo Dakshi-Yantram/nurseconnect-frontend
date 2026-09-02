@@ -206,6 +206,7 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/nurse-approval",          label: "Nurse",              icon: UserCheck,       section: "Users",          permission: "users.approve",             portal: "admin", group: "Onboarding" },
   { to: "/reviewer-management",     label: "Reviewer",           icon: UserCog,         section: "Users",          permission: "admin.reviewer.mgmt",       portal: "admin", group: "Onboarding" },
   { to: "/onboarding-review",       label: "Onboarding Review",  icon: ClipboardCheck,  section: "Users",          permission: "onboarding.review",         portal: "admin" },
+  { to: "/provider-agreements",     label: "Provider Agreements",icon: FileSignature,   section: "Users",          permission: "onboarding.review",         portal: "admin" },
   { to: "/prescription-review",     label: "Prescription Review", icon: FileCheck,      section: "Clinical",       permission: "prescription.review",       portal: "admin" },
   { to: "/moderation/training",     label: "Training Review",    icon: GraduationCap,   section: "Users",          permission: "review.training",           portal: "admin" },
 
