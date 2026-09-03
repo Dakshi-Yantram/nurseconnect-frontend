@@ -5,7 +5,7 @@ import {
   Scale, FileSearch, Database, Settings, ScrollText, HeartHandshake,
   CalendarCheck, FileText, Bell, User as UserIcon,
   Briefcase, MapPin, IndianRupee, GraduationCap, Clock, FileSignature, Inbox,
-  UserCog, HelpCircle, UserPlus, LifeBuoy,
+  UserCog, HelpCircle, UserPlus, LifeBuoy, Stethoscope, BadgeCheck,
 } from "lucide-react";
 // ListChecks imported from its own subpath (not the "lucide-react" barrel) —
 // production Rollup/Vite code-splitting was tree-shaking this one named
@@ -85,7 +85,8 @@ export type Permission =
   | "users.view" | "users.approve" | "onboarding.review" | "background.review"
   | "prescription.review"
   | "clinical.escalation" | "clinical.packages" | "clinical.services" | "clinical.rules" | "clinical.insurance"
-  | "finance.reconciliation" | "finance.subscriptions" | "finance.disputes"
+  | "clinical.teledoctor"
+  | "finance.reconciliation" | "finance.subscriptions" | "finance.disputes" | "finance.payout_approvals"
   | "trust.incidents" | "trust.complaints"
   | "compliance.retention" | "compliance.audit" | "compliance.settings"
   // Reviewer
@@ -112,7 +113,8 @@ const ADMIN_ALL: Permission[] = [
   "users.view", "users.approve", "onboarding.review", "background.review",
   "prescription.review",
   "clinical.escalation", "clinical.packages", "clinical.services", "clinical.rules", "clinical.insurance",
-  "finance.reconciliation", "finance.subscriptions", "finance.disputes",
+  "clinical.teledoctor",
+  "finance.reconciliation", "finance.subscriptions", "finance.disputes", "finance.payout_approvals",
   "trust.incidents", "trust.complaints",
   "compliance.retention", "compliance.audit", "compliance.settings",
   "review.training", "admin.reviewer.mgmt", "admin.roles",
@@ -215,8 +217,10 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/services-catalogue",      label: "Service Catalogue",  icon: ListChecks,      section: "Clinical",       permission: "clinical.services",         portal: "admin" },
   { to: "/clinical-rule-sets",      label: "Clinical Rule Sets", icon: BookOpen,        section: "Clinical",       permission: "clinical.rules",            portal: "admin" },
   { to: "/insurance-review",        label: "Insurance Review",   icon: FileSearch,      section: "Clinical",       permission: "clinical.insurance",        portal: "admin" },
+  { to: "/teledoctor-queue",        label: "Teledoctor Queue",   icon: Stethoscope,     section: "Clinical",       permission: "clinical.teledoctor",       portal: "admin" },
 
   { to: "/financial-reconciliation",label: "Financial Recon",    icon: Wallet,          section: "Finance",        permission: "finance.reconciliation",    portal: "admin" },
+  { to: "/payout-approvals",        label: "Payout Approvals",   icon: BadgeCheck,      section: "Finance",        permission: "finance.payout_approvals",  portal: "admin" },
   { to: "/subscription-subsidy",    label: "Subscriptions",      icon: CreditCard,      section: "Finance",        permission: "finance.subscriptions",     portal: "admin" },
   { to: "/disputes",                label: "Disputes",           icon: Scale,           section: "Finance",        permission: "finance.disputes",          portal: "admin" },
 

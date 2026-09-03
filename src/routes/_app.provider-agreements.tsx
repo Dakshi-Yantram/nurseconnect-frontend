@@ -18,6 +18,8 @@ interface AgreementRow {
   stage1_accepted_at: string | null;
   stage2_accepted_at: string | null;
   completed_visits_count: number;
+  onboarding_fee_collected: number;
+  onboarding_fee_target: number;
 }
 
 function formatDate(iso: string | null) {
@@ -122,6 +124,7 @@ function ProviderAgreementsPage() {
                 <th className="px-4 py-2.5 font-medium">Type</th>
                 <th className="px-4 py-2.5 font-medium">Stage 1</th>
                 <th className="px-4 py-2.5 font-medium">Stage 2</th>
+                <th className="px-4 py-2.5 font-medium">Onboarding Fee</th>
                 <th className="px-4 py-2.5 font-medium">First Booking</th>
                 <th className="px-4 sm:px-5 py-2.5 font-medium text-right">Details</th>
               </tr>
@@ -145,6 +148,24 @@ function ProviderAgreementsPage() {
                       dot
                     />
                     <div className="text-[11px] text-muted-foreground mt-0.5">{formatDate(r.stage2_accepted_at)}</div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {r.onboarding_fee_target > 0 ? (
+                      <div className="min-w-[110px]">
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                          <span>₹{r.onboarding_fee_collected}</span>
+                          <span>₹{r.onboarding_fee_target}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${r.onboarding_fee_collected >= r.onboarding_fee_target ? "bg-emerald-500" : "bg-blue-500"}`}
+                            style={{ width: `${Math.min(100, (r.onboarding_fee_collected / r.onboarding_fee_target) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 tabular-nums">{r.completed_visits_count}</td>
                   <td className="px-4 sm:px-5 py-2.5 text-right">
