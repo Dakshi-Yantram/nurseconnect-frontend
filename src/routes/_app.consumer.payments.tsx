@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useBookings } from "@/lib/domain";
 import { CreditCard, CheckCircle2, Clock, XCircle, AlertCircle, IndianRupee } from "lucide-react";
 import { toAmount } from "@/lib/payment-status";
+import { InvoiceButton } from "@/components/shared/InvoiceButton";
 
 
 
@@ -224,6 +225,7 @@ function ConsumerPayments() {
                   <th className="px-5 py-2.5 font-medium">Date</th>
                   <th className="px-5 py-2.5 font-medium text-right">Amount</th>
                   <th className="px-5 py-2.5 font-medium">Status</th>
+                  <th className="px-5 py-2.5 font-medium">Receipt</th>
                   <th className="px-5 py-2.5 font-medium"></th>
                 </tr>
               </thead>
@@ -246,6 +248,13 @@ function ConsumerPayments() {
                     </td>
                     <td className="px-5 py-3">
                       <PaymentBadge status={r.paymentStatus} />
+                    </td>
+                    <td className="px-5 py-3">
+                      {r.paymentStatus === "paid" || r.paymentStatus === "refunded" ? (
+                        <InvoiceButton bookingId={r.bookingId} label="Download" />
+                      ) : (
+                        <span className="text-[12px] text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Link

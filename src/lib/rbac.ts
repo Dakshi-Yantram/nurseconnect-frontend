@@ -221,6 +221,12 @@ export const NAV_REGISTRY: NavItem[] = [
 
   { to: "/financial-reconciliation",label: "Financial Recon",    icon: Wallet,          section: "Finance",        permission: "finance.reconciliation",    portal: "admin" },
   { to: "/payout-approvals",        label: "Payout Approvals",   icon: BadgeCheck,      section: "Finance",        permission: "finance.payout_approvals",  portal: "admin" },
+  // Release sits behind the same permission as approvals: both are the same
+  // finance responsibility, and reusing it avoids widening the role matrix.
+  // IndianRupee is reused from the existing barrel import above rather than
+  // pulling in a new icon — see the ListChecks note for why new named icon
+  // imports here are risky under production tree-shaking.
+  { to: "/payout-release",          label: "Payout Release",     icon: IndianRupee,     section: "Finance",        permission: "finance.payout_approvals",  portal: "admin" },
   { to: "/subscription-subsidy",    label: "Subscriptions",      icon: CreditCard,      section: "Finance",        permission: "finance.subscriptions",     portal: "admin" },
   { to: "/disputes",                label: "Disputes",           icon: Scale,           section: "Finance",        permission: "finance.disputes",          portal: "admin" },
 
