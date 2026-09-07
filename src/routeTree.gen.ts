@@ -24,6 +24,7 @@ import { Route as AppSupportEscalationsRouteImport } from './routes/_app.support
 import { Route as AppSupportDashboardRouteImport } from './routes/_app.support-dashboard'
 import { Route as AppSubscriptionSubsidyRouteImport } from './routes/_app.subscription-subsidy'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppPayoutReleaseRouteImport } from './routes/_app.payout-release'
 import { Route as AppServicesCatalogueRouteImport } from './routes/_app.services-catalogue'
 import { Route as AppRolesPermissionsRouteImport } from './routes/_app.roles-permissions'
 import { Route as AppReviewerManagementRouteImport } from './routes/_app.reviewer-management'
@@ -169,6 +170,11 @@ const AppSubscriptionSubsidyRoute = AppSubscriptionSubsidyRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPayoutReleaseRoute = AppPayoutReleaseRouteImport.update({
+  id: '/payout-release',
+  path: '/payout-release',
   getParentRoute: () => AppRoute,
 } as any)
 const AppServicesCatalogueRoute = AppServicesCatalogueRouteImport.update({
@@ -577,6 +583,7 @@ export interface FileRoutesByFullPath {
   '/roles-permissions': typeof AppRolesPermissionsRoute
   '/services-catalogue': typeof AppServicesCatalogueRoute
   '/settings': typeof AppSettingsRoute
+  '/payout-release': typeof AppPayoutReleaseRoute
   '/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/support-dashboard': typeof AppSupportDashboardRoute
   '/support-escalations': typeof AppSupportEscalationsRoute
@@ -662,6 +669,7 @@ export interface FileRoutesByTo {
   '/roles-permissions': typeof AppRolesPermissionsRoute
   '/services-catalogue': typeof AppServicesCatalogueRoute
   '/settings': typeof AppSettingsRoute
+  '/payout-release': typeof AppPayoutReleaseRoute
   '/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/support-dashboard': typeof AppSupportDashboardRoute
   '/support-escalations': typeof AppSupportEscalationsRoute
@@ -751,6 +759,7 @@ export interface FileRoutesById {
   '/_app/roles-permissions': typeof AppRolesPermissionsRoute
   '/_app/services-catalogue': typeof AppServicesCatalogueRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/payout-release': typeof AppPayoutReleaseRoute
   '/_app/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/_app/support-dashboard': typeof AppSupportDashboardRoute
   '/_app/support-escalations': typeof AppSupportEscalationsRoute
@@ -841,6 +850,7 @@ export interface FileRouteTypes {
     | '/roles-permissions'
     | '/services-catalogue'
     | '/settings'
+    | '/payout-release'
     | '/subscription-subsidy'
     | '/support-dashboard'
     | '/support-escalations'
@@ -926,6 +936,7 @@ export interface FileRouteTypes {
     | '/roles-permissions'
     | '/services-catalogue'
     | '/settings'
+    | '/payout-release'
     | '/subscription-subsidy'
     | '/support-dashboard'
     | '/support-escalations'
@@ -1014,6 +1025,7 @@ export interface FileRouteTypes {
     | '/_app/roles-permissions'
     | '/_app/services-catalogue'
     | '/_app/settings'
+    | '/_app/payout-release'
     | '/_app/subscription-subsidy'
     | '/_app/support-dashboard'
     | '/_app/support-escalations'
@@ -1187,6 +1199,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/payout-release': {
+      id: '/_app/payout-release'
+      path: '/payout-release'
+      fullPath: '/payout-release'
+      preLoaderRoute: typeof AppPayoutReleaseRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/services-catalogue': {
@@ -1984,6 +2003,7 @@ interface AppRouteChildren {
   AppRolesPermissionsRoute: typeof AppRolesPermissionsRoute
   AppServicesCatalogueRoute: typeof AppServicesCatalogueRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppPayoutReleaseRoute: typeof AppPayoutReleaseRoute
   AppSubscriptionSubsidyRoute: typeof AppSubscriptionSubsidyRoute
   AppSupportDashboardRoute: typeof AppSupportDashboardRoute
   AppSupportEscalationsRoute: typeof AppSupportEscalationsRoute
@@ -2026,6 +2046,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRolesPermissionsRoute: AppRolesPermissionsRoute,
   AppServicesCatalogueRoute: AppServicesCatalogueRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppPayoutReleaseRoute: AppPayoutReleaseRoute,
   AppSubscriptionSubsidyRoute: AppSubscriptionSubsidyRoute,
   AppSupportDashboardRoute: AppSupportDashboardRoute,
   AppSupportEscalationsRoute: AppSupportEscalationsRoute,
