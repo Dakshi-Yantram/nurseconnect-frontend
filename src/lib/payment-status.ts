@@ -9,7 +9,7 @@
  * predate a real payment record.
  */
 
-export type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "processing";
+export type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "processing" | "cash_due";
 
 /**
  * Derives payment status from booking workflow state.
@@ -48,6 +48,12 @@ export function mapRealPaymentStatus(raw: string | undefined): PaymentStatus | n
     case "failed": return "failed";
     case "refunded":
     case "partially_refunded": return "refunded";
+    // Booking is confirmed and dispatchable; the customer pays the care
+    // professional directly at the visit. Distinct from "pending" (no
+    // arrangement made yet) — without this case it fell through to `null`
+    // and the workflow heuristic below, which could wrongly offer a
+    // "Pay now" button on a booking that is already confirmed.
+    case "cash_due": return "cash_due";
     default: return null;
   }
 }
@@ -55,6 +61,18 @@ export function mapRealPaymentStatus(raw: string | undefined): PaymentStatus | n
 /** Whether a "Pay now" action should be offered for this payment status. */
 export function isPayable(raw: string | undefined): boolean {
   return raw === "pending" || raw === "failed" || raw === "initiated";
+}
+
+/** Human label for the payment-status pill. */
+export function paymentStatusLabel(status: PaymentStatus): string {
+  switch (status) {
+    case "paid": return "Paid";
+    case "cash_due": return "Pay at visit";
+    case "processing": return "Processing";
+    case "failed": return "Failed";
+    case "refunded": return "Refunded";
+    default: return "Pending";
+  }
 }
 
 /** Derive a realistic per-booking amount.

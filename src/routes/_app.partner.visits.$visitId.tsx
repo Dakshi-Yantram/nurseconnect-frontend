@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import {
   Loader2, Navigation, MapPin, KeyRound, CheckCircle2, PlayCircle,
-  Activity, ClipboardList, FileText, AlertTriangle,
+  Activity, ClipboardList, FileText, AlertTriangle, Banknote,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
@@ -24,6 +24,9 @@ type Booking = {
   latitude?: number | string | null;
   longitude?: number | string | null;
   address_snapshot?: { line1?: string; city?: string; state?: string; pincode?: string } | null;
+  total_amount?: number | string | null;
+  payment_method?: "razorpay" | "cash";
+  payment_status?: string;
 };
 type Vital = {
   id: string;
@@ -393,6 +396,26 @@ function ExecutionPanel({
     } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
   }
 
+  // Cash-at-visit collection. Deliberately separate from checkout(): a
+  // cash booking can be checked out without this if the provider forgets,
+  // but the money is still owed — so this is its own action the provider
+  // takes explicitly, not folded into "Complete visit & check out".
+  const [cashConfirming, setCashConfirming] = useState(false);
+  async function collectCash() {
+    setError(null); setCashConfirming(true);
+    try {
+      await apiFetch("/api/payments/cash/collect", {
+        method: "POST",
+        body: JSON.stringify({ booking_id: bookingId }),
+      });
+      await reload();
+    } catch (e: any) {
+      setError(parseErr(e));
+    } finally {
+      setCashConfirming(false);
+    }
+  }
+
   async function checkout() {
     setError(null); setBusy("checkout");
     try {
@@ -552,6 +575,30 @@ function ExecutionPanel({
           Before checkout: {workflow.completion_status.blocking_items
             .map((it: any) => (typeof it === "string" ? it : it.label ?? it.id))
             .join(", ")}
+        </div>
+      )}
+
+      {/* Cash collection — only for cash bookings not yet paid. Driven by
+          the booking's own payment_status, not a role check, so it shows
+          for whichever provider is actually assigned to the visit. */}
+      {booking.payment_method === "cash" && booking.payment_status === "cash_due" && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Banknote size={15} className="text-sky-700" />
+            <p className="text-[13px] font-semibold text-sky-900">
+              Collect ₹{Number(booking.total_amount ?? 0).toLocaleString("en-IN")} in cash
+            </p>
+          </div>
+          <p className="text-[12px] text-sky-800 mb-3">
+            This patient chose to pay at the visit. Confirm only once you have actually
+            received the amount — it is netted off your next payout, since you hold the
+            company&apos;s money until then.
+          </p>
+          <button onClick={collectCash} disabled={cashConfirming}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40">
+            {cashConfirming ? <Loader2 size={15} className="animate-spin" /> : <Banknote size={15} />}
+            Confirm cash received
+          </button>
         </div>
       )}
 

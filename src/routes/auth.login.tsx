@@ -223,7 +223,17 @@ function LoginPage() {
       });
       setVerifyEmail(data.email ?? regEmail.trim());
       setDevCode(data.dev_verification_code ?? null);
-      setInfo("We've emailed you a verification code.");
+      // Only claim the mail went out if the backend says it did. When
+      // email_sent is false the user has no way to obtain a code, so
+      // telling them to check their inbox just strands them on this screen.
+      if (data.email_sent === false) {
+        setInfo(null);
+        setError(
+          "We couldn't send the verification email right now. Please try 'Resend code', or contact support if it keeps failing.",
+        );
+      } else {
+        setInfo("We've emailed you a verification code.");
+      }
       setMode("verify");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");
@@ -568,7 +578,7 @@ function LoginPage() {
                       autoComplete="one-time-code"
                       className="mt-1.5 w-full px-3 py-2.5 text-[14px] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40"
                     />
-                    {devCode && (
+                    {import.meta.env.DEV && devCode && (
                       <p className="mt-1.5 text-[11px] text-muted-foreground">
                         Dev mode code: <span className="font-mono">{devCode}</span>
                       </p>
@@ -672,7 +682,7 @@ function LoginPage() {
                       maxLength={6}
                       className="mt-1.5 w-full px-3 py-2.5 text-[14px] rounded-md border border-border bg-card text-center tracking-[0.4em] text-[18px] focus:outline-none focus:ring-2 focus:ring-ring/40"
                     />
-                    {devOtp && (
+                    {import.meta.env.DEV && devOtp && (
                       <p className="mt-1.5 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                         Dev mode OTP: <span className="font-mono font-bold">{devOtp}</span>
                       </p>

@@ -99,7 +99,7 @@ export type Permission =
   // Partner
   | "partner.home" | "partner.assignments" | "partner.visits" | "partner.documentation"
   | "partner.earnings" | "partner.training" | "partner.availability" | "partner.help"
-  | "partner.assessments"
+  | "partner.assessments" | "partner.teleconsult"
   // Support
   | "support.queue" | "support.assign" | "support.resolve" | "support.tickets"
   // Operations
@@ -139,7 +139,7 @@ const CONSUMER_ALL: Permission[] = [
 const PARTNER_ALL: Permission[] = [
   "partner.home", "partner.assignments", "partner.visits", "partner.documentation",
   "partner.earnings", "partner.training", "partner.availability", "partner.services", "partner.help",
-  "partner.assessments",
+  "partner.assessments", "partner.teleconsult",
 ];
 
 const SUPPORT_PERMISSIONS: Permission[] = [
@@ -266,6 +266,7 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/partner/earnings",        label: "Earnings",           icon: IndianRupee,     section: "Personal",       permission: "partner.earnings",          portal: "partner" },
   { to: "/partner/training",        label: "Training",           icon: GraduationCap,   section: "Personal",       permission: "partner.training",          portal: "partner" },
   { to: "/partner/assessments",     label: "Assessments",        icon: ClipboardCheck,  section: "Personal",       permission: "partner.assessments",       portal: "partner" },
+  { to: "/partner/teleconsult",     label: "Teleconsult",        icon: Stethoscope,     section: "Work",           permission: "partner.teleconsult",       portal: "partner" },
   { to: "/partner/availability",    label: "Availability",       icon: Clock,           section: "Personal",       permission: "partner.availability",      portal: "partner" },
   { to: "/partner/help",            label: "Help & Support",     icon: LifeBuoy,        section: "Personal",       permission: "partner.help",              portal: "partner" },
 
