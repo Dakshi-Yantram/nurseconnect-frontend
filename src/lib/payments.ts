@@ -17,6 +17,64 @@ export interface RefundBookingResult {
   status: string;
 }
 
+// ---------------------------------------------------------------------------
+// Payment methods (GET /payments/methods/{id}) and Cash-on-Delivery.
+//
+// Cash is a separate flow, not a branch inside payForBooking(): no order is
+// created, no gateway opens, and nothing is "verified" in the signature
+// sense — the booking is simply confirmed with the amount due at the visit.
+// Mirrors the mobile app's payment.service.ts / cash_payment.py split so the
+// same booking behaves identically from either client.
+// ---------------------------------------------------------------------------
+export type PaymentMethodId = "razorpay" | "cash";
+
+export interface PaymentMethodOption {
+  method: PaymentMethodId;
+  label: string;
+  description: string;
+  available: boolean;
+  reason: string | null;
+}
+
+export interface PaymentMethodsResult {
+  booking_id: string;
+  amount: number;
+  current_method: PaymentMethodId;
+  methods: PaymentMethodOption[];
+}
+
+/** Which payment methods this booking may use, and why not if not. */
+export async function fetchPaymentMethods(bookingId: string): Promise<PaymentMethodsResult> {
+  return apiFetch(`/api/payments/methods/${bookingId}`);
+}
+
+export interface CashSelectResult {
+  verified: boolean;
+  booking_status: string;
+  payment_status: string;
+  payment_method: PaymentMethodId;
+  cash_due: boolean;
+}
+
+/**
+ * Customer chooses to pay cash at the visit. Confirms the booking and
+ * starts dispatch — no money moves yet, so `verified` is correctly false
+ * here; check `cash_due` instead to confirm the booking went through.
+ */
+export async function selectCashPayment(bookingId: string): Promise<CashSelectResult> {
+  const res = await apiFetch("/api/payments/cash/select", {
+    method: "POST",
+    body: JSON.stringify({ booking_id: bookingId }),
+  });
+  return {
+    verified: !!res?.verified,
+    booking_status: res?.booking_status,
+    payment_status: res?.payment_status,
+    payment_method: res?.payment_method,
+    cash_due: !!res?.cash_due,
+  };
+}
+
 declare global {
   interface Window {
     Razorpay: any;

@@ -16,6 +16,28 @@ export const Route = createFileRoute("/_app/payout-release")({
 });
 
 // ---------------------------------------------------------------------------
+// Cash remittance — mirrors app/api/v1/payments.py:
+// GET /payments/cash/outstanding/all, POST /payments/cash/remit/{id}
+//
+// Distinct from the payout table above: a payout is money the COMPANY owes
+// a provider; outstanding cash is money a provider is HOLDING on the
+// company's behalf after collecting it from a customer at a cash booking.
+// The two nets automatically settle against each other at payout time
+// (see payout_service.apply_cash_recovery), but a provider who does few or
+// no online-payout bookings can accumulate cash with nothing to net it
+// against — remittance is how that gets closed out directly instead of
+// waiting indefinitely for a payout to come along.
+// ---------------------------------------------------------------------------
+interface OutstandingCashRow {
+  booking_id: string;
+  booking_ref: string | null;
+  worker_id: string | null;
+  worker_name: string | null;
+  amount: number;
+  collected_at: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Types — mirror app/api/v1/admin.py: /worker-payouts/ready-for-release
 // and /worker-payouts/{id}/breakdown
 // ---------------------------------------------------------------------------
@@ -148,6 +170,36 @@ function PayoutReleasePage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Outstanding cash — independent load, own loading/error state, so a
+  // slow or failing cash query never blocks the payout table above it.
+  const [cashRows, setCashRows] = useState<OutstandingCashRow[]>([]);
+  const [cashLoading, setCashLoading] = useState(true);
+  const [cashBusyId, setCashBusyId] = useState<string | null>(null);
+
+  const loadCash = () => {
+    setCashLoading(true);
+    apiFetch("/api/payments/cash/outstanding/all")
+      .then((data: { total_outstanding: number; bookings: OutstandingCashRow[] }) =>
+        setCashRows(data.bookings ?? []))
+      .catch(() => setCashRows([]))
+      .finally(() => setCashLoading(false));
+  };
+
+  useEffect(() => { loadCash(); }, []);
+
+  const remitCash = async (bookingId: string) => {
+    setCashBusyId(bookingId);
+    try {
+      await apiFetch(`/api/payments/cash/remit/${bookingId}`, { method: "POST" });
+      toast.success("Cash marked as remitted.");
+      loadCash();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not record remittance");
+    } finally {
+      setCashBusyId(null);
+    }
+  };
 
   const openBreakdown = async (payoutId: string) => {
     setDetailLoading(true);
@@ -401,6 +453,64 @@ function PayoutReleasePage() {
             );
           })}
         </div>
+      </Card>
+
+      {/* Outstanding cash — see the type comment above for why this is a
+          separate table rather than folded into the payout list above. */}
+      <Card>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <Banknote size={16} className="text-sky-700" />
+            <h3 className="text-[14px] font-semibold text-foreground">
+              Outstanding cash to remit
+            </h3>
+          </div>
+          <button onClick={loadCash} disabled={cashLoading}
+            className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-50">
+            <RefreshCw size={13} className={cashLoading ? "animate-spin" : ""} /> Refresh
+          </button>
+        </div>
+        <p className="text-[12px] text-muted-foreground mb-3">
+          Cash a care professional collected at a visit but hasn&apos;t yet handed to the
+          company. Confirming here records the remittance; it does not move any money —
+          use it once you have actually received the cash from the provider.
+        </p>
+        {cashLoading ? (
+          <div className="py-8 flex justify-center"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
+        ) : cashRows.length === 0 ? (
+          <div className="py-6 text-center text-[12.5px] text-muted-foreground">
+            No provider is currently holding uncollected cash.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {cashRows.map((r) => (
+              <div key={r.booking_id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-foreground truncate">
+                    {r.worker_name ?? "Unknown provider"}
+                    <span className="text-muted-foreground font-normal"> — {r.booking_ref ?? r.booking_id}</span>
+                  </div>
+                  <div className="text-[11.5px] text-muted-foreground">
+                    Collected {r.collected_at ? formatDateTime(r.collected_at) : "—"}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-[13px] font-semibold tabular-nums">{inr(r.amount)}</span>
+                  <button
+                    onClick={() => remitCash(r.booking_id)}
+                    disabled={cashBusyId === r.booking_id}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-sky-700 px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {cashBusyId === r.booking_id
+                      ? <Loader2 size={13} className="animate-spin" />
+                      : <CheckCircle2 size={13} />}
+                    Mark remitted
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <BreakdownDrawer
