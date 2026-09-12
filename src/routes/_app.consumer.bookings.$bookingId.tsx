@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft, HeartPulse, MapPin, Clock, IndianRupee,
-  CheckCircle2, AlertCircle, XCircle, Ban, Loader2,
+  CheckCircle2, AlertCircle, XCircle, Ban, Loader2, Banknote,
   ClipboardList, Thermometer, Activity, FileText, ArrowRight,
 } from "lucide-react";
 import { useBooking, useRefetchBookings } from "@/lib/domain";
@@ -18,7 +18,7 @@ import { useEntity } from "@/lib/orchestration";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
-import { payForBooking, refundBooking } from "@/lib/payments";
+import { payForBooking, refundBooking, fetchPaymentMethods, selectCashPayment, type PaymentMethodOption } from "@/lib/payments";
 import { StartVisitCodeButton } from "@/components/StartVisitCodeButton";
 import { TrackNurseMap } from "@/components/TrackNurseMap";
 import {
@@ -50,6 +50,9 @@ const PAYMENT_CONFIG: Record<PaymentStatus, {
   pending: { label: "Pending", icon: Clock, classes: "text-amber-700 bg-amber-50 border-amber-200", description: "Booking confirmed — pay now, or it will be collected automatically on visit completion." },
   refunded: { label: "Refunded", icon: XCircle, classes: "text-muted-foreground bg-muted border-border", description: "Booking cancelled — refund credited within 5–7 working days." },
   failed: { label: "Action needed", icon: AlertCircle, classes: "text-rose-700 bg-rose-50 border-rose-200", description: "Payment issue detected — your care team has been notified." },
+  // Booking confirmed and dispatchable; the customer pays the care
+  // professional directly at the visit, not through the app.
+  cash_due: { label: "Pay at visit", icon: Banknote, classes: "text-sky-700 bg-sky-50 border-sky-200", description: "Booking confirmed — pay your care professional directly when they arrive." },
 };
 
 interface VisitReport {
@@ -166,6 +169,8 @@ function ConsumerBookingDetail() {
   const { entries: history, loading: historyLoading } = useBookingHistory(bookingId);
   const [paying, setPaying] = useState(false);
   const [refunding, setRefunding] = useState(false);
+  const [cashOption, setCashOption] = useState<PaymentMethodOption | null>(null);
+  const [payingCash, setPayingCash] = useState(false);
 
   const record = domainBooking ? {
     id: domainBooking.id,
@@ -208,6 +213,27 @@ function ConsumerBookingDetail() {
 
   const rawPaymentStatus = domainBooking?.paymentStatus;
   const payStatus = mapRealPaymentStatus(rawPaymentStatus) ?? derivePaymentStatus(record.state);
+
+  // Cash eligibility is server-driven (see /payments/methods/{id} and
+  // app/services/cash_payment.py::is_cash_eligible) rather than guessed
+  // from booking state here, so the rule lives in exactly one place and
+  // the web app can never drift from what the backend actually allows.
+  useEffect(() => {
+    let cancelled = false;
+    if (!isPayable(rawPaymentStatus)) {
+      setCashOption(null);
+      return;
+    }
+    fetchPaymentMethods(record.id)
+      .then((res) => {
+        if (cancelled) return;
+        setCashOption(res.methods.find((m) => m.method === "cash") ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setCashOption(null);
+      });
+    return () => { cancelled = true; };
+  }, [record.id, rawPaymentStatus]);
   const amount = domainBooking?.totalAmount != null
     ? Number(domainBooking.totalAmount)
     : deriveAmount(service);
@@ -244,6 +270,28 @@ function ConsumerBookingDetail() {
       if (msg !== "Payment cancelled") toast.error(msg);
     } finally {
       setPaying(false);
+    }
+  };
+
+  // Cash path: no order, no gateway, no signature — the booking is simply
+  // confirmed with the amount due at the visit. Kept separate from
+  // handlePay for the same reason app/services/cash_payment.py is its own
+  // module rather than an `if` inside the Razorpay flow.
+  const handlePayCash = async () => {
+    setPayingCash(true);
+    try {
+      const result = await selectCashPayment(record.id);
+      if (result.cash_due) {
+        toast.success("Booking confirmed — pay your care professional at the visit.");
+        await refetchBookings();
+      } else {
+        toast.error("Couldn't switch this booking to cash. Please try again.");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Couldn't select cash payment";
+      toast.error(msg);
+    } finally {
+      setPayingCash(false);
     }
   };
 
@@ -346,22 +394,50 @@ function ConsumerBookingDetail() {
                   Your visit is underway. Payment will be confirmed once the nurse completes the visit.
                 </div>
               )}
+              {payStatus === "cash_due" && (
+                <div className="mt-3 text-[11.5px] opacity-75">
+                  This booking is confirmed. Pay {formatINR(amount)} directly to your care professional
+                  when they arrive — no online payment is needed.
+                </div>
+              )}
 
               {canPay && (
                 <div className="mt-3 pt-3 border-t border-current/10">
-                  <button
-                    onClick={handlePay}
-                    disabled={paying}
-                    className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-[13px] font-medium hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {paying ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing…
-                      </>
-                    ) : (
-                      <>Pay {formatINR(amount)} now</>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handlePay}
+                      disabled={paying || payingCash}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-[13px] font-medium hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {paying ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing…
+                        </>
+                      ) : (
+                        <>Pay {formatINR(amount)} now</>
+                      )}
+                    </button>
+                    {/* Cash option only rendered when the backend says this
+                        booking qualifies (see /payments/methods/{id}) —
+                        never hardcoded here, so a rule change on the
+                        backend (e.g. a service that must be prepaid)
+                        applies immediately with no frontend release. */}
+                    {cashOption?.available && (
+                      <button
+                        onClick={handlePayCash}
+                        disabled={paying || payingCash}
+                        className="inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 text-sky-700 px-4 py-2 text-[13px] font-medium hover:bg-sky-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {payingCash ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Confirming…
+                          </>
+                        ) : (
+                          <>Pay cash at visit</>
+                        )}
+                      </button>
                     )}
-                  </button>
+                  </div>
                   {payStatus === "failed" && (
                     <div className="mt-2 text-[11.5px] opacity-75">
                       Your last payment attempt didn't go through — try again above.

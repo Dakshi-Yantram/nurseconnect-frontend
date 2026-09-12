@@ -68,6 +68,7 @@ import { Route as AppPartnerDocumentationRouteImport } from './routes/_app.partn
 import { Route as AppPartnerAvailabilityRouteImport } from './routes/_app.partner.availability'
 import { Route as AppPartnerAssignmentsRouteImport } from './routes/_app.partner.assignments'
 import { Route as AppPartnerAssessmentsRouteImport } from './routes/_app.partner.assessments'
+import { Route as AppPartnerTeleconsultRouteImport } from './routes/_app.partner.teleconsult'
 import { Route as AppOperationsStaffRouteImport } from './routes/_app.operations.staff'
 import { Route as AppOperationsFaqRouteImport } from './routes/_app.operations.faq'
 import { Route as AppOnboardingReviewApplicationIdRouteImport } from './routes/_app.onboarding-review.$applicationId'
@@ -394,6 +395,11 @@ const AppPartnerAssessmentsRoute = AppPartnerAssessmentsRouteImport.update({
   path: '/assessments',
   getParentRoute: () => AppPartnerRoute,
 } as any)
+const AppPartnerTeleconsultRoute = AppPartnerTeleconsultRouteImport.update({
+  id: '/teleconsult',
+  path: '/teleconsult',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
 const AppOperationsStaffRoute = AppOperationsStaffRouteImport.update({
   id: '/staff',
   path: '/staff',
@@ -616,6 +622,7 @@ export interface FileRoutesByFullPath {
   '/operations/faq': typeof AppOperationsFaqRoute
   '/operations/staff': typeof AppOperationsStaffRoute
   '/partner/assessments': typeof AppPartnerAssessmentsRoute
+  '/partner/teleconsult': typeof AppPartnerTeleconsultRoute
   '/partner/assignments': typeof AppPartnerAssignmentsRoute
   '/partner/availability': typeof AppPartnerAvailabilityRoute
   '/partner/documentation': typeof AppPartnerDocumentationRoute
@@ -702,6 +709,7 @@ export interface FileRoutesByTo {
   '/operations/faq': typeof AppOperationsFaqRoute
   '/operations/staff': typeof AppOperationsStaffRoute
   '/partner/assessments': typeof AppPartnerAssessmentsRoute
+  '/partner/teleconsult': typeof AppPartnerTeleconsultRoute
   '/partner/assignments': typeof AppPartnerAssignmentsRoute
   '/partner/availability': typeof AppPartnerAvailabilityRoute
   '/partner/documentation': typeof AppPartnerDocumentationRoute
@@ -792,6 +800,7 @@ export interface FileRoutesById {
   '/_app/operations/faq': typeof AppOperationsFaqRoute
   '/_app/operations/staff': typeof AppOperationsStaffRoute
   '/_app/partner/assessments': typeof AppPartnerAssessmentsRoute
+  '/_app/partner/teleconsult': typeof AppPartnerTeleconsultRoute
   '/_app/partner/assignments': typeof AppPartnerAssignmentsRoute
   '/_app/partner/availability': typeof AppPartnerAvailabilityRoute
   '/_app/partner/documentation': typeof AppPartnerDocumentationRoute
@@ -883,6 +892,7 @@ export interface FileRouteTypes {
     | '/operations/faq'
     | '/operations/staff'
     | '/partner/assessments'
+    | '/partner/teleconsult'
     | '/partner/assignments'
     | '/partner/availability'
     | '/partner/documentation'
@@ -969,6 +979,7 @@ export interface FileRouteTypes {
     | '/operations/faq'
     | '/operations/staff'
     | '/partner/assessments'
+    | '/partner/teleconsult'
     | '/partner/assignments'
     | '/partner/availability'
     | '/partner/documentation'
@@ -1058,6 +1069,7 @@ export interface FileRouteTypes {
     | '/_app/operations/faq'
     | '/_app/operations/staff'
     | '/_app/partner/assessments'
+    | '/_app/partner/teleconsult'
     | '/_app/partner/assignments'
     | '/_app/partner/availability'
     | '/_app/partner/documentation'
@@ -1509,6 +1521,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPartnerAssessmentsRouteImport
       parentRoute: typeof AppPartnerRoute
     }
+    '/_app/partner/teleconsult': {
+      id: '/_app/partner/teleconsult'
+      path: '/teleconsult'
+      fullPath: '/partner/teleconsult'
+      preLoaderRoute: typeof AppPartnerTeleconsultRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
     '/_app/operations/staff': {
       id: '/_app/operations/staff'
       path: '/staff'
@@ -1932,6 +1951,7 @@ const AppPartnerVisitsRouteWithChildren =
 
 interface AppPartnerRouteChildren {
   AppPartnerAssessmentsRoute: typeof AppPartnerAssessmentsRoute
+  AppPartnerTeleconsultRoute: typeof AppPartnerTeleconsultRoute
   AppPartnerAssignmentsRoute: typeof AppPartnerAssignmentsRoute
   AppPartnerAvailabilityRoute: typeof AppPartnerAvailabilityRoute
   AppPartnerDocumentationRoute: typeof AppPartnerDocumentationRoute
@@ -1947,6 +1967,7 @@ interface AppPartnerRouteChildren {
 
 const AppPartnerRouteChildren: AppPartnerRouteChildren = {
   AppPartnerAssessmentsRoute: AppPartnerAssessmentsRoute,
+  AppPartnerTeleconsultRoute: AppPartnerTeleconsultRoute,
   AppPartnerAssignmentsRoute: AppPartnerAssignmentsRoute,
   AppPartnerAvailabilityRoute: AppPartnerAvailabilityRoute,
   AppPartnerDocumentationRoute: AppPartnerDocumentationRoute,
