@@ -10,6 +10,7 @@ import {
   defaultValues, isFieldVisible, isSectionVisible, validateForm,
   type FieldError, type FieldSchema, type FormSchema, type FormValues,
 } from "./schema";
+import { availableSlotsForDate } from "./timeSlots";
 import { toast } from "sonner";
 interface Props {
   schema: FormSchema;
@@ -86,6 +87,7 @@ export function SchemaForm({
                     <FieldInput
                       field={field}
                       value={values[field.key]}
+                      values={values}
                       onChange={(v) => set(field.key, v)}
                       readonly={!!readonly}
                     />
@@ -128,8 +130,8 @@ function Label({ field }: { field: FieldSchema }) {
 }
 
 function FieldInput({
-  field, value, onChange, readonly,
-}: { field: FieldSchema; value: unknown; onChange: (v: unknown) => void; readonly: boolean }) {
+  field, value, values, onChange, readonly,
+}: { field: FieldSchema; value: unknown; values: FormValues; onChange: (v: unknown) => void; readonly: boolean }) {
   const disabled = readonly;
   switch (field.kind) {
     case "textarea":
@@ -141,7 +143,28 @@ function FieldInput({
         onChange={e => onChange(e.target.value === "" ? "" : Number(e.target.value))} />;
     case "date":
       return <input type="date" disabled={disabled} className={baseInput}
+        min={field.noPast ? new Date().toLocaleDateString("en-CA") : undefined}
         value={String(value ?? "")} onChange={e => onChange(e.target.value)} />;
+    case "time_slot": {
+      const linkedDate = field.linkedDateField ? (values[field.linkedDateField] as string | undefined) : undefined;
+      const slots = availableSlotsForDate(linkedDate);
+      // The value on hand might be a slot that's since fallen out of range
+      // (date changed under it, or time simply passed while the form sat
+      // open) — always list it so the picker doesn't silently blank a
+      // value the person can see was there a second ago; validateForm is
+      // what actually blocks submitting it.
+      const hasCurrentValue = typeof value === "string" && value && slots.some(s => s.value === value);
+      return (
+        <select disabled={disabled} className={baseInput}
+          value={String(value ?? "")} onChange={e => onChange(e.target.value)}>
+          <option value="">— Select a time —</option>
+          {!hasCurrentValue && typeof value === "string" && value && (
+            <option value={value}>{value} (no longer available)</option>
+          )}
+          {slots.map(s => <option key={s.value} value={s.value}>{s.value}</option>)}
+        </select>
+      );
+    }
     case "select":
       return (
         <select disabled={disabled} className={baseInput}
