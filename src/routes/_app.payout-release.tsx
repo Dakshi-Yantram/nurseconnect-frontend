@@ -131,8 +131,16 @@ const formatDateTime = (iso: string | null) =>
  * `paid` when Razorpay confirms a terminal `processed`, and this screen keeps
  * that distinction visible: an in-flight transfer is shown as awaiting bank
  * confirmation, never as money delivered.
+ *
+ * A payout whose money-movement `status` is still the default (pending) but
+ * whose `approval_status` isn't yet "approved" is NOT ready for release —
+ * it just hasn't been rejected either. Labelling that as "Ready for
+ * Release" (as this used to) contradicted the "Needs approval" chip shown
+ * right next to it and the Ready-for-Release count above the table, which
+ * both correctly exclude it. So the default case now reads the approval
+ * gate first.
  */
-function payoutState(row: { status: string; razorpay_status: string | null }) {
+function payoutState(row: { status: string; razorpay_status: string | null; approval_status: string }) {
   switch (row.status) {
     case "paid":
       return row.razorpay_status === "manual_settlement"
@@ -145,7 +153,9 @@ function payoutState(row: { status: string; razorpay_status: string | null }) {
     case "on_hold":
       return { label: "On hold", tone: "muted" as const, icon: AlertTriangle };
     default:
-      return { label: "Ready for release", tone: "primary" as const, icon: Banknote };
+      return row.approval_status === "approved"
+        ? { label: "Ready for release", tone: "primary" as const, icon: Banknote }
+        : { label: "Awaiting approval", tone: "warning" as const, icon: Clock };
   }
 }
 
