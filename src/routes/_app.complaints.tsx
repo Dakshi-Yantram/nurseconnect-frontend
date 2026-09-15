@@ -1,148 +1,155 @@
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/shared/Card";
-import { StatusChip } from "@/components/shared/StatusChip";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { SLAIndicator } from "@/components/shared/SLAIndicator";
-import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
-import { WorkflowModal, FormField, inputCls, textareaCls } from "@/components/shared/WorkflowModals";
-import { OperationalTimeline } from "@/components/shared/OperationalTimeline";
-import { useEntities, useEntity, useTransition } from "@/lib/orchestration";
-import { useAuth } from "@/lib/auth-context";
-import { ArrowLeft } from "lucide-react";
+import { StatusChip, statusToneFor } from "@/components/shared/StatusChip";
+import { apiFetch } from "@/lib/api";
+import { ArrowLeft, Loader2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_app/complaints")({ component: ComplaintsPage });
-type ModalType = "reply" | "escalate" | "resolve" | null;
 
-// Valid transitions per state
-const ALLOWED: Record<string, string[]> = {
-  open:          ["investigating", "escalated"],
-  investigating: ["escalated", "resolved"],
-  in_progress:   ["escalated", "resolved"],  // ← ADD THIS
-  escalated:     ["resolved"],
-  resolved:      [],
-};
+// Mirrors app/api/v1/admin.py: GET /complaints. Each row now carries the
+// linked booking (patient, nurse, service) so the queue itself shows who a
+// complaint is about, not just who filed it.
+interface ComplaintRow {
+  id: string;
+  subject: string;
+  category: string;
+  status: string;
+  raisedBy: string;
+  created: string;
+  booking: {
+    booking_ref: string | null;
+    service_name: string | null;
+    patient_name: string | null;
+    nurse_name: string | null;
+  } | null;
+}
 
-function canTransition(currentState: string, to: string) {
-  return ALLOWED[currentState]?.includes(to) ?? false;
+function formatStatus(s: string) {
+  return s.replace(/_/g, " ");
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function ComplaintsPage() {
   const nav = useNavigate();
   const router = useRouter();
-  const { user } = useAuth();
-  const rows = useEntities("complaint");
-  const [viewId, setViewId] = useState<string | null>(null);
-  const view = useEntity("complaint", viewId);
-  const [modal, setModal] = useState<ModalType>(null);
-  const [notes, setNotes] = useState("");
-  const transition = useTransition();
-  const close = () => setModal(null);
-  const actor = user?.email ?? "ops@nurseconnect.in";
-  const role  = user?.role ?? null;
+  const [rows, setRows] = useState<ComplaintRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("open");
 
-  const run = (to: string, msg: string) => {
-    if (!view) return;
-    const res = transition({ workflow: "complaint", entityId: view.id, to, actor, role, notes }, { successMessage: msg });
-    if (res.ok) { setNotes(""); close(); }
-  };
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    apiFetch("/api/admin/complaints")
+      .then((data: ComplaintRow[]) => setRows(data))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load complaints"))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const currentState = view ? bindStatus("complaint", view.state) : "";
+  const isOpen = (status: string) => !status.startsWith("resolved") && status !== "closed";
+
+  const filtered = rows.filter((r) => {
+    const matchesQuery =
+      !query ||
+      r.subject.toLowerCase().includes(query.toLowerCase()) ||
+      (r.booking?.patient_name ?? "").toLowerCase().includes(query.toLowerCase()) ||
+      (r.booking?.nurse_name ?? "").toLowerCase().includes(query.toLowerCase()) ||
+      (r.booking?.booking_ref ?? "").toLowerCase().includes(query.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || (statusFilter === "open" ? isOpen(r.status) : r.status === statusFilter);
+    return matchesQuery && matchesStatus;
+  });
 
   return (
     <div className="space-y-6">
       <button
-        onClick={() => { if (viewId) { setViewId(null); } else { router.history.back(); } }}
+        onClick={() => router.history.back()}
         className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
+      <div>
+        <h2 className="text-[18px] font-semibold leading-tight">Complaints</h2>
+        <p className="text-[12.5px] text-muted-foreground mt-1">
+          Each complaint is shown with the patient, nurse and booking it relates to, so it can be
+          answered without having to look those up separately.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            className="w-full h-9 pl-8 pr-3 text-[13px] rounded-md border border-border bg-background"
+            placeholder="Search patient, nurse, booking ref..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        {(["open", "all", "submitted", "acknowledged", "investigating", "resolved_action_taken", "resolved_no_action", "closed"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setStatusFilter(f)}
+            className={`h-9 px-3 text-[12.5px] rounded-md border capitalize ${statusFilter === f ? "bg-blue-50 border-blue-200 text-blue-700" : "border-border text-muted-foreground"}`}
+          >
+            {formatStatus(f)}
+          </button>
+        ))}
+      </div>
+
+      {error && <div className="nc-card p-4 text-[13px] text-rose-600">{error}</div>}
+
       <Card title="Complaint Queue" padded={false}>
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr className="bg-muted/40 text-muted-foreground text-left">
-              <th className="px-5 py-2.5">ID</th><th className="px-5 py-2.5">Subject</th>
-              <th className="px-5 py-2.5">Category</th><th className="px-5 py-2.5">Severity</th>
-              <th className="px-5 py-2.5">SLA</th><th className="px-5 py-2.5">Raised By</th>
-              <th className="px-5 py-2.5">Status</th><th className="px-5 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => {
-              const c = r.data as any;
-              const state = bindStatus("complaint", r.state);
-              return (
+        {loading ? (
+          <div className="px-5 py-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[13px] text-muted-foreground">No complaints match this filter.</div>
+        ) : (
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="bg-muted/40 text-muted-foreground text-left">
+                <th className="px-5 py-2.5 font-medium">Subject</th>
+                <th className="px-5 py-2.5 font-medium">Patient</th>
+                <th className="px-5 py-2.5 font-medium">Nurse</th>
+                <th className="px-5 py-2.5 font-medium">Booking</th>
+                <th className="px-5 py-2.5 font-medium">Category</th>
+                <th className="px-5 py-2.5 font-medium">Raised By</th>
+                <th className="px-5 py-2.5 font-medium">Created</th>
+                <th className="px-5 py-2.5 font-medium">Status</th>
+                <th className="px-5 py-2.5 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r) => (
                 <tr key={r.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="px-5 py-3 font-mono text-[12px]">{r.id}</td>
-                  <td className="px-5 py-3 font-medium">{c.subject}</td>
-                  <td className="px-5 py-3"><StatusChip tone="info" label={c.category} /></td>
-                  <td className="px-5 py-3"><StatusChip tone={c.severity === "high" ? "danger" : c.severity === "medium" ? "warning" : "muted"} label={c.severity} /></td>
-                  <td className="px-5 py-3"><SLAIndicator workflow="complaint" state={state} enteredAt={parseEnteredAt(r.enteredAt)} /></td>
-                  <td className="px-5 py-3">{c.raisedBy}</td>
-                  <td className="px-5 py-3"><StatusBadge workflow="complaint" state={state} /></td>
-                  <td className="px-5 py-3"><button onClick={() => setViewId(r.id)} className="text-[12px] text-primary">Review</button></td>
+                  <td className="px-5 py-3 font-medium max-w-[220px] truncate">{r.subject}</td>
+                  <td className="px-5 py-3">{r.booking?.patient_name ?? "—"}</td>
+                  <td className="px-5 py-3">{r.booking?.nurse_name ?? "—"}</td>
+                  <td className="px-5 py-3 font-mono text-[12px]">{r.booking?.booking_ref ?? "—"}</td>
+                  <td className="px-5 py-3"><StatusChip tone="info" label={r.category} /></td>
+                  <td className="px-5 py-3">{r.raisedBy}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{formatDate(r.created)}</td>
+                  <td className="px-5 py-3"><StatusChip tone={statusToneFor(r.status)} label={formatStatus(r.status)} dot /></td>
+                  <td className="px-5 py-3">
+                    <button
+                      onClick={() => nav({ to: "/complaints/$complaintId", params: { complaintId: r.id } })}
+                      className="text-[12px] text-primary"
+                    >
+                      Review
+                    </button>
+                  </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Card>
-
-      {view && (() => {
-        const c = view.data as any;
-        const canReply    = canTransition(currentState, "investigating");
-        const canEscalate = canTransition(currentState, "escalated");
-        const canResolve  = canTransition(currentState, "resolved");
-
-        return (
-          <Card title={c.subject} action={<button onClick={() => nav({ to: "/complaints/$complaintId", params: { complaintId: view.id } })} className="text-[12px] text-primary">Open detail page</button>}>
-            <div className="grid grid-cols-3 gap-3 text-[13px]">
-              <Info l="Severity" v={c.severity} /><Info l="Category" v={c.category} /><Info l="SLA" v={c.sla} />
-              <Info l="Raised By" v={c.raisedBy} /><Info l="Created" v={c.created} /><Info l="State" v={currentState} />
-            </div>
-
-            <div className="mt-3 text-[11.5px] text-muted-foreground">
-              {currentState === "open" && "💡 Reply first to move to Investigating, then you can Resolve."}
-              {(currentState === "investigating" || currentState === "in_progress") && "💡 You can now Escalate or Resolve this complaint."}
-              {currentState === "escalated" && "💡 Complaint is escalated — you can now Resolve."}
-              {currentState === "resolved" && "✅ This complaint is resolved."}
-            </div>
-
-            <div className="mt-4 flex gap-2">
-              <button onClick={() => setModal("reply")} disabled={!canReply} className="px-4 py-2 text-[13px] rounded-md border border-border disabled:opacity-40 disabled:cursor-not-allowed">Reply</button>
-              <button onClick={() => setModal("escalate")} disabled={!canEscalate} className="px-4 py-2 text-[13px] rounded-md border border-amber-200 text-amber-700 disabled:opacity-40 disabled:cursor-not-allowed">Escalate</button>
-              <button onClick={() => setModal("resolve")} disabled={!canResolve} className="px-4 py-2 text-[13px] rounded-md bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed">Resolve</button>
-            </div>
-            <div className="mt-5"><OperationalTimeline workflow="complaint" entityId={view.id} /></div>
-          </Card>
-        );
-      })()}
-
-      <WorkflowModal open={modal === "reply"} onClose={close} title="Reply to Customer" submitLabel="Send Reply" onSubmit={() => run("investigating", "Reply sent and conversation updated")} disabled={notes.trim().length < 8}>
-        <div className="space-y-3">
-          <FormField label="Template"><select className={inputCls}><option>Apology + corrective action</option><option>Information requested</option><option>Resolution update</option></select></FormField>
-          <FormField label="Consumer Response"><textarea value={notes} onChange={e => setNotes(e.target.value)} className={textareaCls} /></FormField>
-        </div>
-      </WorkflowModal>
-
-      <WorkflowModal open={modal === "escalate"} onClose={close} title="Escalate Complaint" submitLabel="Submit Escalation" submitTone="warning" onSubmit={() => run("escalated", "Complaint escalated with owner assignment")} disabled={notes.trim().length < 8}>
-        <div className="space-y-3">
-          <FormField label="Escalate To"><select className={inputCls}><option>Clinical Lead</option><option>Regional Head</option><option>Compliance Team</option></select></FormField>
-          <FormField label="Reason"><textarea value={notes} onChange={e => setNotes(e.target.value)} className={textareaCls} /></FormField>
-        </div>
-      </WorkflowModal>
-
-      <WorkflowModal open={modal === "resolve"} onClose={close} title="Resolve Complaint" submitLabel="Confirm Resolution" submitTone="success" onSubmit={() => run("resolved", "Complaint resolved with audit history")} disabled={notes.trim().length < 10}>
-        <div className="space-y-3">
-          <FormField label="Resolution Summary"><textarea value={notes} onChange={e => setNotes(e.target.value)} className={textareaCls} /></FormField>
-          <FormField label="Customer Notification"><select className={inputCls}><option>Send resolution summary</option><option>Send and request satisfaction survey</option></select></FormField>
-        </div>
-      </WorkflowModal>
     </div>
   );
-}
-
-function Info({ l, v }: { l: string; v: any }) {
-  return <div><div className="text-[11px] text-muted-foreground">{l}</div><div className="font-medium mt-0.5 capitalize">{String(v)}</div></div>;
 }

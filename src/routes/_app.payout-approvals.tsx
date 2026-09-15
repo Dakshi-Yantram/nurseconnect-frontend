@@ -18,7 +18,7 @@ interface PayoutRow {
   tds_deducted: number;
   net_amount: number;
   status: string;
-  approval_status: "pending" | "approved" | "rejected";
+  approval_status: "pending_approval" | "approved" | "rejected";
   approved_at: string | null;
   paid_at: string | null;
   created_at: string;
@@ -33,12 +33,20 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+// The backend's PayoutApprovalStatus enum value is "pending_approval", not
+// "pending" — this is purely a display label so the filter buttons and
+// chips read naturally without changing the value used for comparisons.
+function approvalLabel(status: string) {
+  if (status === "pending_approval") return "Pending";
+  return status[0].toUpperCase() + status.slice(1);
+}
+
 function PayoutApprovalsPage() {
   const [rows, setRows] = useState<PayoutRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [approvalFilter, setApprovalFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [approvalFilter, setApprovalFilter] = useState<"all" | "pending_approval" | "approved" | "rejected">("pending_approval");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -105,7 +113,7 @@ function PayoutApprovalsPage() {
     return matchesQuery && matchesApproval;
   });
 
-  const pendingCount = rows.filter((r) => r.approval_status === "pending").length;
+  const pendingCount = rows.filter((r) => r.approval_status === "pending_approval").length;
   const approvedUnpaidCount = rows.filter((r) => r.approval_status === "approved" && r.status !== "paid").length;
 
   return (
@@ -143,13 +151,13 @@ function PayoutApprovalsPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        {(["pending", "approved", "rejected", "all"] as const).map((f) => (
+        {(["pending_approval", "approved", "rejected", "all"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setApprovalFilter(f)}
             className={`h-9 px-3 text-[12.5px] rounded-md border ${approvalFilter === f ? "bg-blue-50 border-blue-200 text-blue-700" : "border-border text-muted-foreground"}`}
           >
-            {f === "all" ? "All" : f[0].toUpperCase() + f.slice(1)}
+            {f === "all" ? "All" : approvalLabel(f)}
           </button>
         ))}
       </div>
@@ -175,7 +183,7 @@ function PayoutApprovalsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <StatusChip label={p.approval_status} tone={p.approval_status === "approved" ? "success" : p.approval_status === "rejected" ? "danger" : "warning"} />
+                  <StatusChip label={approvalLabel(p.approval_status)} tone={p.approval_status === "approved" ? "success" : p.approval_status === "rejected" ? "danger" : "warning"} />
                   <StatusChip label={p.status} tone={statusToneFor(p.status)} />
                 </div>
               </div>
