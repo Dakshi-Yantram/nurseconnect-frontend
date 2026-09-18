@@ -8,6 +8,9 @@ import { apiFetch } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
 import { ChatPanel } from "@/components/shared/ChatPanel";
 import { CallButton } from "@/components/calling/CallButton";
+import { CareSummaryCard } from "@/components/shared/CareSummaryCard";
+import { VisitCheckoutForm } from "@/components/shared/VisitCheckoutForm";
+import type { Vital, VisitReport } from "@/lib/visit-report-types";
 
 export const Route = createFileRoute("/_app/partner/visits/$visitId")({
   component: PartnerVisitDetail,
@@ -28,13 +31,6 @@ type Booking = {
   payment_method?: "razorpay" | "cash";
   payment_status?: string;
 };
-type Vital = {
-  id: string;
-  bp_systolic?: number | null; bp_diastolic?: number | null;
-  pulse?: number | null; spo2?: number | null; temperature_f?: number | string | null;
-  abnormal_flags?: string[] | null; escalation_triggered?: boolean; recorded_at: string;
-};
-
 function mapsUrl(b: Booking): string {
   if (b.latitude != null && b.longitude != null) {
     return `https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`;
@@ -82,6 +78,7 @@ function PartnerVisitDetail() {
   const [b, setB] = useState<Booking | null>(null);
   useLocationPublisher(visitId, ["assigned","worker_en_route","worker_arrived"].includes(b?.status ?? "")); // booking id
   const [vitals, setVitals] = useState<Vital[]>([]);
+  const [report, setReport] = useState<VisitReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -90,12 +87,16 @@ function PartnerVisitDetail() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [bk, vs] = await Promise.allSettled([
+      const [bk, vs, rp] = await Promise.allSettled([
         apiFetch(`/api/bookings/${visitId}`),
         apiFetch(`/api/visits/${visitId}/vitals`),
+        apiFetch(`/api/visits/${visitId}/report`),
       ]);
       if (bk.status === "fulfilled") setB(bk.value);
       setVitals(vs.status === "fulfilled" && Array.isArray(vs.value) ? vs.value : []);
+      // A visit that hasn't started yet has no report row; that's expected,
+      // not an error — the card below simply won't render until completed.
+      setReport(rp.status === "fulfilled" ? rp.value : null);
     } catch (e: any) {
       setError(String(e?.message ?? e));
     } finally {
@@ -221,10 +222,13 @@ function PartnerVisitDetail() {
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-700">{error}</div>}
 
         {completed ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 flex flex-col items-center gap-2 text-center">
-            <CheckCircle2 className="text-emerald-600" size={26} />
-            <p className="text-[14px] font-bold text-foreground">Visit completed</p>
-          </div>
+          <>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 flex flex-col items-center gap-2 text-center">
+              <CheckCircle2 className="text-emerald-600" size={26} />
+              <p className="text-[14px] font-bold text-foreground">Visit completed</p>
+            </div>
+            <CareSummaryCard report={report} latestVital={vitals[0] ?? null} />
+          </>
         ) : !inProgress ? (
           <div className="rounded-xl border border-border bg-card px-5 py-4">
             <div className="flex items-center gap-2 mb-2">
@@ -602,24 +606,15 @@ function ExecutionPanel({
         </div>
       )}
 
-      {/* Family summary + checkout */}
-      <div className="rounded-xl border border-border bg-card px-5 py-4">
-        <div className="flex items-center gap-2 mb-3">
-          <FileText size={15} className="text-primary" />
-          <p className="text-[13px] font-semibold text-foreground">Family summary & checkout</p>
-        </div>
-        <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3}
-          placeholder="Summary the family will see (what you did, how the patient is doing)…"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-          placeholder="Clinical care notes (internal)…"
-          className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
-        <button onClick={checkout} disabled={busy !== null}
-          className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40">
-          {busy === "checkout" ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-          Complete visit & check out
-        </button>
-      </div>
+      <VisitCheckoutForm
+        summary={summary}
+        notes={notes}
+        onSummaryChange={setSummary}
+        onNotesChange={setNotes}
+        onSubmit={checkout}
+        submitting={busy === "checkout"}
+        disabled={busy !== null && busy !== "checkout"}
+      />
     </>
   );
 }
