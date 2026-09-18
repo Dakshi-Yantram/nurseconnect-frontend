@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import {
   Loader2, Navigation, MapPin, KeyRound, CheckCircle2, PlayCircle,
-  Activity, ClipboardList, FileText, AlertTriangle, Banknote,
+  Activity, ClipboardList, FileText, AlertTriangle, Banknote, Clock,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
@@ -33,6 +33,17 @@ type Vital = {
   bp_systolic?: number | null; bp_diastolic?: number | null;
   pulse?: number | null; spo2?: number | null; temperature_f?: number | string | null;
   abnormal_flags?: string[] | null; escalation_triggered?: boolean; recorded_at: string;
+};
+// GET /api/visits/{bookingId}/report — the nurse's own saved report (same
+// data the family sees in "Care summary" on their booking page, plus the
+// internal care_notes that are never shown to them). Fetched here so a
+// completed visit still shows the nurse what she submitted, instead of just
+// a bare "Visit completed" tick with no way back to the report.
+type VisitReport = {
+  care_notes?: string | null;
+  family_summary?: string | null;
+  actual_duration_minutes?: number | null;
+  check_out_at?: string | null;
 };
 
 function mapsUrl(b: Booking): string {
@@ -82,6 +93,7 @@ function PartnerVisitDetail() {
   const [b, setB] = useState<Booking | null>(null);
   useLocationPublisher(visitId, ["assigned","worker_en_route","worker_arrived"].includes(b?.status ?? "")); // booking id
   const [vitals, setVitals] = useState<Vital[]>([]);
+  const [report, setReport] = useState<VisitReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -90,12 +102,16 @@ function PartnerVisitDetail() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [bk, vs] = await Promise.allSettled([
+      const [bk, vs, rp] = await Promise.allSettled([
         apiFetch(`/api/bookings/${visitId}`),
         apiFetch(`/api/visits/${visitId}/vitals`),
+        apiFetch(`/api/visits/${visitId}/report`),
       ]);
       if (bk.status === "fulfilled") setB(bk.value);
       setVitals(vs.status === "fulfilled" && Array.isArray(vs.value) ? vs.value : []);
+      // A visit that hasn't started yet has no report row; that's expected,
+      // not an error — the card below simply won't render until completed.
+      setReport(rp.status === "fulfilled" ? rp.value : null);
     } catch (e: any) {
       setError(String(e?.message ?? e));
     } finally {
@@ -221,10 +237,13 @@ function PartnerVisitDetail() {
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-700">{error}</div>}
 
         {completed ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 flex flex-col items-center gap-2 text-center">
-            <CheckCircle2 className="text-emerald-600" size={26} />
-            <p className="text-[14px] font-bold text-foreground">Visit completed</p>
-          </div>
+          <>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 flex flex-col items-center gap-2 text-center">
+              <CheckCircle2 className="text-emerald-600" size={26} />
+              <p className="text-[14px] font-bold text-foreground">Visit completed</p>
+            </div>
+            <CareSummaryCard report={report} latestVital={vitals[0] ?? null} />
+          </>
         ) : !inProgress ? (
           <div className="rounded-xl border border-border bg-card px-5 py-4">
             <div className="flex items-center gap-2 mb-2">
@@ -260,6 +279,91 @@ function PartnerVisitDetail() {
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Mirrors the "Care summary" card the family sees on their booking page
+// (_app.consumer.bookings.$bookingId.tsx), but from GET /api/visits/{id}/report
+// so it also carries `care_notes` — the nurse's own working notes, which are
+// deliberately excluded from the family-facing endpoint.
+function CareSummaryCard({ report, latestVital }: { report: VisitReport | null; latestVital: Vital | null }) {
+  const hasVitals = latestVital != null && (
+    latestVital.bp_systolic != null || latestVital.spo2 != null ||
+    latestVital.pulse != null || latestVital.temperature_f != null
+  );
+  if (!report && !hasVitals) return null;
+
+  return (
+    <div className="rounded-xl border border-border bg-card px-5 py-4">
+      <div className="flex items-center gap-2 mb-3">
+        <ClipboardList size={15} className="text-primary" />
+        <p className="text-[13px] font-semibold text-foreground">Care summary</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+          <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground">Duration</p>
+          <p className="text-[13px] font-semibold mt-0.5">
+            {report?.actual_duration_minutes != null ? `${report.actual_duration_minutes} mins` : "—"}
+          </p>
+        </div>
+        <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+          <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground">Completed at</p>
+          <p className="text-[13px] font-semibold mt-0.5">
+            {report?.check_out_at
+              ? new Date(report.check_out_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+              : "—"}
+          </p>
+        </div>
+      </div>
+
+      {hasVitals && (
+        <div className="mb-4">
+          <p className="text-[11.5px] font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Activity size={12} /> Vitals recorded
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+              <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground">Blood pressure</p>
+              <p className="text-[13px] font-semibold mt-0.5">
+                {latestVital?.bp_systolic != null && latestVital?.bp_diastolic != null
+                  ? `${latestVital.bp_systolic} / ${latestVital.bp_diastolic} mmHg` : "—"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+              <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground">SpO₂</p>
+              <p className="text-[13px] font-semibold mt-0.5">{latestVital?.spo2 != null ? `${latestVital.spo2}%` : "—"}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+              <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground">Heart rate</p>
+              <p className="text-[13px] font-semibold mt-0.5">{latestVital?.pulse != null ? `${latestVital.pulse} bpm` : "—"}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+              <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground">Temperature</p>
+              <p className="text-[13px] font-semibold mt-0.5">
+                {latestVital?.temperature_f != null ? `${latestVital.temperature_f} °F` : "—"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-3">
+        <p className="text-[11.5px] font-medium text-muted-foreground mb-2">Your clinical notes (internal)</p>
+        <div className="rounded-lg bg-muted/40 px-3 py-2.5 text-[12.5px] text-muted-foreground leading-relaxed">
+          {report?.care_notes || "No clinical notes recorded."}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[11.5px] font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+          <Clock size={12} /> Summary sent to the family
+        </p>
+        <div className="rounded-lg bg-muted/40 px-3 py-2.5 text-[12.5px] text-muted-foreground leading-relaxed">
+          {report?.family_summary || "No family summary was recorded."}
+        </div>
       </div>
     </div>
   );
