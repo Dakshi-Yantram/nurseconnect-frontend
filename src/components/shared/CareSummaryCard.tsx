@@ -1,5 +1,6 @@
 import { ClipboardList, Activity, Clock } from "lucide-react";
 import type { Vital, VisitReport } from "@/lib/visit-report-types";
+import { VisitReportButton } from "@/components/shared/VisitReportButton";
 
 /**
  * Read-only summary of a completed visit's report.
@@ -14,9 +15,12 @@ import type { Vital, VisitReport } from "@/lib/visit-report-types";
 export function CareSummaryCard({
   report,
   latestVital,
+  bookingId,
 }: {
   report: VisitReport | null;
   latestVital: Vital | null;
+  /** When provided, shows a "Download report" button for the nurse's own PDF copy. */
+  bookingId?: string;
 }) {
   const hasVitals = latestVital != null && (
     latestVital.bp_systolic != null || latestVital.spo2 != null ||
@@ -26,9 +30,12 @@ export function CareSummaryCard({
 
   return (
     <div className="rounded-xl border border-border bg-card px-5 py-4">
-      <div className="flex items-center gap-2 mb-3">
-        <ClipboardList size={15} className="text-primary" />
-        <p className="text-[13px] font-semibold text-foreground">Care summary</p>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <ClipboardList size={15} className="text-primary" />
+          <p className="text-[13px] font-semibold text-foreground">Care summary</p>
+        </div>
+        {bookingId && <VisitReportButton bookingId={bookingId} endpoint="worker" />}
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
