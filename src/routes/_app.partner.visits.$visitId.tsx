@@ -287,9 +287,6 @@ function PartnerVisitDetail() {
   );
 }
 
-  );
-}
-
 function ExecutionPanel({
   bookingId, booking, vitals, busy, setBusy, setError, parseErr, reload,
 }: {
