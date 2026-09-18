@@ -21,6 +21,7 @@ import { apiFetch } from "@/lib/api";
 import { payForBooking, refundBooking, fetchPaymentMethods, selectCashPayment, type PaymentMethodOption } from "@/lib/payments";
 import { StartVisitCodeButton } from "@/components/StartVisitCodeButton";
 import { TrackNurseMap } from "@/components/TrackNurseMap";
+import { VisitReportButton } from "@/components/shared/VisitReportButton";
 import {
   bookingService, bookingPatientName, bookingArea,
   bookingStartedAt, bookingDuration, bookingNurseName,
@@ -477,11 +478,18 @@ function ConsumerBookingDetail() {
 
       {record.state === "completed" && (
         <RuntimeBoundary label="Care summary">
-          <Card title={
-            <span className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-muted-foreground" /> Care summary
-            </span>
-          }>
+          <Card
+            title={
+              <span className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-muted-foreground" /> Care summary
+              </span>
+            }
+            action={
+              !reportLoading && !reportNotFound && report ? (
+                <VisitReportButton bookingId={bookingId} endpoint="consumer" />
+              ) : undefined
+            }
+          >
             {reportLoading && (
               <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground py-6 justify-center">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading your visit report…
