@@ -245,7 +245,7 @@ function PartnerVisitDetail() {
               <CheckCircle2 className="text-emerald-600" size={26} />
               <p className="text-[14px] font-bold text-foreground">Visit completed</p>
             </div>
-            <CareSummaryCard report={report} latestVital={vitals[0] ?? null} />
+            <CareSummaryCard report={report} latestVital={vitals[0] ?? null} bookingId={visitId} />
           </>
         ) : !inProgress ? (
           <div className="rounded-xl border border-border bg-card px-5 py-4">
