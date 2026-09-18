@@ -14,21 +14,27 @@ export function VisitOtpChip({ bookingId, status }: { bookingId: string; status:
   const [otp, setOtp] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const fetchedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (!ELIGIBLE.includes(status)) return;
-    if (fetchedFor.current === bookingId) return;
-    fetchedFor.current = bookingId;
+    const key = `${bookingId}:${attempt}`;
+    if (fetchedFor.current === key) return;
+    fetchedFor.current = key;
     setLoading(true);
-    apiFetch(`/api/visits/${bookingId}/generate-start-otp`, { method: "POST" })
+    setFailed(false);
+    apiFetch(`/api/visits/${bookingId}/generate-start-otp`, { method: "POST", timeoutMs: 25_000 })
       .then(res => {
         setOtp(res?.otp ?? null);
         setSecondsLeft(typeof res?.expires_in_seconds === "number" ? res.expires_in_seconds : null);
       })
-      .catch(() => { /* best-effort — card still works without the chip */ })
+      // Used to swallow the error and silently drop the chip, leaving the
+      // family with no code and no hint why.
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
-  }, [bookingId, status]);
+  }, [bookingId, status, attempt]);
 
   useEffect(() => {
     if (secondsLeft === null || secondsLeft <= 0) return;
@@ -44,7 +50,31 @@ export function VisitOtpChip({ bookingId, status }: { bookingId: string; status:
       </span>
     );
   }
+  if (failed) {
+    return (
+      <button
+        type="button"
+        onClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setAttempt(a => a + 1); }}
+        title="Couldn't load the visit start code"
+        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700 shrink-0"
+      >
+        <KeyRound className="h-3 w-3" /> Code unavailable · Retry
+      </button>
+    );
+  }
   if (!otp) return null;
+  if (secondsLeft === 0) {
+    // Code expired while the page was open — fetch a fresh one on tap.
+    return (
+      <button
+        type="button"
+        onClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setOtp(null); setAttempt(a => a + 1); }}
+        className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground shrink-0"
+      >
+        <KeyRound className="h-3 w-3" /> Code expired · Get new code
+      </button>
+    );
+  }
 
   const mm = secondsLeft != null ? Math.floor(secondsLeft / 60) : null;
   const ss = secondsLeft != null ? secondsLeft % 60 : null;
