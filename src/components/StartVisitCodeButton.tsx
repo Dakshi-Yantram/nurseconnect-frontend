@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { KeyRound, Loader2, CheckCircle2 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiErrorMessage } from "@/lib/api";
 
 // Shown on the consumer's booking detail once a nurse is assigned. The family
 // taps this when the nurse is at the door; the backend SMSes a 4-digit code to
@@ -27,13 +27,17 @@ export function StartVisitCodeButton({ bookingId, status }: { bookingId: string;
     setError(null);
     setBusy(true);
     try {
-      const res = await apiFetch(`/api/visits/${bookingId}/generate-start-otp`, { method: "POST" });
+      const res = await apiFetch(`/api/visits/${bookingId}/generate-start-otp`, { method: "POST", timeoutMs: 25_000 });
       setOtp(res?.otp ?? null);
-      setMessage(res?.message ?? "Show this code to your nurse when they arrive.");
-    } catch (e: any) {
-      let msg = String(e?.message ?? e);
-      try { const j = JSON.parse(msg); msg = j.detail?.message ?? j.detail ?? msg; } catch { /* keep */ }
-      setError(msg);
+      // sms_sent: true = texted, false = SMS failed (code still valid, shown
+      // here), null = existing code re-shown (no new SMS).
+      setMessage(
+        res?.sms_sent === false
+          ? "We couldn't text this code to you — read it to your nurse from this screen."
+          : res?.message ?? "Show this code to your nurse when they arrive.",
+      );
+    } catch (e: unknown) {
+      setError(apiErrorMessage(e, "Couldn't get the start code. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -52,8 +56,9 @@ export function StartVisitCodeButton({ bookingId, status }: { bookingId: string;
             <p className="text-emerald-700">{message}</p>
             <p className="mt-1.5 text-[22px] font-bold tracking-[0.3em] text-primary font-mono">{otp}</p>
             <button onClick={fetchCode} disabled={busy} className="mt-1 text-primary hover:underline disabled:opacity-40">
-              Refresh code
+              {busy ? "Refreshing…" : "Refresh code"}
             </button>
+            {error && <p className="mt-1 text-[12px] text-red-600">{error}</p>}
           </div>
         </div>
       ) : (
@@ -69,7 +74,12 @@ export function StartVisitCodeButton({ bookingId, status }: { bookingId: string;
             {busy ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
             Get start code
           </button>
-          {error && <p className="mt-2 text-[12px] text-red-600">{error}</p>}
+          {error && (
+            <p className="mt-2 text-[12px] text-red-600">
+              {error}{" "}
+              <button onClick={fetchCode} disabled={busy} className="font-medium underline">Try again</button>
+            </p>
+          )}
         </>
       )}
     </div>

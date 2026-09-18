@@ -4,7 +4,7 @@ import {
   Loader2, Navigation, MapPin, KeyRound, CheckCircle2, PlayCircle,
   Activity, ClipboardList, FileText, AlertTriangle, Banknote, Clock,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiErrorMessage } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
 import { ChatPanel } from "@/components/shared/ChatPanel";
 import { CallButton } from "@/components/calling/CallButton";
@@ -97,6 +97,7 @@ function PartnerVisitDetail() {
   useLocationPublisher(visitId, ["assigned","worker_en_route","worker_arrived"].includes(b?.status ?? "")); // booking id
   const [vitals, setVitals] = useState<Vital[]>([]);
   const [report, setReport] = useState<VisitReport | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -115,8 +116,15 @@ function PartnerVisitDetail() {
       // A visit that hasn't started yet has no report row; that's expected,
       // not an error — the card below simply won't render until completed.
       setReport(rp.status === "fulfilled" ? rp.value : null);
+      // The report endpoint answers 200 even before a visit starts, so a
+      // rejection here is a real failure (expired session, 403, 5xx,
+      // offline) — surface it instead of silently hiding the summary card.
+      setReportError(rp.status === "rejected"
+        ? apiErrorMessage(rp.reason, "Couldn't load the visit report.")
+        : null);
+      if (bk.status === "rejected") setError(apiErrorMessage(bk.reason, "Couldn't load this visit."));
     } catch (e: any) {
-      setError(String(e?.message ?? e));
+      setError(apiErrorMessage(e, "Couldn't load this visit."));
     } finally {
       setLoading(false);
     }
@@ -182,7 +190,14 @@ function PartnerVisitDetail() {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
   if (!b) {
-    return <div className="p-8 text-center text-[13px] text-muted-foreground">{error ?? "Visit not found."}</div>;
+    return (
+      <div className="p-8 text-center text-[13px] text-muted-foreground">
+        <p>{error ?? "Visit not found."}</p>
+        {error && (
+          <button type="button" onClick={load} className="mt-2 font-medium text-primary hover:underline">Try again</button>
+        )}
+      </div>
+    );
   }
 
   const a = b.address_snapshot ?? {};
@@ -245,7 +260,13 @@ function PartnerVisitDetail() {
               <CheckCircle2 className="text-emerald-600" size={26} />
               <p className="text-[14px] font-bold text-foreground">Visit completed</p>
             </div>
-            <CareSummaryCard report={report} latestVital={vitals[0] ?? null} bookingId={visitId} />
+            <CareSummaryCard
+              report={report}
+              latestVital={vitals[0] ?? null}
+              bookingId={visitId}
+              error={reportError}
+              onRetry={load}
+            />
           </>
         ) : !inProgress ? (
           <div className="rounded-xl border border-border bg-card px-5 py-4">

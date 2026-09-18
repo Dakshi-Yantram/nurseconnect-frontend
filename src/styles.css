@@ -188,3 +188,28 @@
   .shadow-card { box-shadow: var(--shadow-card); }
   .shadow-elevated { box-shadow: var(--shadow-elevated); }
 }
+
+/* ── Protected health information (see components/shared/ProtectedContent) ──
+   REAL for printing: whatever print path is used (menu, Ctrl+P that slipped
+   through, print-to-PDF, "Save page as PDF"), the sensitive block is removed
+   from the printed output and replaced by a notice. Scoped to .nc-protected
+   only — the rest of the page prints normally. */
+.nc-protected__print {
+  display: none;
+}
+@media print {
+  .nc-protected .nc-protected__content,
+  .nc-protected .nc-protected__wm,
+  .nc-protected .nc-protected__shield {
+    display: none !important;
+  }
+  .nc-protected .nc-protected__print {
+    display: block !important;
+    padding: 12px 14px;
+    border: 1px dashed #999;
+    border-radius: 8px;
+    color: #333;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}

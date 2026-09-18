@@ -1,6 +1,7 @@
-import { ClipboardList, Activity, Clock } from "lucide-react";
+import { ClipboardList, Activity, Clock, AlertCircle } from "lucide-react";
 import type { Vital, VisitReport } from "@/lib/visit-report-types";
 import { VisitReportButton } from "@/components/shared/VisitReportButton";
+import { ProtectedContent } from "@/components/shared/ProtectedContent";
 
 /**
  * Read-only summary of a completed visit's report.
@@ -16,27 +17,69 @@ export function CareSummaryCard({
   report,
   latestVital,
   bookingId,
+  error,
+  onRetry,
 }: {
   report: VisitReport | null;
   latestVital: Vital | null;
   /** When provided, shows a "Download report" button for the nurse's own PDF copy. */
   bookingId?: string;
+  /** Load failure for the report (session expired, 403, 5xx, offline…). */
+  error?: string | null;
+  onRetry?: () => void;
 }) {
   const hasVitals = latestVital != null && (
-    latestVital.bp_systolic != null || latestVital.spo2 != null ||
+    latestVital.bp_systolic != null || latestVital.bp_diastolic != null || latestVital.spo2 != null ||
     latestVital.pulse != null || latestVital.temperature_f != null
   );
-  if (!report && !hasVitals) return null;
+
+  const header = (
+    <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="flex items-center gap-2">
+        <ClipboardList size={15} className="text-primary" />
+        <p className="text-[13px] font-semibold text-foreground">Visit Care Summary</p>
+      </div>
+      {bookingId && !error && <VisitReportButton bookingId={bookingId} endpoint="worker" />}
+    </div>
+  );
+
+  // Previously a failed fetch rendered NOTHING (the card just vanished).
+  if (error) {
+    return (
+      <div className="rounded-xl border border-border bg-card px-5 py-4">
+        {header}
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[12.5px] text-red-700">
+          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+          <div>
+            <p>{error}</p>
+            {onRetry && (
+              <button type="button" onClick={onRetry} className="mt-1 font-medium underline">Try again</button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!report && !hasVitals) {
+    return (
+      <div className="rounded-xl border border-border bg-card px-5 py-4">
+        {header}
+        <p className="text-[12.5px] text-muted-foreground">No report or vitals were recorded for this visit.</p>
+      </div>
+    );
+  }
+
+  const fmtBp = (v: Vital | null) =>
+    v?.bp_systolic != null && v?.bp_diastolic != null
+      ? `${v.bp_systolic} / ${v.bp_diastolic} mmHg`
+      : v?.bp_systolic != null || v?.bp_diastolic != null
+        ? `${v?.bp_systolic ?? "?"} / ${v?.bp_diastolic ?? "?"} mmHg (incomplete)`
+        : "—";
 
   return (
     <div className="rounded-xl border border-border bg-card px-5 py-4">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <ClipboardList size={15} className="text-primary" />
-          <p className="text-[13px] font-semibold text-foreground">Care summary</p>
-        </div>
-        {bookingId && <VisitReportButton bookingId={bookingId} endpoint="worker" />}
-      </div>
+      {header}
+      <ProtectedContent bookingId={bookingId} label="Visit care summary">
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="rounded-lg bg-muted/50 px-3 py-2.5">
@@ -55,6 +98,11 @@ export function CareSummaryCard({
         </div>
       </div>
 
+      {!hasVitals && (
+        <p className="mb-4 text-[12.5px] text-muted-foreground flex items-center gap-1.5">
+          <Activity size={12} /> No vitals were recorded during this visit.
+        </p>
+      )}
       {hasVitals && (
         <div className="mb-4">
           <p className="text-[11.5px] font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
@@ -64,8 +112,7 @@ export function CareSummaryCard({
             <div className="rounded-lg bg-muted/50 px-3 py-2.5">
               <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground">Blood pressure</p>
               <p className="text-[13px] font-semibold mt-0.5">
-                {latestVital?.bp_systolic != null && latestVital?.bp_diastolic != null
-                  ? `${latestVital.bp_systolic} / ${latestVital.bp_diastolic} mmHg` : "—"}
+                {fmtBp(latestVital)}
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 px-3 py-2.5">
@@ -101,6 +148,7 @@ export function CareSummaryCard({
           {report?.family_summary || "No family summary was recorded."}
         </div>
       </div>
+      </ProtectedContent>
     </div>
   );
 }
