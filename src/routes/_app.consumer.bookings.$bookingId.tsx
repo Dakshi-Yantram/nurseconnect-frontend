@@ -17,11 +17,12 @@ import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
 import { useEntity } from "@/lib/orchestration";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import { useAuth } from "@/lib/auth-context";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, apiErrorMessage } from "@/lib/api";
 import { payForBooking, refundBooking, fetchPaymentMethods, selectCashPayment, type PaymentMethodOption } from "@/lib/payments";
 import { StartVisitCodeButton } from "@/components/StartVisitCodeButton";
 import { TrackNurseMap } from "@/components/TrackNurseMap";
 import { VisitReportButton } from "@/components/shared/VisitReportButton";
+import { ProtectedContent } from "@/components/shared/ProtectedContent";
 import {
   bookingService, bookingPatientName, bookingArea,
   bookingStartedAt, bookingDuration, bookingNurseName,
@@ -56,12 +57,16 @@ const PAYMENT_CONFIG: Record<PaymentStatus, {
   cash_due: { label: "Pay at visit", icon: Banknote, classes: "text-sky-700 bg-sky-50 border-sky-200", description: "Booking confirmed — pay your care professional directly when they arrive." },
 };
 
+// GET /api/visits/{id}/report/consumer — the family-facing, audited view.
+// It deliberately has NO `care_notes` (the nurse's internal record). This
+// page used to call GET /api/visits/{id} instead and render care_notes as
+// "Nurse's notes", which exposed internal clinical notes to the family.
 interface VisitReport {
-  checklistResponses: Record<string, any> | null;
-  documentationResponses: Record<string, any> | null;
+  hasChecklist: boolean;
+  hasDocumentation: boolean;
   familySummary: string | null;
-  careNotes: string | null;
-  ratingByConsumer: number | null;
+  checkOutAt: string | null;
+  durationMinutes: number | null;
   vitals: {
     bp: string | null;
     pulse: number | null;
@@ -70,48 +75,67 @@ interface VisitReport {
   } | null;
 }
 
+type ReportState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; data: VisitReport }
+  | { kind: "not_ready"; message: string }
+  | { kind: "error"; message: string; sessionExpired: boolean };
+
+function fmtBp(sys: number | null | undefined, dia: number | null | undefined): string | null {
+  if (sys != null && dia != null) return `${sys} / ${dia} mmHg`;
+  if (sys != null || dia != null) return `${sys ?? "?"} / ${dia ?? "?"} mmHg (incomplete)`;
+  return null;
+}
+
 function useVisitReport(bookingId: string, enabled: boolean) {
-  const [data, setData] = useState<VisitReport | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [notFound, setNotFound] = useState(false);
+  const [state, setState] = useState<ReportState>({ kind: "idle" });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !bookingId) return;
     let cancelled = false;
-    setLoading(true);
-    setNotFound(false);
-    Promise.allSettled([
-      apiFetch(`/api/visits/${bookingId}`),
-      apiFetch(`/api/visits/${bookingId}/vitals`),
-    ]).then(([visitRes, vitalsRes]) => {
-      if (cancelled) return;
-      if (visitRes.status === "fulfilled") {
-        const v = visitRes.value;
-        const vitalsList = vitalsRes.status === "fulfilled" && Array.isArray(vitalsRes.value) ? vitalsRes.value : [];
-        const latest = vitalsList[0] ?? null;
-        setData({
-          checklistResponses: v.checklist_responses ?? null,
-          documentationResponses: v.documentation_responses ?? null,
-          familySummary: v.family_summary ?? null,
-          careNotes: v.care_notes ?? null,
-          ratingByConsumer: v.rating_by_consumer ?? null,
-          vitals: latest ? {
-            bp: latest.bp_systolic != null && latest.bp_diastolic != null
-              ? `${latest.bp_systolic} / ${latest.bp_diastolic} mmHg` : null,
-            pulse: latest.pulse ?? null,
-            spo2: latest.spo2 ?? null,
-            temperatureF: latest.temperature_f ?? null,
-          } : null,
+    setState({ kind: "loading" });
+    apiFetch(`/api/visits/${bookingId}/report/consumer`, { timeoutMs: 20_000 })
+      .then((v) => {
+        if (cancelled) return;
+        const lv = v?.latest_vitals ?? null;
+        const anyVital = lv && (lv.bp_systolic != null || lv.bp_diastolic != null ||
+          lv.pulse != null || lv.spo2 != null || lv.temperature_f != null);
+        setState({
+          kind: "ready",
+          data: {
+            hasChecklist: !!v?.has_checklist,
+            hasDocumentation: !!v?.has_documentation,
+            familySummary: v?.family_summary ?? null,
+            checkOutAt: v?.check_out_at ?? null,
+            durationMinutes: v?.actual_duration_minutes ?? null,
+            vitals: anyVital ? {
+              bp: fmtBp(lv.bp_systolic, lv.bp_diastolic),
+              pulse: lv.pulse ?? null,
+              spo2: lv.spo2 ?? null,
+              temperatureF: lv.temperature_f ?? null,
+            } : null,
+          },
         });
-      } else {
-        setNotFound(true);
-      }
-      setLoading(false);
-    });
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        // "Not written yet" is a normal state, not an error.
+        if (e instanceof ApiError && (e.code === "NO_VISIT_YET" || e.code === "VISIT_IN_PROGRESS")) {
+          setState({ kind: "not_ready", message: e.userMessage ?? "Your care team hasn't finished documenting this visit." });
+          return;
+        }
+        setState({
+          kind: "error",
+          message: apiErrorMessage(e, "Couldn't load your visit report."),
+          sessionExpired: e instanceof ApiError && e.status === 401,
+        });
+      });
     return () => { cancelled = true; };
-  }, [bookingId, enabled]);
+  }, [bookingId, enabled, attempt]);
 
-  return { data, loading, notFound };
+  return { state, retry: () => setAttempt((n) => n + 1) };
 }
 
 // Maps AuditLog.action strings (see `audit()` calls across bookings.py,
@@ -187,8 +211,9 @@ function ConsumerBookingDetail() {
   // it after an early `if (!record) return ...` caused React error #310
   // ("rendered more hooks than during the previous render") once the
   // booking finished loading, crashing the whole page.
-  const { data: report, loading: reportLoading, notFound: reportNotFound } =
+  const { state: reportState, retry: retryReport } =
     useVisitReport(record?.id ?? "", record?.state === "completed");
+  const report = reportState.kind === "ready" ? reportState.data : null;
 
   if (!record) {
     return (
@@ -485,35 +510,53 @@ function ConsumerBookingDetail() {
               </span>
             }
             action={
-              !reportLoading && !reportNotFound && report ? (
-                <VisitReportButton bookingId={bookingId} endpoint="consumer" />
-              ) : undefined
+              report ? <VisitReportButton bookingId={bookingId} endpoint="consumer" /> : undefined
             }
           >
-            {reportLoading && (
+            {(reportState.kind === "loading" || reportState.kind === "idle") && (
               <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground py-6 justify-center">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading your visit report…
               </div>
             )}
 
-            {!reportLoading && reportNotFound && (
+            {reportState.kind === "not_ready" && (
               <EmptyState
                 icon={FileText}
                 title="Report not available yet"
-                description="Your care team hasn't finished documenting this visit. Check back shortly."
+                description={reportState.message}
               />
             )}
 
-            {!reportLoading && !reportNotFound && report && (
-              <>
+            {reportState.kind === "error" && (
+              <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[12.5px] text-red-700">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  <p>{reportState.message}</p>
+                  {reportState.sessionExpired ? (
+                    <Link to="/auth/login" search={{ redirect: undefined }} className="mt-1 inline-block font-medium underline">Sign in again</Link>
+                  ) : (
+                    <button type="button" onClick={retryReport} className="mt-1 font-medium underline">Try again</button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {report && (
+              <ProtectedContent bookingId={bookingId} label="Visit care summary">
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="bg-muted/50 rounded-lg px-3 py-2.5">
                     <div className="text-[10.5px] text-muted-foreground uppercase tracking-wide">Duration</div>
-                    <div className="text-[13px] font-semibold mt-0.5">{duration}</div>
+                    <div className="text-[13px] font-semibold mt-0.5">
+                      {report.durationMinutes != null ? `${report.durationMinutes} mins` : duration}
+                    </div>
                   </div>
                   <div className="bg-muted/50 rounded-lg px-3 py-2.5">
                     <div className="text-[10.5px] text-muted-foreground uppercase tracking-wide">Completed at</div>
-                    <div className="text-[13px] font-semibold mt-0.5">{started}</div>
+                    <div className="text-[13px] font-semibold mt-0.5">
+                      {report.checkOutAt
+                        ? new Date(report.checkOutAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+                        : "—"}
+                    </div>
                   </div>
                   <div className="bg-muted/50 rounded-lg px-3 py-2.5">
                     <div className="text-[10.5px] text-muted-foreground uppercase tracking-wide">Nurse</div>
@@ -524,16 +567,10 @@ function ConsumerBookingDetail() {
                 <div className="mb-4">
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Tasks completed</div>
                   <div className="flex flex-wrap gap-2">
-                    {report.vitals && (
-                      <TaskBadge label="Vital signs recorded" />
-                    )}
-                    {report.checklistResponses && (
-                      <TaskBadge label="Clinical checklist completed" />
-                    )}
-                    {report.documentationResponses && (
-                      <TaskBadge label="Visit documentation submitted" />
-                    )}
-                    {!report.vitals && !report.checklistResponses && !report.documentationResponses && (
+                    {report.vitals && <TaskBadge label="Vital signs recorded" />}
+                    {report.hasChecklist && <TaskBadge label="Clinical checklist completed" />}
+                    {report.hasDocumentation && <TaskBadge label="Visit documentation submitted" />}
+                    {!report.vitals && !report.hasChecklist && !report.hasDocumentation && (
                       <span className="text-[12.5px] text-muted-foreground">No tasks recorded for this visit yet.</span>
                     )}
                   </div>
@@ -553,21 +590,14 @@ function ConsumerBookingDetail() {
                   )}
                 </div>
 
-                <div className="mb-4">
-                  <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Nurse's notes</div>
-                  <div className="bg-muted/40 rounded-lg px-3 py-2.5 text-[12.5px] text-muted-foreground leading-relaxed">
-                    {report.careNotes || "No notes were recorded for this visit."}
-                  </div>
-                </div>
-
                 <div>
-                  <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Next steps</div>
-                  <div className="flex items-start gap-2 text-[12.5px] text-muted-foreground">
+                  <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Summary from your nurse</div>
+                  <div className="flex items-start gap-2 bg-muted/40 rounded-lg px-3 py-2.5 text-[12.5px] text-muted-foreground leading-relaxed">
                     <ArrowRight className="h-3.5 w-3.5 mt-0.5 text-blue-500 shrink-0" />
-                    <span>{report.familySummary || "No follow-up notes yet. Continue current care plan."}</span>
+                    <span>{report.familySummary || "No summary was recorded. Continue the current care plan."}</span>
                   </div>
                 </div>
-              </>
+              </ProtectedContent>
             )}
           </Card>
         </RuntimeBoundary>
