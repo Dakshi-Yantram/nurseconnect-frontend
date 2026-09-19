@@ -21,6 +21,7 @@
  * Admin-only page.
  */
 
+import { apiErrorMessage, apiFetch as sharedApiFetch } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card } from "@/components/shared/Card";
@@ -114,13 +115,16 @@ function authHeaders() {
   };
 }
 
+// Delegates to the shared client in @/lib/api so this screen gets token
+// refresh + consistent error text. Re-throws a plain Error whose .message is
+// already user-readable (callers here display e.message directly); the old
+// version could show "[object Object]" when `detail` was an object.
 async function apiFetch(path: string, init?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) } });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail?.[0]?.msg ?? err?.detail ?? `Request failed (${res.status})`);
+  try {
+    return await sharedApiFetch(path, init);
+  } catch (e) {
+    throw new Error(apiErrorMessage(e));
   }
-  return res.json();
 }
 
 function providerTypeLabels(codes?: string[] | null): string {

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { hasPermission as rbacHas, type Permission, type Role } from "./rbac";
+import { revokeSession, SESSION_EXPIRED_EVENT } from "./api";
 
 /**
  * Auth context for the web portal.
@@ -91,7 +92,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback((u: SessionUser) => { writeSession(u); setUser(u); }, []);
-  const signOut = useCallback(() => { writeSession(null); setUser(null); }, []);
+  // SECURITY: signOut used to clear only the UI session — the access and
+  // refresh tokens stayed in localStorage and valid on the server. Now it
+  // revokes the server session and removes both tokens.
+  const signOut = useCallback(() => {
+    void revokeSession();
+    writeSession(null);
+    setUser(null);
+  }, []);
+
+  // Refresh token rejected (expired / revoked / password changed): drop the
+  // UI session so route guards send the user to sign in.
+  useEffect(() => {
+    const onExpired = () => { writeSession(null); setUser(null); };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

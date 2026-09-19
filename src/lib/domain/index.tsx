@@ -3,6 +3,7 @@
  * Fetches real data from the NurseConnect API, falls back to mock data
  * if the API is unavailable.
  */
+import { apiErrorMessage, apiFetch as sharedApiFetch } from "@/lib/api";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ACTIVE_VISITS, CLINICAL_CASES, COMPLAINTS, CONSENTS,
@@ -14,21 +15,16 @@ import { OrchestrationProvider, useOrchestration } from "@/lib/orchestration";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
+// Delegates to the shared client in @/lib/api so this screen gets token
+// refresh + consistent error text. Re-throws a plain Error whose .message is
+// already user-readable (callers here display e.message directly); the old
+// version could show "[object Object]" when `detail` was an object.
 async function apiFetch(path: string, init?: RequestInit) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail?.[0]?.msg ?? err?.detail ?? `API error ${res.status}`);
+  try {
+    return await sharedApiFetch(path, init);
+  } catch (e) {
+    throw new Error(apiErrorMessage(e));
   }
-  return res.json();
 }
 
 // ---------------------------------------------------------------- Entity types
@@ -292,7 +288,6 @@ export function DomainProvider({ children }: { children: ReactNode }) {
 
   async function load() {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    console.log("Token:", token ? "present" : "MISSING");
     if (!token) { setLoading(false); return; }
 
     let role: string | null = null;

@@ -1,3 +1,4 @@
+import { apiErrorMessage, apiFetch as sharedApiFetch } from "@/lib/api";
 import { createFileRoute, Link, Outlet, useRouterState, useSearch, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/shared/Card";
@@ -131,35 +132,23 @@ async function resolveLocation(
   };
 }
 
+// Delegates to the shared client in @/lib/api so this screen gets token
+// refresh + consistent error text. Re-throws a plain Error whose .message is
+// already user-readable (callers here display e.message directly); the old
+// version could show "[object Object]" when `detail` was an object.
 async function apiPost(path: string, body: unknown) {
-  const token = localStorage.getItem("access_token");
-  const res = await fetch(`${API}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      err?.detail?.[0]?.msg ?? err?.detail ?? `Request failed (${res.status})`
-    );
+  try {
+    return await sharedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
+  } catch (e) {
+    throw new Error(apiErrorMessage(e));
   }
-  return res.json();
 }
 
 // Fetch the logged-in consumer's profile to get stored location fields.
 async function fetchConsumerProfile() {
-  const token = localStorage.getItem("access_token");
-  if (!token) return null;
+  if (!localStorage.getItem("access_token")) return null;
   try {
-    const res = await fetch(`${API}/api/consumers/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return null;
-    return res.json();
+    return await sharedApiFetch(`/api/consumers/me`);
   } catch {
     return null;
   }
