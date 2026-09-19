@@ -4,13 +4,24 @@ import {
   Loader2, Navigation, MapPin, KeyRound, CheckCircle2, PlayCircle,
   Activity, ClipboardList, FileText, AlertTriangle, Banknote, Clock,
 } from "lucide-react";
-import { apiFetch, apiErrorMessage } from "@/lib/api";
+import { apiFetch, apiErrorMessage, apiUpload } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
 import { ChatPanel } from "@/components/shared/ChatPanel";
 import { CallButton } from "@/components/calling/CallButton";
 import { CareSummaryCard } from "@/components/shared/CareSummaryCard";
 import { VisitCheckoutForm } from "@/components/shared/VisitCheckoutForm";
 import type { Vital, VisitReport } from "@/lib/visit-report-types";
+
+// Mirrors the server limits (MAX_UPLOAD_MB=10; JPG/PNG/WEBP/HEIC/PDF) so the
+// nurse gets an immediate, specific message instead of a failed upload.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const ALLOWED_UPLOAD_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
+function checkUploadFile(file: File): string | null {
+  if (file.size === 0) return "The selected file is empty.";
+  if (file.size > MAX_UPLOAD_BYTES) return "That file is larger than 10 MB. Please choose a smaller photo.";
+  if (file.type && !ALLOWED_UPLOAD_TYPES.includes(file.type)) return "Only JPG, PNG, WEBP, HEIC photos or PDF files can be uploaded.";
+  return null;
+}
 
 export const Route = createFileRoute("/_app/partner/visits/$visitId")({
   component: PartnerVisitDetail,
@@ -133,23 +144,11 @@ function PartnerVisitDetail() {
   useEffect(() => { load(); }, [load]);
 
   function parseErr(e: any): string {
-    let msg = String(e?.message ?? e);
-    try {
-      const j = JSON.parse(msg);
-      const detail = j.detail;
-      if (Array.isArray(detail)) {
-        // FastAPI 422 validation errors: array of {msg, loc, type} objects.
-        msg = detail.map((d: any) => (typeof d === "string" ? d : d?.msg ?? JSON.stringify(d))).join(", ");
-      } else if (detail && typeof detail === "object") {
-        msg = detail.message ?? JSON.stringify(detail);
-      } else if (typeof detail === "string") {
-        msg = detail;
-      } else if (typeof j.message === "string") {
-        msg = j.message;
-      }
-    } catch { /* keep raw msg */ }
-    return msg;
+    // One error formatter for the whole app (handles every FastAPI detail
+    // shape, 413/415/422/429, network errors and 5xx support refs).
+    return apiErrorMessage(e, "Something went wrong. Please try again.");
   }
+
 
   async function startVisit() {
     setError(null); setBusy("start");
@@ -385,37 +384,27 @@ function ExecutionPanel({
   }
 
   async function uploadChecklistPhoto(questionId: string, file: File) {
+    const problem = checkUploadFile(file);
+    if (problem) { setError(problem); return; }
     setError(null); setUploading(questionId);
     try {
       const form = new FormData();
       form.append("file", file);
       form.append("field_id", questionId);
-      const token = localStorage.getItem("access_token");
-      const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "http://localhost:8000")}/api/care/workflow/${bookingId}/documentation/file`, {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: form,
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const data = await apiUpload(`/api/care/workflow/${bookingId}/documentation/file`, form);
       setAnswers(s => ({ ...s, [questionId]: { file_url: data.file_url } }));
     } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
   }
 
   async function uploadDocPhoto(fieldId: string, file: File) {
+    const problem = checkUploadFile(file);
+    if (problem) { setError(problem); return; }
     setError(null); setUploading(fieldId);
     try {
       const form = new FormData();
       form.append("file", file);
       form.append("field_id", fieldId);
-      const token = localStorage.getItem("access_token");
-      const res = await fetch(`${(import.meta.env.VITE_API_URL ?? "http://localhost:8000")}/api/care/workflow/${bookingId}/documentation/file`, {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: form,
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const data = await apiUpload(`/api/care/workflow/${bookingId}/documentation/file`, form);
       setDocAnswers(s => ({ ...s, [fieldId]: { file_url: data.file_url } }));
     } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
   }

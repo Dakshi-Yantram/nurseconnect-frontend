@@ -20,6 +20,7 @@
  *   Note modal      — add internal note without status change
  */
 
+import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { Card, KpiCard } from "@/components/shared/Card";
@@ -74,24 +75,9 @@ interface Summary {
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-
-async function apiFetch(path: string, init?: RequestInit) {
-  const token = localStorage.getItem("access_token");
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail?.message ?? err?.detail ?? `Error ${res.status}`);
-  }
-  return res.json();
-}
+// Uses the shared client (auth header, token refresh, structured ApiError).
+// The local copy that used to live here threw plain Errors, which surfaced
+// raw JSON / "[object Object]" in toasts.
 
 // ── Level helpers ─────────────────────────────────────────────────────────────
 function levelTone(level: string): "danger" | "warning" | "info" | "muted" {
@@ -187,7 +173,7 @@ function SupportDashboard() {
       toast.success("Ticket acknowledged");
       load();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(apiErrorMessage(e, "That action couldn't be completed. Please try again."));
     }
   };
 
@@ -200,7 +186,7 @@ function SupportDashboard() {
       toast.success("Status → Investigating");
       load();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(apiErrorMessage(e, "That action couldn't be completed. Please try again."));
     }
   };
 
@@ -214,7 +200,7 @@ function SupportDashboard() {
       toast.success("Ticket claimed — moved to My Queue");
       load();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(apiErrorMessage(e, "That action couldn't be completed. Please try again."));
     }
   };
 
@@ -230,7 +216,7 @@ function SupportDashboard() {
       close();
       load();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(apiErrorMessage(e, "That action couldn't be completed. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -248,7 +234,7 @@ function SupportDashboard() {
       close();
       load();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(apiErrorMessage(e, "That action couldn't be completed. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -266,7 +252,7 @@ function SupportDashboard() {
       close();
       load();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(apiErrorMessage(e, "That action couldn't be completed. Please try again."));
     } finally {
       setSaving(false);
     }

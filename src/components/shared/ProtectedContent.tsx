@@ -3,7 +3,7 @@ import { EyeOff, LockKeyhole, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { roleLabel } from "@/lib/rbac";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, refreshSession } from "@/lib/api";
 
 /**
  * Wraps a block of protected health information (PHI) — the visit care
@@ -137,6 +137,18 @@ export function ProtectedContent({
       window.removeEventListener("storage", onStorage);
     };
   }, []);
+
+  // Access token expired: try a silent refresh before blanking the block, so
+  // an active user isn't shown "session ended" while their refresh token is
+  // still valid. Only a failed refresh leaves the block blanked.
+  useEffect(() => {
+    if (!expired) return;
+    let cancelled = false;
+    refreshSession().then((ok) => {
+      if (!cancelled && ok) setExpired(accessTokenExpired());
+    });
+    return () => { cancelled = true; };
+  }, [expired]);
 
   // Blur when the tab is hidden or the window loses focus.
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { ProtectedContent } from "@/components/shared/ProtectedContent";
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/shared/Card";
@@ -120,6 +121,7 @@ function TeledoctorQueuePage() {
                     <div className="text-[11.5px] text-muted-foreground mt-0.5">
                       Dr. {r.doctor_name} · Booking {r.booking_ref} · {formatDateTime(r.created_at)}
                     </div>
+                    <ProtectedContent label="Patient assessment" className="mt-1">
                     {stage.id === "diet_review" && r.diet_notes && (
                       <div className="text-[11.5px] text-muted-foreground mt-1 truncate">Diet: {r.diet_notes}</div>
                     )}
@@ -128,6 +130,7 @@ function TeledoctorQueuePage() {
                         {r.patient_all_okay === true ? "Marked all okay" : r.patient_issues ? `Issue: ${r.patient_issues}` : "Assessment pending"}
                       </div>
                     )}
+                    </ProtectedContent>
                   </div>
                   {stage.id === "prescription" && !r.prescription_id && (
                     <StatusChip label="Awaiting e-Rx" tone="warning" />

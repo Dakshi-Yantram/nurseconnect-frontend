@@ -1,3 +1,4 @@
+import { ProtectedContent } from "@/components/shared/ProtectedContent";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -482,6 +483,7 @@ function ConsumerBookingDetail() {
                   </div>
                 </div>
 
+                <ProtectedContent bookingId={bookingId} label="Visit vitals">
                 {/* Vitals */}
                 <div className="mb-4">
                   <div className="text-[11.5px] text-muted-foreground font-medium mb-2">Vitals recorded</div>
@@ -496,6 +498,7 @@ function ConsumerBookingDetail() {
                     <div className="text-[12.5px] text-muted-foreground">No vitals were recorded during this visit.</div>
                   )}
                 </div>
+                </ProtectedContent>
 
                 {/* Nurse notes */}
                 <div className="mb-4">
