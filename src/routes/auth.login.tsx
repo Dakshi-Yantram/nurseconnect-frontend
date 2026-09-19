@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Navigate, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ApiError, apiErrorMessage, fetchWithTimeout, toApiError } from "@/lib/api";
+import { ApiError, apiErrorMessage, fetchWithTimeout, setTokens, toApiError } from "@/lib/api";
 import { ShieldCheck, Clock, HeartHandshake, ArrowRight, Eye, EyeOff, Smartphone } from "lucide-react";
 import logo from "@/assets/yantram-logo.jpg";
 import { useAuth } from "@/lib/auth-context";
@@ -101,8 +101,7 @@ async function apiOtpVerify(phone_e164: string, code: string) {
 }
 
 function saveTokens(access: string, refresh: string) {
-  localStorage.setItem("access_token", access);
-  localStorage.setItem("refresh_token", refresh);
+  setTokens(access, refresh);
 }
 
 function normalizePhone(raw: string): string {
@@ -226,6 +225,8 @@ function LoginPage() {
 
     if (!fullName.trim()) return setError("Full name is required");
     if (!phone.trim()) return setError("Mobile number is required");
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizePhone(phone)) || (normalizePhone(phone).startsWith("+91") && normalizePhone(phone).length !== 13))
+      return setError("Enter a valid 10-digit mobile number");
     if (!isPasswordValid(regPassword)) return setError(PASSWORD_HINT);
 
     setLoading(true);

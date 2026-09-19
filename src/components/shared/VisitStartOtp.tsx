@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ApiError, apiErrorMessage, apiFetch } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,21 +39,14 @@ export function GenerateVisitOtp({ bookingId, onGenerated }: GenerateVisitOtpPro
     setLoading(true);
     setError(null);
     setResult(null);
+    // Was a bare relative fetch() with no API base URL and no Authorization
+    // header, and any non-JSON error page surfaced as "Network error".
     try {
-      const res = await fetch(`/api/visits/${bookingId}/generate-start-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const detail: ApiErrorDetail = data.detail ?? {};
-        setError(detail.message ?? "Failed to generate visit code.");
-        return;
-      }
+      const data = await apiFetch(`/api/visits/${bookingId}/generate-start-otp`, { method: "POST", timeoutMs: 20_000 });
       setResult(data as GenerateOtpResponse);
       onGenerated?.(data);
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (e) {
+      setError(apiErrorMessage(e, "Failed to generate visit code."));
     } finally {
       setLoading(false);
     }
@@ -132,25 +126,20 @@ export function VerifyVisitOtp({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/visits/${bookingId}/verify-start-otp`, {
+      const data = await apiFetch(`/api/visits/${bookingId}/verify-start-otp`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp: otp.trim(), latitude, longitude }),
+        timeoutMs: 20_000,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        const detail: ApiErrorDetail = data.detail ?? {};
-        setError({
-          message: detail.message ?? "Verification failed.",
-          code: detail.code,
-          remaining: detail.attempts_remaining,
-        });
-        return;
-      }
       setSuccess(true);
       onSuccess?.(data as VerifyOtpResponse);
-    } catch {
-      setError({ message: "Network error. Please try again." });
+    } catch (e) {
+      const detail = (e instanceof ApiError && e.detail && typeof e.detail === "object" ? e.detail : {}) as ApiErrorDetail;
+      setError({
+        message: apiErrorMessage(e, "Verification failed."),
+        code: e instanceof ApiError ? e.code ?? undefined : undefined,
+        remaining: detail.attempts_remaining,
+      });
     } finally {
       setLoading(false);
     }
