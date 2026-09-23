@@ -23,7 +23,10 @@ interface Question {
   id: string;
   question: string;
   options: string[];
-  correct_index: number;
+  type?: "single_select" | "multi_select" | "boolean" | "text" | string;
+  correct_index?: number | null;
+  correct_indices?: number[];
+  correct_bool?: boolean | null;
   explanation: string;
   difficulty: number;
   type: string;
@@ -46,7 +49,7 @@ interface TrainingModule {
 interface AdaptiveState {
   questions: Question[];
   asked: Question[];
-  answers: { id: string; answer: number }[];
+  answers: { id: string; answer: number | number[] }[];
   currentQ: Question | null;
   currentDifficulty: number;
   phase: "question" | "feedback" | "result";
@@ -66,6 +69,31 @@ function pickNext(pool: Question[], asked: Question[], targetDifficulty: number)
   if (exact.length > 0) return exact[Math.floor(Math.random() * exact.length)];
   available.sort((a, b) => Math.abs(a.difficulty - targetDifficulty) - Math.abs(b.difficulty - targetDifficulty));
   return available[0];
+}
+
+const OPTION_LETTERS = "ABCDEFGH";
+
+function isMultiSelect(q: Question | null): boolean {
+  return !!q && q.type === "multi_select";
+}
+
+function isAnswerCorrect(q: Question, selected: number[]): boolean {
+  if (q.type === "multi_select") {
+    const correct = new Set(q.correct_indices ?? []);
+    return correct.size === selected.length && selected.every(i => correct.has(i));
+  }
+  if (q.type === "boolean" && q.correct_index == null && typeof q.correct_bool === "boolean") {
+    return selected[0] === (q.correct_bool ? 0 : 1);
+  }
+  return selected.length === 1 && selected[0] === q.correct_index;
+}
+
+function correctAnswerLabel(q: Question): string {
+  let idxs: number[] = [];
+  if (q.type === "multi_select") idxs = q.correct_indices ?? [];
+  else if (q.correct_index != null) idxs = [q.correct_index];
+  else if (typeof q.correct_bool === "boolean") idxs = [q.correct_bool ? 0 : 1];
+  return idxs.length ? [...idxs].sort((a, b) => a - b).map(i => OPTION_LETTERS[i] ?? String(i + 1)).join(", ") : "see explanation";
 }
 
 function AdaptiveMCQModal({
@@ -91,14 +119,16 @@ function AdaptiveMCQModal({
       totalAnswered: 0,
     };
   });
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleAnswer = useCallback(() => {
-    if (selected === null || !state.currentQ) return;
-    const correct = selected === state.currentQ.correct_index;
+    if (selected.length === 0 || !state.currentQ) return;
+    const correct = isAnswerCorrect(state.currentQ, selected);
     const newScore = state.score + (correct ? 1 : 0);
-    const newAnswers = [...state.answers, { id: state.currentQ.id, answer: selected }];
+    // multi_select is graded server-side as a list of indices; everything else as a single index
+    const answerPayload: number | number[] = isMultiSelect(state.currentQ) ? [...selected].sort((a, b) => a - b) : selected[0];
+    const newAnswers = [...state.answers, { id: state.currentQ.id, answer: answerPayload }];
     const newTotal = state.totalAnswered + 1;
 
     setState(s => ({
@@ -129,7 +159,7 @@ function AdaptiveMCQModal({
       return;
     }
     setState(s => ({ ...s, asked: [...s.asked, nextQ], currentQ: nextQ, phase: "question", lastCorrect: null }));
-    setSelected(null);
+    setSelected([]);
   }, [state]);
 
   const handleSubmit = useCallback(async () => {
@@ -190,22 +220,31 @@ function AdaptiveMCQModal({
                   <button
                     key={i}
                     type="button"
-                    onClick={() => setSelected(i)}
+                    onClick={() =>
+                      setSelected(prev =>
+                        isMultiSelect(state.currentQ)
+                          ? prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+                          : [i]
+                      )
+                    }
                     className={cn(
                       "w-full text-left rounded-xl border px-4 py-3 text-[13px] transition-all",
-                      selected === i
+                      selected.includes(i)
                         ? "border-indigo-400 bg-indigo-50 text-indigo-800 font-medium"
                         : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-gray-50"
                     )}
                   >
-                    <span className="font-mono text-[11px] mr-2 opacity-60">{["A", "B", "C", "D"][i]}.</span>
+                    <span className="font-mono text-[11px] mr-2 opacity-60">{OPTION_LETTERS[i]}.</span>
                     {opt}
                   </button>
                 ))}
               </div>
+              {isMultiSelect(state.currentQ) && (
+                <p className="text-[11px] text-muted-foreground">Select all that apply</p>
+              )}
               <button
                 type="button"
-                disabled={selected === null}
+                disabled={selected.length === 0}
                 onClick={handleAnswer}
                 className="w-full mt-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[13px] font-semibold py-3 transition-all"
               >
@@ -220,7 +259,7 @@ function AdaptiveMCQModal({
                 {state.lastCorrect ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" /> : <XCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />}
                 <div>
                   <p className={cn("text-[13px] font-semibold", state.lastCorrect ? "text-emerald-700" : "text-red-700")}>
-                    {state.lastCorrect ? "Correct!" : `Incorrect — answer: ${["A", "B", "C", "D"][state.currentQ.correct_index]}`}
+                    {state.lastCorrect ? "Correct!" : `Incorrect — correct answer: ${correctAnswerLabel(state.currentQ)}`}
                   </p>
                   {state.currentQ.explanation && (
                     <p className="text-[12px] mt-1 text-foreground leading-relaxed">{state.currentQ.explanation}</p>
@@ -275,7 +314,7 @@ function AdaptiveMCQModal({
                         score: 0,
                         totalAnswered: 0,
                       });
-                      setSelected(null);
+                      setSelected([]);
                     }}
                     className="flex-1 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[13px] font-medium py-3 transition-all"
                   >
