@@ -2,7 +2,7 @@ import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/shared/Card";
 import { StatusChip, statusToneFor } from "@/components/shared/StatusChip";
-import { ArrowLeft, Phone, MapPin, Heart, Wallet } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Heart, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_app/patients/$patientId")({ component: P
 
 interface ApiPatient {
   id: string; full_name: string; age?: number; gender?: string;
-  phone_e164?: string; city?: string; care_plan?: string; is_bpl?: boolean;
+  phone_e164?: string; email?: string; city?: string; care_plan?: string; is_bpl?: boolean;
 }
 
 function PatientProfile() {
@@ -50,6 +50,7 @@ function PatientProfile() {
             </div>
             <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[12.5px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{p.phone_e164 ?? "—"}</span>
+              <span className="inline-flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" />{p.email ?? "—"}</span>
               <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{p.city ?? "—"}</span>
               <span className="inline-flex items-center gap-1.5"><Heart className="h-3.5 w-3.5" />{p.care_plan ?? "—"}</span>
             </div>

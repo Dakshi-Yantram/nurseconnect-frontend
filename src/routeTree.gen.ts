@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
@@ -18,18 +20,23 @@ import { Route as AppTrainingReviewRouteImport } from './routes/_app.training-re
 import { Route as AppTrainingAuthoringRouteImport } from './routes/_app.training-authoring'
 import { Route as AppSystemIndexRouteImport } from './routes/_app.system-index'
 import { Route as AppSupportTicketsRouteImport } from './routes/_app.support-tickets'
+import { Route as AppSupportEscalationsRouteImport } from './routes/_app.support-escalations'
 import { Route as AppSupportDashboardRouteImport } from './routes/_app.support-dashboard'
 import { Route as AppSubscriptionSubsidyRouteImport } from './routes/_app.subscription-subsidy'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppPayoutReleaseRouteImport } from './routes/_app.payout-release'
+import { Route as AppServicesCatalogueRouteImport } from './routes/_app.services-catalogue'
 import { Route as AppRolesPermissionsRouteImport } from './routes/_app.roles-permissions'
 import { Route as AppReviewerManagementRouteImport } from './routes/_app.reviewer-management'
 import { Route as AppRetentionDashboardRouteImport } from './routes/_app.retention-dashboard'
+import { Route as AppPrescriptionReviewRouteImport } from './routes/_app.prescription-review'
 import { Route as AppPartnerRouteImport } from './routes/_app.partner'
 import { Route as AppOpsDashboardRouteImport } from './routes/_app.ops-dashboard'
 import { Route as AppOperationsRouteImport } from './routes/_app.operations'
 import { Route as AppOnboardingReviewRouteImport } from './routes/_app.onboarding-review'
 import { Route as AppNurseApprovalRouteImport } from './routes/_app.nurse-approval'
 import { Route as AppModerationRouteImport } from './routes/_app.moderation'
+import { Route as AppLocationDashboardRouteImport } from './routes/_app.location-dashboard'
 import { Route as AppInsuranceReviewRouteImport } from './routes/_app.insurance-review'
 import { Route as AppIncidentsRouteImport } from './routes/_app.incidents'
 import { Route as AppFinancialReconciliationRouteImport } from './routes/_app.financial-reconciliation'
@@ -44,6 +51,7 @@ import { Route as AppCarePackagesRouteImport } from './routes/_app.care-packages
 import { Route as AppBackgroundVerificationRouteImport } from './routes/_app.background-verification'
 import { Route as AppAuditLogsRouteImport } from './routes/_app.audit-logs'
 import { Route as AppPartnerIndexRouteImport } from './routes/_app.partner.index'
+import { Route as AppOperationsIndexRouteImport } from './routes/_app.operations.index'
 import { Route as AppConsumerIndexRouteImport } from './routes/_app.consumer.index'
 import { Route as AppVisitsVisitIdRouteImport } from './routes/_app.visits.$visitId'
 import { Route as AppUsersPatientsRouteImport } from './routes/_app.users.patients'
@@ -60,6 +68,7 @@ import { Route as AppPartnerDocumentationRouteImport } from './routes/_app.partn
 import { Route as AppPartnerAvailabilityRouteImport } from './routes/_app.partner.availability'
 import { Route as AppPartnerAssignmentsRouteImport } from './routes/_app.partner.assignments'
 import { Route as AppPartnerAssessmentsRouteImport } from './routes/_app.partner.assessments'
+import { Route as AppPartnerTeleconsultRouteImport } from './routes/_app.partner.teleconsult'
 import { Route as AppOperationsStaffRouteImport } from './routes/_app.operations.staff'
 import { Route as AppOperationsFaqRouteImport } from './routes/_app.operations.faq'
 import { Route as AppOnboardingReviewApplicationIdRouteImport } from './routes/_app.onboarding-review.$applicationId'
@@ -90,6 +99,16 @@ import { Route as AppConsumerProfileHelpRouteImport } from './routes/_app.consum
 import { Route as AppConsumerPatientsPatientIdRouteImport } from './routes/_app.consumer.patients.$patientId'
 import { Route as AppConsumerBookingsBookingIdRouteImport } from './routes/_app.consumer.bookings.$bookingId'
 
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -134,6 +153,11 @@ const AppSupportTicketsRoute = AppSupportTicketsRouteImport.update({
   path: '/support-tickets',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSupportEscalationsRoute = AppSupportEscalationsRouteImport.update({
+  id: '/support-escalations',
+  path: '/support-escalations',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSupportDashboardRoute = AppSupportDashboardRouteImport.update({
   id: '/support-dashboard',
   path: '/support-dashboard',
@@ -149,6 +173,16 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPayoutReleaseRoute = AppPayoutReleaseRouteImport.update({
+  id: '/payout-release',
+  path: '/payout-release',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppServicesCatalogueRoute = AppServicesCatalogueRouteImport.update({
+  id: '/services-catalogue',
+  path: '/services-catalogue',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRolesPermissionsRoute = AppRolesPermissionsRouteImport.update({
   id: '/roles-permissions',
   path: '/roles-permissions',
@@ -162,6 +196,11 @@ const AppReviewerManagementRoute = AppReviewerManagementRouteImport.update({
 const AppRetentionDashboardRoute = AppRetentionDashboardRouteImport.update({
   id: '/retention-dashboard',
   path: '/retention-dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrescriptionReviewRoute = AppPrescriptionReviewRouteImport.update({
+  id: '/prescription-review',
+  path: '/prescription-review',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPartnerRoute = AppPartnerRouteImport.update({
@@ -192,6 +231,11 @@ const AppNurseApprovalRoute = AppNurseApprovalRouteImport.update({
 const AppModerationRoute = AppModerationRouteImport.update({
   id: '/moderation',
   path: '/moderation',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLocationDashboardRoute = AppLocationDashboardRouteImport.update({
+  id: '/location-dashboard',
+  path: '/location-dashboard',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInsuranceReviewRoute = AppInsuranceReviewRouteImport.update({
@@ -265,6 +309,11 @@ const AppPartnerIndexRoute = AppPartnerIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppOperationsIndexRoute = AppOperationsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppOperationsRoute,
 } as any)
 const AppConsumerIndexRoute = AppConsumerIndexRouteImport.update({
   id: '/',
@@ -344,6 +393,11 @@ const AppPartnerAssignmentsRoute = AppPartnerAssignmentsRouteImport.update({
 const AppPartnerAssessmentsRoute = AppPartnerAssessmentsRouteImport.update({
   id: '/assessments',
   path: '/assessments',
+  getParentRoute: () => AppPartnerRoute,
+} as any)
+const AppPartnerTeleconsultRoute = AppPartnerTeleconsultRouteImport.update({
+  id: '/teleconsult',
+  path: '/teleconsult',
   getParentRoute: () => AppPartnerRoute,
 } as any)
 const AppOperationsStaffRoute = AppOperationsStaffRouteImport.update({
@@ -507,6 +561,8 @@ const AppConsumerBookingsBookingIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/delete-account': typeof DeleteAccountRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/audit-logs': typeof AppAuditLogsRoute
   '/background-verification': typeof AppBackgroundVerificationRoute
   '/care-packages': typeof AppCarePackagesRouteWithChildren
@@ -520,18 +576,23 @@ export interface FileRoutesByFullPath {
   '/financial-reconciliation': typeof AppFinancialReconciliationRouteWithChildren
   '/incidents': typeof AppIncidentsRouteWithChildren
   '/insurance-review': typeof AppInsuranceReviewRouteWithChildren
+  '/location-dashboard': typeof AppLocationDashboardRoute
   '/moderation': typeof AppModerationRouteWithChildren
   '/nurse-approval': typeof AppNurseApprovalRoute
   '/onboarding-review': typeof AppOnboardingReviewRouteWithChildren
   '/operations': typeof AppOperationsRouteWithChildren
   '/ops-dashboard': typeof AppOpsDashboardRoute
   '/partner': typeof AppPartnerRouteWithChildren
+  '/prescription-review': typeof AppPrescriptionReviewRoute
   '/retention-dashboard': typeof AppRetentionDashboardRoute
   '/reviewer-management': typeof AppReviewerManagementRoute
   '/roles-permissions': typeof AppRolesPermissionsRoute
+  '/services-catalogue': typeof AppServicesCatalogueRoute
   '/settings': typeof AppSettingsRoute
+  '/payout-release': typeof AppPayoutReleaseRoute
   '/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/support-dashboard': typeof AppSupportDashboardRoute
+  '/support-escalations': typeof AppSupportEscalationsRoute
   '/support-tickets': typeof AppSupportTicketsRoute
   '/system-index': typeof AppSystemIndexRoute
   '/training-authoring': typeof AppTrainingAuthoringRoute
@@ -561,6 +622,7 @@ export interface FileRoutesByFullPath {
   '/operations/faq': typeof AppOperationsFaqRoute
   '/operations/staff': typeof AppOperationsStaffRoute
   '/partner/assessments': typeof AppPartnerAssessmentsRoute
+  '/partner/teleconsult': typeof AppPartnerTeleconsultRoute
   '/partner/assignments': typeof AppPartnerAssignmentsRoute
   '/partner/availability': typeof AppPartnerAvailabilityRoute
   '/partner/documentation': typeof AppPartnerDocumentationRoute
@@ -576,6 +638,7 @@ export interface FileRoutesByFullPath {
   '/users/patients': typeof AppUsersPatientsRoute
   '/visits/$visitId': typeof AppVisitsVisitIdRoute
   '/consumer/': typeof AppConsumerIndexRoute
+  '/operations/': typeof AppOperationsIndexRoute
   '/partner/': typeof AppPartnerIndexRoute
   '/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
@@ -588,6 +651,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/delete-account': typeof DeleteAccountRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/audit-logs': typeof AppAuditLogsRoute
   '/background-verification': typeof AppBackgroundVerificationRoute
   '/care-packages': typeof AppCarePackagesRouteWithChildren
@@ -600,17 +665,21 @@ export interface FileRoutesByTo {
   '/financial-reconciliation': typeof AppFinancialReconciliationRouteWithChildren
   '/incidents': typeof AppIncidentsRouteWithChildren
   '/insurance-review': typeof AppInsuranceReviewRouteWithChildren
+  '/location-dashboard': typeof AppLocationDashboardRoute
   '/moderation': typeof AppModerationRouteWithChildren
   '/nurse-approval': typeof AppNurseApprovalRoute
   '/onboarding-review': typeof AppOnboardingReviewRouteWithChildren
-  '/operations': typeof AppOperationsRouteWithChildren
   '/ops-dashboard': typeof AppOpsDashboardRoute
+  '/prescription-review': typeof AppPrescriptionReviewRoute
   '/retention-dashboard': typeof AppRetentionDashboardRoute
   '/reviewer-management': typeof AppReviewerManagementRoute
   '/roles-permissions': typeof AppRolesPermissionsRoute
+  '/services-catalogue': typeof AppServicesCatalogueRoute
   '/settings': typeof AppSettingsRoute
+  '/payout-release': typeof AppPayoutReleaseRoute
   '/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/support-dashboard': typeof AppSupportDashboardRoute
+  '/support-escalations': typeof AppSupportEscalationsRoute
   '/support-tickets': typeof AppSupportTicketsRoute
   '/system-index': typeof AppSystemIndexRoute
   '/training-authoring': typeof AppTrainingAuthoringRoute
@@ -640,6 +709,7 @@ export interface FileRoutesByTo {
   '/operations/faq': typeof AppOperationsFaqRoute
   '/operations/staff': typeof AppOperationsStaffRoute
   '/partner/assessments': typeof AppPartnerAssessmentsRoute
+  '/partner/teleconsult': typeof AppPartnerTeleconsultRoute
   '/partner/assignments': typeof AppPartnerAssignmentsRoute
   '/partner/availability': typeof AppPartnerAvailabilityRoute
   '/partner/documentation': typeof AppPartnerDocumentationRoute
@@ -654,6 +724,7 @@ export interface FileRoutesByTo {
   '/users/patients': typeof AppUsersPatientsRoute
   '/visits/$visitId': typeof AppVisitsVisitIdRoute
   '/consumer': typeof AppConsumerIndexRoute
+  '/operations': typeof AppOperationsIndexRoute
   '/partner': typeof AppPartnerIndexRoute
   '/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
@@ -668,6 +739,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/delete-account': typeof DeleteAccountRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/_app/audit-logs': typeof AppAuditLogsRoute
   '/_app/background-verification': typeof AppBackgroundVerificationRoute
   '/_app/care-packages': typeof AppCarePackagesRouteWithChildren
@@ -681,18 +754,23 @@ export interface FileRoutesById {
   '/_app/financial-reconciliation': typeof AppFinancialReconciliationRouteWithChildren
   '/_app/incidents': typeof AppIncidentsRouteWithChildren
   '/_app/insurance-review': typeof AppInsuranceReviewRouteWithChildren
+  '/_app/location-dashboard': typeof AppLocationDashboardRoute
   '/_app/moderation': typeof AppModerationRouteWithChildren
   '/_app/nurse-approval': typeof AppNurseApprovalRoute
   '/_app/onboarding-review': typeof AppOnboardingReviewRouteWithChildren
   '/_app/operations': typeof AppOperationsRouteWithChildren
   '/_app/ops-dashboard': typeof AppOpsDashboardRoute
   '/_app/partner': typeof AppPartnerRouteWithChildren
+  '/_app/prescription-review': typeof AppPrescriptionReviewRoute
   '/_app/retention-dashboard': typeof AppRetentionDashboardRoute
   '/_app/reviewer-management': typeof AppReviewerManagementRoute
   '/_app/roles-permissions': typeof AppRolesPermissionsRoute
+  '/_app/services-catalogue': typeof AppServicesCatalogueRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/payout-release': typeof AppPayoutReleaseRoute
   '/_app/subscription-subsidy': typeof AppSubscriptionSubsidyRoute
   '/_app/support-dashboard': typeof AppSupportDashboardRoute
+  '/_app/support-escalations': typeof AppSupportEscalationsRoute
   '/_app/support-tickets': typeof AppSupportTicketsRoute
   '/_app/system-index': typeof AppSystemIndexRoute
   '/_app/training-authoring': typeof AppTrainingAuthoringRoute
@@ -722,6 +800,7 @@ export interface FileRoutesById {
   '/_app/operations/faq': typeof AppOperationsFaqRoute
   '/_app/operations/staff': typeof AppOperationsStaffRoute
   '/_app/partner/assessments': typeof AppPartnerAssessmentsRoute
+  '/_app/partner/teleconsult': typeof AppPartnerTeleconsultRoute
   '/_app/partner/assignments': typeof AppPartnerAssignmentsRoute
   '/_app/partner/availability': typeof AppPartnerAvailabilityRoute
   '/_app/partner/documentation': typeof AppPartnerDocumentationRoute
@@ -737,6 +816,7 @@ export interface FileRoutesById {
   '/_app/users/patients': typeof AppUsersPatientsRoute
   '/_app/visits/$visitId': typeof AppVisitsVisitIdRoute
   '/_app/consumer/': typeof AppConsumerIndexRoute
+  '/_app/operations/': typeof AppOperationsIndexRoute
   '/_app/partner/': typeof AppPartnerIndexRoute
   '/_app/consumer/bookings/$bookingId': typeof AppConsumerBookingsBookingIdRoute
   '/_app/consumer/patients/$patientId': typeof AppConsumerPatientsPatientIdRoute
@@ -751,6 +831,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/delete-account'
+    | '/privacy-policy'
     | '/audit-logs'
     | '/background-verification'
     | '/care-packages'
@@ -764,18 +846,23 @@ export interface FileRouteTypes {
     | '/financial-reconciliation'
     | '/incidents'
     | '/insurance-review'
+    | '/location-dashboard'
     | '/moderation'
     | '/nurse-approval'
     | '/onboarding-review'
     | '/operations'
     | '/ops-dashboard'
     | '/partner'
+    | '/prescription-review'
     | '/retention-dashboard'
     | '/reviewer-management'
     | '/roles-permissions'
+    | '/services-catalogue'
     | '/settings'
+    | '/payout-release'
     | '/subscription-subsidy'
     | '/support-dashboard'
+    | '/support-escalations'
     | '/support-tickets'
     | '/system-index'
     | '/training-authoring'
@@ -805,6 +892,7 @@ export interface FileRouteTypes {
     | '/operations/faq'
     | '/operations/staff'
     | '/partner/assessments'
+    | '/partner/teleconsult'
     | '/partner/assignments'
     | '/partner/availability'
     | '/partner/documentation'
@@ -820,6 +908,7 @@ export interface FileRouteTypes {
     | '/users/patients'
     | '/visits/$visitId'
     | '/consumer/'
+    | '/operations/'
     | '/partner/'
     | '/consumer/bookings/$bookingId'
     | '/consumer/patients/$patientId'
@@ -832,6 +921,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/delete-account'
+    | '/privacy-policy'
     | '/audit-logs'
     | '/background-verification'
     | '/care-packages'
@@ -844,17 +935,21 @@ export interface FileRouteTypes {
     | '/financial-reconciliation'
     | '/incidents'
     | '/insurance-review'
+    | '/location-dashboard'
     | '/moderation'
     | '/nurse-approval'
     | '/onboarding-review'
-    | '/operations'
     | '/ops-dashboard'
+    | '/prescription-review'
     | '/retention-dashboard'
     | '/reviewer-management'
     | '/roles-permissions'
+    | '/services-catalogue'
     | '/settings'
+    | '/payout-release'
     | '/subscription-subsidy'
     | '/support-dashboard'
+    | '/support-escalations'
     | '/support-tickets'
     | '/system-index'
     | '/training-authoring'
@@ -884,6 +979,7 @@ export interface FileRouteTypes {
     | '/operations/faq'
     | '/operations/staff'
     | '/partner/assessments'
+    | '/partner/teleconsult'
     | '/partner/assignments'
     | '/partner/availability'
     | '/partner/documentation'
@@ -898,6 +994,7 @@ export interface FileRouteTypes {
     | '/users/patients'
     | '/visits/$visitId'
     | '/consumer'
+    | '/operations'
     | '/partner'
     | '/consumer/bookings/$bookingId'
     | '/consumer/patients/$patientId'
@@ -911,6 +1008,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/delete-account'
+    | '/privacy-policy'
     | '/_app/audit-logs'
     | '/_app/background-verification'
     | '/_app/care-packages'
@@ -924,18 +1023,23 @@ export interface FileRouteTypes {
     | '/_app/financial-reconciliation'
     | '/_app/incidents'
     | '/_app/insurance-review'
+    | '/_app/location-dashboard'
     | '/_app/moderation'
     | '/_app/nurse-approval'
     | '/_app/onboarding-review'
     | '/_app/operations'
     | '/_app/ops-dashboard'
     | '/_app/partner'
+    | '/_app/prescription-review'
     | '/_app/retention-dashboard'
     | '/_app/reviewer-management'
     | '/_app/roles-permissions'
+    | '/_app/services-catalogue'
     | '/_app/settings'
+    | '/_app/payout-release'
     | '/_app/subscription-subsidy'
     | '/_app/support-dashboard'
+    | '/_app/support-escalations'
     | '/_app/support-tickets'
     | '/_app/system-index'
     | '/_app/training-authoring'
@@ -965,6 +1069,7 @@ export interface FileRouteTypes {
     | '/_app/operations/faq'
     | '/_app/operations/staff'
     | '/_app/partner/assessments'
+    | '/_app/partner/teleconsult'
     | '/_app/partner/assignments'
     | '/_app/partner/availability'
     | '/_app/partner/documentation'
@@ -980,6 +1085,7 @@ export interface FileRouteTypes {
     | '/_app/users/patients'
     | '/_app/visits/$visitId'
     | '/_app/consumer/'
+    | '/_app/operations/'
     | '/_app/partner/'
     | '/_app/consumer/bookings/$bookingId'
     | '/_app/consumer/patients/$patientId'
@@ -994,12 +1100,28 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  DeleteAccountRoute: typeof DeleteAccountRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -1063,6 +1185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSupportTicketsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/support-escalations': {
+      id: '/_app/support-escalations'
+      path: '/support-escalations'
+      fullPath: '/support-escalations'
+      preLoaderRoute: typeof AppSupportEscalationsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/support-dashboard': {
       id: '/_app/support-dashboard'
       path: '/support-dashboard'
@@ -1084,6 +1213,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/payout-release': {
+      id: '/_app/payout-release'
+      path: '/payout-release'
+      fullPath: '/payout-release'
+      preLoaderRoute: typeof AppPayoutReleaseRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/services-catalogue': {
+      id: '/_app/services-catalogue'
+      path: '/services-catalogue'
+      fullPath: '/services-catalogue'
+      preLoaderRoute: typeof AppServicesCatalogueRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/roles-permissions': {
       id: '/_app/roles-permissions'
       path: '/roles-permissions'
@@ -1103,6 +1246,13 @@ declare module '@tanstack/react-router' {
       path: '/retention-dashboard'
       fullPath: '/retention-dashboard'
       preLoaderRoute: typeof AppRetentionDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/prescription-review': {
+      id: '/_app/prescription-review'
+      path: '/prescription-review'
+      fullPath: '/prescription-review'
+      preLoaderRoute: typeof AppPrescriptionReviewRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/partner': {
@@ -1145,6 +1295,13 @@ declare module '@tanstack/react-router' {
       path: '/moderation'
       fullPath: '/moderation'
       preLoaderRoute: typeof AppModerationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/location-dashboard': {
+      id: '/_app/location-dashboard'
+      path: '/location-dashboard'
+      fullPath: '/location-dashboard'
+      preLoaderRoute: typeof AppLocationDashboardRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/insurance-review': {
@@ -1244,6 +1401,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/partner/'
       preLoaderRoute: typeof AppPartnerIndexRouteImport
       parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/operations/': {
+      id: '/_app/operations/'
+      path: '/'
+      fullPath: '/operations/'
+      preLoaderRoute: typeof AppOperationsIndexRouteImport
+      parentRoute: typeof AppOperationsRoute
     }
     '/_app/consumer/': {
       id: '/_app/consumer/'
@@ -1355,6 +1519,13 @@ declare module '@tanstack/react-router' {
       path: '/assessments'
       fullPath: '/partner/assessments'
       preLoaderRoute: typeof AppPartnerAssessmentsRouteImport
+      parentRoute: typeof AppPartnerRoute
+    }
+    '/_app/partner/teleconsult': {
+      id: '/_app/partner/teleconsult'
+      path: '/teleconsult'
+      fullPath: '/partner/teleconsult'
+      preLoaderRoute: typeof AppPartnerTeleconsultRouteImport
       parentRoute: typeof AppPartnerRoute
     }
     '/_app/operations/staff': {
@@ -1752,11 +1923,13 @@ const AppOnboardingReviewRouteWithChildren =
 interface AppOperationsRouteChildren {
   AppOperationsFaqRoute: typeof AppOperationsFaqRoute
   AppOperationsStaffRoute: typeof AppOperationsStaffRoute
+  AppOperationsIndexRoute: typeof AppOperationsIndexRoute
 }
 
 const AppOperationsRouteChildren: AppOperationsRouteChildren = {
   AppOperationsFaqRoute: AppOperationsFaqRoute,
   AppOperationsStaffRoute: AppOperationsStaffRoute,
+  AppOperationsIndexRoute: AppOperationsIndexRoute,
 }
 
 const AppOperationsRouteWithChildren = AppOperationsRoute._addFileChildren(
@@ -1778,6 +1951,7 @@ const AppPartnerVisitsRouteWithChildren =
 
 interface AppPartnerRouteChildren {
   AppPartnerAssessmentsRoute: typeof AppPartnerAssessmentsRoute
+  AppPartnerTeleconsultRoute: typeof AppPartnerTeleconsultRoute
   AppPartnerAssignmentsRoute: typeof AppPartnerAssignmentsRoute
   AppPartnerAvailabilityRoute: typeof AppPartnerAvailabilityRoute
   AppPartnerDocumentationRoute: typeof AppPartnerDocumentationRoute
@@ -1793,6 +1967,7 @@ interface AppPartnerRouteChildren {
 
 const AppPartnerRouteChildren: AppPartnerRouteChildren = {
   AppPartnerAssessmentsRoute: AppPartnerAssessmentsRoute,
+  AppPartnerTeleconsultRoute: AppPartnerTeleconsultRoute,
   AppPartnerAssignmentsRoute: AppPartnerAssignmentsRoute,
   AppPartnerAvailabilityRoute: AppPartnerAvailabilityRoute,
   AppPartnerDocumentationRoute: AppPartnerDocumentationRoute,
@@ -1836,18 +2011,23 @@ interface AppRouteChildren {
   AppFinancialReconciliationRoute: typeof AppFinancialReconciliationRouteWithChildren
   AppIncidentsRoute: typeof AppIncidentsRouteWithChildren
   AppInsuranceReviewRoute: typeof AppInsuranceReviewRouteWithChildren
+  AppLocationDashboardRoute: typeof AppLocationDashboardRoute
   AppModerationRoute: typeof AppModerationRouteWithChildren
   AppNurseApprovalRoute: typeof AppNurseApprovalRoute
   AppOnboardingReviewRoute: typeof AppOnboardingReviewRouteWithChildren
   AppOperationsRoute: typeof AppOperationsRouteWithChildren
   AppOpsDashboardRoute: typeof AppOpsDashboardRoute
   AppPartnerRoute: typeof AppPartnerRouteWithChildren
+  AppPrescriptionReviewRoute: typeof AppPrescriptionReviewRoute
   AppRetentionDashboardRoute: typeof AppRetentionDashboardRoute
   AppReviewerManagementRoute: typeof AppReviewerManagementRoute
   AppRolesPermissionsRoute: typeof AppRolesPermissionsRoute
+  AppServicesCatalogueRoute: typeof AppServicesCatalogueRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppPayoutReleaseRoute: typeof AppPayoutReleaseRoute
   AppSubscriptionSubsidyRoute: typeof AppSubscriptionSubsidyRoute
   AppSupportDashboardRoute: typeof AppSupportDashboardRoute
+  AppSupportEscalationsRoute: typeof AppSupportEscalationsRoute
   AppSupportTicketsRoute: typeof AppSupportTicketsRoute
   AppSystemIndexRoute: typeof AppSystemIndexRoute
   AppTrainingAuthoringRoute: typeof AppTrainingAuthoringRoute
@@ -1874,18 +2054,23 @@ const AppRouteChildren: AppRouteChildren = {
   AppFinancialReconciliationRoute: AppFinancialReconciliationRouteWithChildren,
   AppIncidentsRoute: AppIncidentsRouteWithChildren,
   AppInsuranceReviewRoute: AppInsuranceReviewRouteWithChildren,
+  AppLocationDashboardRoute: AppLocationDashboardRoute,
   AppModerationRoute: AppModerationRouteWithChildren,
   AppNurseApprovalRoute: AppNurseApprovalRoute,
   AppOnboardingReviewRoute: AppOnboardingReviewRouteWithChildren,
   AppOperationsRoute: AppOperationsRouteWithChildren,
   AppOpsDashboardRoute: AppOpsDashboardRoute,
   AppPartnerRoute: AppPartnerRouteWithChildren,
+  AppPrescriptionReviewRoute: AppPrescriptionReviewRoute,
   AppRetentionDashboardRoute: AppRetentionDashboardRoute,
   AppReviewerManagementRoute: AppReviewerManagementRoute,
   AppRolesPermissionsRoute: AppRolesPermissionsRoute,
+  AppServicesCatalogueRoute: AppServicesCatalogueRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppPayoutReleaseRoute: AppPayoutReleaseRoute,
   AppSubscriptionSubsidyRoute: AppSubscriptionSubsidyRoute,
   AppSupportDashboardRoute: AppSupportDashboardRoute,
+  AppSupportEscalationsRoute: AppSupportEscalationsRoute,
   AppSupportTicketsRoute: AppSupportTicketsRoute,
   AppSystemIndexRoute: AppSystemIndexRoute,
   AppTrainingAuthoringRoute: AppTrainingAuthoringRoute,
@@ -1903,6 +2088,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  DeleteAccountRoute: DeleteAccountRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
 }

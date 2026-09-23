@@ -32,6 +32,21 @@ interface DistRow { name: string; value: number; pct: number }
 interface AlertRow { id: string; label: string; priority: string; action: string; to: string }
 interface ActivityRow { who: string; what: string; target: string; when: string }
 interface RegionRow { city: string; nurses: number; patients: number; visits: number; revenue: number }
+interface ProviderDashboard {
+  total_providers: number;
+  by_provider_type: Record<string, number>;
+  by_status?: Record<string, number>;
+  active_providers?: number;
+}
+
+const PROVIDER_TYPE_META: { key: string; label: string }[] = [
+  { key: "nurses", label: "Nurses" },
+  { key: "doctors", label: "Doctors" },
+  { key: "dentists", label: "Dentists" },
+  { key: "physiotherapists", label: "Physiotherapists" },
+  { key: "caregivers", label: "Caregivers" },
+  { key: "mother_baby_caregivers", label: "Mother & Baby Caregivers" },
+];
 
 function DashboardPage() {
   const { user } = useAuth();

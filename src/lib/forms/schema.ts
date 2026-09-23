@@ -15,10 +15,11 @@
  *   - help text + version metadata for future version-aware rendering
  */
 import type { Role } from "@/lib/rbac";
+import { isSlotPast } from "./timeSlots";
 
 export type FieldKind =
   | "text" | "textarea" | "number" | "select" | "radio"
-  | "checkbox" | "date" | "signature" | "readonly";
+  | "checkbox" | "date" | "time_slot" | "signature" | "readonly";
 
 export interface FieldOption { label: string; value: string }
 
@@ -49,6 +50,22 @@ export interface FieldSchema {
   default?: unknown;
   /** Span (1-3) inside a section grid; defaults to 1. */
   span?: 1 | 2 | 3;
+  /**
+   * For `kind: "date"` fields only: disallow picking/submitting a date
+   * before today. Opt-in per field (rather than a blanket rule on every
+   * date input) because plenty of date fields in this app — date of birth,
+   * a past incident date, an existing document's issue date — are supposed
+   * to accept past dates. Booking-scheduling fields like "Preferred date"
+   * are the ones that should set this.
+   */
+  noPast?: boolean;
+  /**
+   * For `kind: "time_slot"` only: the key of the "date" field this time is
+   * scheduled against, so slots already past on that specific day (when
+   * it's today) can be excluded. Without this the slot list can't tell
+   * "today" from any other day.
+   */
+  linkedDateField?: string;
 }
 
 export interface SectionSchema {
@@ -101,6 +118,28 @@ export function validateForm(schema: FormSchema, values: FormValues, role: Role 
       if (!isFieldVisible(field, values, role)) continue;
       const v = values[field.key];
       const rules = field.validation;
+
+      // Structural (kind-based) checks that must run regardless of whether
+      // a `validation` ruleset is present — a "time_slot" or "noPast date"
+      // field can be optional and still need this to keep it from silently
+      // accepting a time/date that's already gone.
+      if (field.kind === "date" && field.noPast && typeof v === "string" && v) {
+        // Compare as plain "YYYY-MM-DD" strings (both the input value and
+        // today's date in the browser's local timezone) rather than Date
+        // objects, so a UTC/local offset can never make "today" itself
+        // look like it's in the past.
+        const todayStr = new Date().toLocaleDateString("en-CA"); // en-CA => YYYY-MM-DD
+        if (v < todayStr) {
+          errors.push({ field: field.key, message: rules?.message ?? `${field.label} cannot be in the past` });
+        }
+      }
+      if (field.kind === "time_slot" && typeof v === "string" && v) {
+        const linkedDate = field.linkedDateField ? (values[field.linkedDateField] as string | undefined) : undefined;
+        if (isSlotPast(linkedDate, v)) {
+          errors.push({ field: field.key, message: rules?.message ?? `${field.label} has already passed — pick a later time` });
+        }
+      }
+
       if (!rules) continue;
       const present = v !== undefined && v !== null && v !== "";
       if (rules.required && !present) {
@@ -126,4 +165,5 @@ export function defaultValues(schema: FormSchema): FormValues {
     else out[f.key] = "";
   }
   return out;
+  
 }

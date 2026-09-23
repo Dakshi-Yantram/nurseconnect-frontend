@@ -2,11 +2,26 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import {
   Loader2, Navigation, MapPin, KeyRound, CheckCircle2, PlayCircle,
-  Activity, ClipboardList, FileText, AlertTriangle,
+  Activity, ClipboardList, FileText, AlertTriangle, Banknote, Clock,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiErrorMessage, apiUpload } from "@/lib/api";
 import { useLocationPublisher } from "@/lib/useLocationPublisher";
 import { ChatPanel } from "@/components/shared/ChatPanel";
+import { CallButton } from "@/components/calling/CallButton";
+import { CareSummaryCard } from "@/components/shared/CareSummaryCard";
+import { VisitCheckoutForm } from "@/components/shared/VisitCheckoutForm";
+import type { Vital, VisitReport } from "@/lib/visit-report-types";
+
+// Mirrors the server limits (MAX_UPLOAD_MB=10; JPG/PNG/WEBP/HEIC/PDF) so the
+// nurse gets an immediate, specific message instead of a failed upload.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const ALLOWED_UPLOAD_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
+function checkUploadFile(file: File): string | null {
+  if (file.size === 0) return "The selected file is empty.";
+  if (file.size > MAX_UPLOAD_BYTES) return "That file is larger than 10 MB. Please choose a smaller photo.";
+  if (file.type && !ALLOWED_UPLOAD_TYPES.includes(file.type)) return "Only JPG, PNG, WEBP, HEIC photos or PDF files can be uploaded.";
+  return null;
+}
 
 export const Route = createFileRoute("/_app/partner/visits/$visitId")({
   component: PartnerVisitDetail,
@@ -23,12 +38,26 @@ type Booking = {
   latitude?: number | string | null;
   longitude?: number | string | null;
   address_snapshot?: { line1?: string; city?: string; state?: string; pincode?: string } | null;
+  total_amount?: number | string | null;
+  payment_method?: "razorpay" | "cash";
+  payment_status?: string;
 };
 type Vital = {
   id: string;
   bp_systolic?: number | null; bp_diastolic?: number | null;
   pulse?: number | null; spo2?: number | null; temperature_f?: number | string | null;
   abnormal_flags?: string[] | null; escalation_triggered?: boolean; recorded_at: string;
+};
+// GET /api/visits/{bookingId}/report — the nurse's own saved report (same
+// data the family sees in "Care summary" on their booking page, plus the
+// internal care_notes that are never shown to them). Fetched here so a
+// completed visit still shows the nurse what she submitted, instead of just
+// a bare "Visit completed" tick with no way back to the report.
+type VisitReport = {
+  care_notes?: string | null;
+  family_summary?: string | null;
+  actual_duration_minutes?: number | null;
+  check_out_at?: string | null;
 };
 
 function mapsUrl(b: Booking): string {
@@ -40,12 +69,33 @@ function mapsUrl(b: Booking): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q || "destination")}`;
 }
 
-const CHECKLIST_ITEMS = [
-  { key: "patient_identity_confirmed", label: "Confirmed patient identity" },
-  { key: "vitals_recorded", label: "Recorded vital signs" },
-  { key: "hand_hygiene", label: "Followed hand-hygiene protocol" },
-  { key: "care_explained_to_family", label: "Explained care to the family" },
-];
+type WorkflowQuestion = {
+  id: string; type: string; text: string; required?: boolean; options?: Array<string | { label: string; value: string }>;
+};
+type WorkflowFieldDef = {
+  field_id: string; type: string; label: string; required?: boolean; blocks_checkout?: boolean;
+  options?: Array<string | { label: string; value: string }>;
+};
+type WorkflowResponse = {
+  checklist_template: { id: string; code: string; version: number; questions: WorkflowQuestion[] } | null;
+  documentation_template: { id: string; template_code: string; version: number; mandatory_fields: WorkflowFieldDef[] } | null;
+  existing_responses: {
+    checklist: Array<{ question_id: string; answer_json: any }>;
+    documentation: Array<{ field_id: string; value_json: any; file_url: string | null }>;
+  };
+  completion_status: {
+    can_checkout: boolean;
+    missing_items: Array<string | { type?: string; id?: string; label?: string; kind?: string; blocks_checkout?: boolean }>;
+    blocking_items: Array<string | { type?: string; id?: string; label?: string; kind?: string; blocks_checkout?: boolean }>;
+  };
+};
+
+function optionValue(o: string | { label: string; value: string }): string {
+  return typeof o === "string" ? o : o.value;
+}
+function optionLabel(o: string | { label: string; value: string }): string {
+  return typeof o === "string" ? o : o.label;
+}
 
 function PartnerVisitDetail() {
   const { visitId } = Route.useParams();
@@ -57,6 +107,8 @@ function PartnerVisitDetail() {
   const [b, setB] = useState<Booking | null>(null);
   useLocationPublisher(visitId, ["assigned","worker_en_route","worker_arrived"].includes(b?.status ?? "")); // booking id
   const [vitals, setVitals] = useState<Vital[]>([]);
+  const [report, setReport] = useState<VisitReport | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -65,14 +117,25 @@ function PartnerVisitDetail() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [bk, vs] = await Promise.allSettled([
+      const [bk, vs, rp] = await Promise.allSettled([
         apiFetch(`/api/bookings/${visitId}`),
         apiFetch(`/api/visits/${visitId}/vitals`),
+        apiFetch(`/api/visits/${visitId}/report`),
       ]);
       if (bk.status === "fulfilled") setB(bk.value);
       setVitals(vs.status === "fulfilled" && Array.isArray(vs.value) ? vs.value : []);
+      // A visit that hasn't started yet has no report row; that's expected,
+      // not an error — the card below simply won't render until completed.
+      setReport(rp.status === "fulfilled" ? rp.value : null);
+      // The report endpoint answers 200 even before a visit starts, so a
+      // rejection here is a real failure (expired session, 403, 5xx,
+      // offline) — surface it instead of silently hiding the summary card.
+      setReportError(rp.status === "rejected"
+        ? apiErrorMessage(rp.reason, "Couldn't load the visit report.")
+        : null);
+      if (bk.status === "rejected") setError(apiErrorMessage(bk.reason, "Couldn't load this visit."));
     } catch (e: any) {
-      setError(String(e?.message ?? e));
+      setError(apiErrorMessage(e, "Couldn't load this visit."));
     } finally {
       setLoading(false);
     }
@@ -81,32 +144,75 @@ function PartnerVisitDetail() {
   useEffect(() => { load(); }, [load]);
 
   function parseErr(e: any): string {
-    let msg = String(e?.message ?? e);
-    try { const j = JSON.parse(msg); msg = j.detail?.message ?? j.message ?? j.detail ?? msg; } catch { /* keep */ }
-    return msg;
+    // One error formatter for the whole app (handles every FastAPI detail
+    // shape, 413/415/422/429, network errors and 5xx support refs).
+    return apiErrorMessage(e, "Something went wrong. Please try again.");
   }
+
 
   async function startVisit() {
     setError(null); setBusy("start");
     try {
+      // Backend's VisitStartOtpVerifyRequest requires otp + latitude + longitude.
+      // Previously only otp was sent, causing a 422 "Field required" x2 on every attempt.
+      const coords: { latitude: number; longitude: number } = await new Promise((resolve) => {
+        const fallback = { latitude: Number(b?.latitude ?? 0), longitude: Number(b?.longitude ?? 0) };
+        if (!navigator.geolocation) return resolve(fallback);
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+          () => resolve(fallback),
+          { timeout: 4000 },
+        );
+      });
       await apiFetch(`/api/visits/${visitId}/verify-start-otp`, {
-        method: "POST", body: JSON.stringify({ otp: otp.trim() }),
+        method: "POST", body: JSON.stringify({ otp: otp.trim(), ...coords }),
       });
       setOtp("");
       await load();
     } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
   }
 
+  async function cancelBooking() {
+    if (!window.confirm(
+      "Cancel this visit? It will be automatically offered to other nurses, and repeated cancellations may affect your rating."
+    )) return;
+    setError(null); setBusy("cancel");
+    try {
+      await apiFetch(`/api/bookings/${visitId}/cancel`, {
+        method: "POST", body: JSON.stringify({ reason: "Cancelled by nurse" }),
+      });
+      window.location.href = "/partner/visits";
+    } catch (e: any) { setError(parseErr(e)); setBusy(null); }
+  }
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
   if (!b) {
-    return <div className="p-8 text-center text-[13px] text-muted-foreground">{error ?? "Visit not found."}</div>;
+    return (
+      <div className="p-8 text-center text-[13px] text-muted-foreground">
+        <p>{error ?? "Visit not found."}</p>
+        {error && (
+          <button type="button" onClick={load} className="mt-2 font-medium text-primary hover:underline">Try again</button>
+        )}
+      </div>
+    );
   }
 
   const a = b.address_snapshot ?? {};
   const inProgress = b.status === "in_progress";
   const completed = b.status === "completed";
+
+  // 6-hour cancellation window (backend enforces this too — hiding the
+  // button here just keeps the option honest). Only before the visit starts.
+  const scheduledStartMs = (() => {
+    const d = new Date(`${b.scheduled_date}T${b.scheduled_start_time}`);
+    return isNaN(d.getTime()) ? null : d.getTime();
+  })();
+  const canCancel =
+    !inProgress && !completed &&
+    ["assigned", "worker_en_route", "worker_arrived"].includes(b.status) &&
+    (scheduledStartMs == null || Date.now() < scheduledStartMs - 6 * 60 * 60 * 1000);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -139,15 +245,28 @@ function PartnerVisitDetail() {
           </a>
         </div>
 
+        {["assigned", "worker_en_route", "worker_arrived", "in_progress"].includes(b.status) && (
+          <CallButton bookingId={visitId} calleeLabel={b.patient_name ?? "customer"} />
+        )}
+
         <ChatPanel scope="booking" id={visitId} />
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-700">{error}</div>}
 
         {completed ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 flex flex-col items-center gap-2 text-center">
-            <CheckCircle2 className="text-emerald-600" size={26} />
-            <p className="text-[14px] font-bold text-foreground">Visit completed</p>
-          </div>
+          <>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 flex flex-col items-center gap-2 text-center">
+              <CheckCircle2 className="text-emerald-600" size={26} />
+              <p className="text-[14px] font-bold text-foreground">Visit completed</p>
+            </div>
+            <CareSummaryCard
+              report={report}
+              latestVital={vitals[0] ?? null}
+              bookingId={visitId}
+              error={reportError}
+              onRetry={load}
+            />
+          </>
         ) : !inProgress ? (
           <div className="rounded-xl border border-border bg-card px-5 py-4">
             <div className="flex items-center gap-2 mb-2">
@@ -169,6 +288,20 @@ function PartnerVisitDetail() {
           <ExecutionPanel bookingId={visitId} booking={b} vitals={vitals}
             busy={busy} setBusy={setBusy} setError={setError} parseErr={parseErr} reload={load} />
         )}
+
+        {canCancel && (
+          <div className="rounded-xl border border-border bg-card px-5 py-4">
+            <p className="text-[12px] text-muted-foreground mb-2">
+              Can't make this visit? Cancelling releases it to other nurses automatically.
+              Cancellation closes 6 hours before the scheduled start.
+            </p>
+            <button onClick={cancelBooking} disabled={busy !== null}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 px-4 py-2 text-[13px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40">
+              {busy === "cancel" ? <Loader2 size={15} className="animate-spin" /> : null}
+              Cancel this visit
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -182,10 +315,40 @@ function ExecutionPanel({
   setError: (v: string | null) => void; parseErr: (e: any) => string; reload: () => Promise<void>;
 }) {
   const [v, setV] = useState<Record<string, string>>({});
-  const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [summary, setSummary] = useState("");
   const [notes, setNotes] = useState("");
   const [lastFlags, setLastFlags] = useState<string[] | null>(null);
+
+  // Dynamic per-service questionnaire — resolved from the booking's
+  // checklist/documentation template (package > service > fallback), not a
+  // hardcoded list. Wired to the same /api/care/workflow endpoints that
+  // gate checkout via validate_documentation_completion, so filling this in
+  // is what actually unblocks "Complete visit & check out" below.
+  const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
+  const [workflowLoading, setWorkflowLoading] = useState(true);
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [docAnswers, setDocAnswers] = useState<Record<string, any>>({});
+  const [uploading, setUploading] = useState<string | null>(null);
+
+  const loadWorkflow = useCallback(async () => {
+    setWorkflowLoading(true);
+    try {
+      const wf: WorkflowResponse = await apiFetch(`/api/care/workflow/${bookingId}`);
+      setWorkflow(wf);
+      const a: Record<string, any> = {};
+      for (const r of wf.existing_responses?.checklist ?? []) a[r.question_id] = r.answer_json?.value;
+      setAnswers(a);
+      const d: Record<string, any> = {};
+      for (const r of wf.existing_responses?.documentation ?? []) d[r.field_id] = r.value_json?.value ?? (r.file_url ? { file_url: r.file_url } : undefined);
+      setDocAnswers(d);
+    } catch {
+      setWorkflow(null);
+    } finally {
+      setWorkflowLoading(false);
+    }
+  }, [bookingId]);
+
+  useEffect(() => { loadWorkflow(); }, [loadWorkflow]);
 
   const num = (s?: string) => (s && s.trim() !== "" ? Number(s) : null);
 
@@ -207,13 +370,82 @@ function ExecutionPanel({
   }
 
   async function submitChecklist() {
+    if (!workflow?.checklist_template) return;
     setError(null); setBusy("checklist");
     try {
-      await apiFetch(`/api/visits/${bookingId}/checklist`, {
-        method: "POST", body: JSON.stringify({ responses: checks }),
+      const responses = workflow.checklist_template.questions
+        .filter(q => answers[q.id] !== undefined && answers[q.id] !== "")
+        .map(q => ({ question_id: q.id, answer: answers[q.id] }));
+      await apiFetch(`/api/care/workflow/${bookingId}/responses`, {
+        method: "POST", body: JSON.stringify({ responses }),
+      });
+      await loadWorkflow();
+    } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
+  }
+
+  async function uploadChecklistPhoto(questionId: string, file: File) {
+    const problem = checkUploadFile(file);
+    if (problem) { setError(problem); return; }
+    setError(null); setUploading(questionId);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("field_id", questionId);
+      const data = await apiUpload(`/api/care/workflow/${bookingId}/documentation/file`, form);
+      setAnswers(s => ({ ...s, [questionId]: { file_url: data.file_url } }));
+    } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
+  }
+
+  async function uploadDocPhoto(fieldId: string, file: File) {
+    const problem = checkUploadFile(file);
+    if (problem) { setError(problem); return; }
+    setError(null); setUploading(fieldId);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("field_id", fieldId);
+      const data = await apiUpload(`/api/care/workflow/${bookingId}/documentation/file`, form);
+      setDocAnswers(s => ({ ...s, [fieldId]: { file_url: data.file_url } }));
+    } catch (e: any) { setError(parseErr(e)); } finally { setUploading(null); }
+  }
+
+  async function submitDocumentation() {
+    if (!workflow?.documentation_template) return;
+    setError(null); setBusy("documentation");
+    try {
+      const items = workflow.documentation_template.mandatory_fields
+        .filter(f => docAnswers[f.field_id] !== undefined && docAnswers[f.field_id] !== "")
+        .map(f => {
+          const v = docAnswers[f.field_id];
+          return v && typeof v === "object" && "file_url" in v
+            ? { field_id: f.field_id, file_url: v.file_url }
+            : { field_id: f.field_id, value: v };
+        });
+      await apiFetch(`/api/care/workflow/${bookingId}/documentation`, {
+        method: "POST", body: JSON.stringify({ items }),
+      });
+      await loadWorkflow();
+    } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
+  }
+
+  // Cash-at-visit collection. Deliberately separate from checkout(): a
+  // cash booking can be checked out without this if the provider forgets,
+  // but the money is still owed — so this is its own action the provider
+  // takes explicitly, not folded into "Complete visit & check out".
+  const [cashConfirming, setCashConfirming] = useState(false);
+  async function collectCash() {
+    setError(null); setCashConfirming(true);
+    try {
+      await apiFetch("/api/payments/cash/collect", {
+        method: "POST",
+        body: JSON.stringify({ booking_id: bookingId }),
       });
       await reload();
-    } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
+    } catch (e: any) {
+      setError(parseErr(e));
+    } finally {
+      setCashConfirming(false);
+    }
   }
 
   async function checkout() {
@@ -283,45 +515,218 @@ function ExecutionPanel({
         )}
       </div>
 
-      {/* Checklist */}
+      {/* Care questionnaire — dynamic, resolved from this booking's service/package checklist template */}
       <div className="rounded-xl border border-border bg-card px-5 py-4">
         <div className="flex items-center gap-2 mb-3">
           <ClipboardList size={15} className="text-primary" />
-          <p className="text-[13px] font-semibold text-foreground">Care checklist</p>
+          <p className="text-[13px] font-semibold text-foreground">Care questionnaire</p>
         </div>
-        <div className="space-y-2">
-          {CHECKLIST_ITEMS.map((it) => (
-            <label key={it.key} className="flex items-center gap-2 text-[12.5px] text-foreground">
-              <input type="checkbox" checked={!!checks[it.key]}
-                onChange={(e) => setChecks((s) => ({ ...s, [it.key]: e.target.checked }))} />
-              {it.label}
-            </label>
-          ))}
-        </div>
-        <button onClick={submitChecklist} disabled={busy !== null}
-          className="mt-3 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
-          {busy === "checklist" ? "Saving…" : "Save checklist"}
-        </button>
+        {workflowLoading ? (
+          <p className="text-[12px] text-muted-foreground">Loading…</p>
+        ) : !workflow?.checklist_template ? (
+          <p className="text-[12px] text-muted-foreground">No questionnaire configured for this service.</p>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {workflow.checklist_template.questions.map((q) => (
+                q.type === "photo" ? (
+                  <div key={q.id}>
+                    <label className="text-[11px] font-semibold text-muted-foreground">
+                      {q.text}{q.required ? " *" : ""}
+                    </label>
+                    <input type="file" accept="image/*"
+                      onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadChecklistPhoto(q.id, file); }}
+                      className="mt-0.5 w-full text-[12px]" disabled={uploading === q.id} />
+                    {uploading === q.id && <p className="mt-1 text-[11px] text-muted-foreground">Uploading…</p>}
+                    {answers[q.id]?.file_url && (
+                      <p className="mt-1 text-[11px] text-emerald-700">Uploaded ✓</p>
+                    )}
+                  </div>
+                ) : q.type === "consent_confirmation" ? (
+                  <label key={q.id} className="flex items-center gap-2 text-[12.5px] text-foreground">
+                    <input type="checkbox" checked={!!answers[q.id]?.consented}
+                      onChange={(e) => setAnswers((s) => ({ ...s, [q.id]: { consented: e.target.checked } }))} />
+                    {q.text}{q.required ? " *" : ""}
+                  </label>
+                ) : (
+                  <WorkflowField
+                    key={q.id}
+                    id={q.id} type={q.type} label={q.text} required={q.required} options={q.options}
+                    value={answers[q.id]} onChange={(val) => setAnswers((s) => ({ ...s, [q.id]: val }))}
+                  />
+                )
+              ))}
+            </div>
+            <button onClick={submitChecklist} disabled={busy !== null}
+              className="mt-3 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
+              {busy === "checklist" ? "Saving…" : "Save questionnaire"}
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Family summary + checkout */}
-      <div className="rounded-xl border border-border bg-card px-5 py-4">
-        <div className="flex items-center gap-2 mb-3">
-          <FileText size={15} className="text-primary" />
-          <p className="text-[13px] font-semibold text-foreground">Family summary & checkout</p>
+      {/* Documentation — dynamic fields, some may block checkout */}
+      {workflow?.documentation_template && (
+        <div className="rounded-xl border border-border bg-card px-5 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText size={15} className="text-primary" />
+            <p className="text-[13px] font-semibold text-foreground">Visit documentation</p>
+          </div>
+          <div className="space-y-3">
+            {workflow.documentation_template.mandatory_fields.map((f) => (
+              f.type === "photo" ? (
+                <div key={f.field_id}>
+                  <label className="text-[11px] font-semibold text-muted-foreground">
+                    {f.label}{f.required ? " *" : ""}
+                  </label>
+                  <input type="file" accept="image/*"
+                    onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocPhoto(f.field_id, file); }}
+                    className="mt-0.5 w-full text-[12px]" disabled={uploading === f.field_id} />
+                  {docAnswers[f.field_id]?.file_url && (
+                    <p className="mt-1 text-[11px] text-emerald-700">Uploaded ✓</p>
+                  )}
+                </div>
+              ) : (
+                <WorkflowField
+                  key={f.field_id}
+                  id={f.field_id} type={f.type} label={f.label} required={f.required} options={f.options}
+                  value={docAnswers[f.field_id]} onChange={(val) => setDocAnswers((s) => ({ ...s, [f.field_id]: val }))}
+                />
+              )
+            ))}
+          </div>
+          <button onClick={submitDocumentation} disabled={busy !== null}
+            className="mt-3 w-full rounded-lg border border-border px-4 py-2 text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
+            {busy === "documentation" ? "Saving…" : "Save documentation"}
+          </button>
         </div>
-        <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3}
-          placeholder="Summary the family will see (what you did, how the patient is doing)…"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-          placeholder="Clinical care notes (internal)…"
-          className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
-        <button onClick={checkout} disabled={busy !== null}
-          className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40">
-          {busy === "checkout" ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-          Complete visit & check out
-        </button>
-      </div>
+      )}
+
+      {workflow && !workflow.completion_status.can_checkout && workflow.completion_status.blocking_items.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-800">
+          Before checkout: {workflow.completion_status.blocking_items
+            .map((it: any) => (typeof it === "string" ? it : it.label ?? it.id))
+            .join(", ")}
+        </div>
+      )}
+
+      {/* Cash collection — only for cash bookings not yet paid. Driven by
+          the booking's own payment_status, not a role check, so it shows
+          for whichever provider is actually assigned to the visit. */}
+      {booking.payment_method === "cash" && booking.payment_status === "cash_due" && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Banknote size={15} className="text-sky-700" />
+            <p className="text-[13px] font-semibold text-sky-900">
+              Collect ₹{Number(booking.total_amount ?? 0).toLocaleString("en-IN")} in cash
+            </p>
+          </div>
+          <p className="text-[12px] text-sky-800 mb-3">
+            This patient chose to pay at the visit. Confirm only once you have actually
+            received the amount — it is netted off your next payout, since you hold the
+            company&apos;s money until then.
+          </p>
+          <button onClick={collectCash} disabled={cashConfirming}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-700 px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40">
+            {cashConfirming ? <Loader2 size={15} className="animate-spin" /> : <Banknote size={15} />}
+            Confirm cash received
+          </button>
+        </div>
+      )}
+
+      <VisitCheckoutForm
+        summary={summary}
+        notes={notes}
+        onSummaryChange={setSummary}
+        onNotesChange={setNotes}
+        onSubmit={checkout}
+        submitting={busy === "checkout"}
+        disabled={busy !== null && busy !== "checkout"}
+      />
     </>
+  );
+}
+
+// Generic renderer for one dynamic checklist question or documentation
+// field, driven entirely by the template's declared `type` — no per-service
+// hardcoding. Supported types match care_workflow_engine.SUPPORTED_QUESTION_TYPES.
+function WorkflowField({
+  id, type, label, required, options, value, onChange,
+}: {
+  id: string; type: string; label: string; required?: boolean;
+  options?: Array<string | { label: string; value: string }>;
+  value: any; onChange: (val: any) => void;
+}) {
+  const labelEl = (
+    <label htmlFor={id} className="text-[11px] font-semibold text-muted-foreground">
+      {label}{required ? " *" : ""}
+    </label>
+  );
+
+  if (type === "boolean") {
+    return (
+      <label className="flex items-center gap-2 text-[12.5px] text-foreground">
+        <input id={id} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />
+        {label}{required ? " *" : ""}
+      </label>
+    );
+  }
+  if (type === "number") {
+    return (
+      <div>
+        {labelEl}
+        <input id={id} type="number" value={value ?? ""} onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+          className="mt-0.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
+      </div>
+    );
+  }
+  if (type === "textarea") {
+    return (
+      <div>
+        {labelEl}
+        <textarea id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={2}
+          className="mt-0.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
+      </div>
+    );
+  }
+  if (type === "single_select" && options?.length) {
+    return (
+      <div>
+        {labelEl}
+        <select id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value)}
+          className="mt-0.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]">
+          <option value="" disabled>Select…</option>
+          {options.map((o) => <option key={optionValue(o)} value={optionValue(o)}>{optionLabel(o)}</option>)}
+        </select>
+      </div>
+    );
+  }
+  if (type === "multi_select" && options?.length) {
+    const selected: string[] = Array.isArray(value) ? value : [];
+    return (
+      <div>
+        {labelEl}
+        <div className="mt-1 space-y-1">
+          {options.map((o) => {
+            const ov = optionValue(o);
+            return (
+              <label key={ov} className="flex items-center gap-2 text-[12.5px] text-foreground">
+                <input type="checkbox" checked={selected.includes(ov)}
+                  onChange={(e) => onChange(e.target.checked ? [...selected, ov] : selected.filter(s => s !== ov))} />
+                {optionLabel(o)}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+  // text (default)
+  return (
+    <div>
+      {labelEl}
+      <input id={id} type="text" value={value ?? ""} onChange={(e) => onChange(e.target.value)}
+        className="mt-0.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px]" />
+    </div>
   );
 }

@@ -1,12 +1,17 @@
 import type { ComponentType } from "react";
 import {
-  LayoutDashboard, Users, UserCheck, Network, Activity, AlertOctagon, ClipboardCheck,
+  LayoutDashboard, Users, UserCheck, Network, Activity, AlertOctagon, ClipboardCheck, FileCheck,
   ShieldCheck, Wallet, AlertTriangle, CreditCard, Package, BookOpen, MessageSquare,
   Scale, FileSearch, Database, Settings, ScrollText, HeartHandshake,
   CalendarCheck, FileText, Bell, User as UserIcon,
   Briefcase, MapPin, IndianRupee, GraduationCap, Clock, FileSignature, Inbox,
-  UserCog, HelpCircle, UserPlus, LifeBuoy,
+  UserCog, HelpCircle, UserPlus, LifeBuoy, Stethoscope, BadgeCheck,
 } from "lucide-react";
+// ListChecks imported from its own subpath (not the "lucide-react" barrel) —
+// production Rollup/Vite code-splitting was tree-shaking this one named
+// export out of the rbac.ts chunk, causing "ReferenceError: ListChecks is
+// not defined" at runtime (build-only bug, invisible in dev/preview).
+import ListChecks from "lucide-react/dist/esm/icons/list-checks";
 
 // ---------------------------------------------------------------------------
 // Roles + Portals
@@ -78,8 +83,10 @@ export type Permission =
   // Admin shared
   | "overview.view" | "ops.view" | "system.view"
   | "users.view" | "users.approve" | "onboarding.review" | "background.review"
-  | "clinical.escalation" | "clinical.packages" | "clinical.rules" | "clinical.insurance"
-  | "finance.reconciliation" | "finance.subscriptions" | "finance.disputes"
+  | "prescription.review"
+  | "clinical.escalation" | "clinical.packages" | "clinical.services" | "clinical.rules" | "clinical.insurance"
+  | "clinical.teledoctor"
+  | "finance.reconciliation" | "finance.subscriptions" | "finance.disputes" | "finance.payout_approvals"
   | "trust.incidents" | "trust.complaints"
   | "compliance.retention" | "compliance.audit" | "compliance.settings"
   // Reviewer
@@ -92,7 +99,7 @@ export type Permission =
   // Partner
   | "partner.home" | "partner.assignments" | "partner.visits" | "partner.documentation"
   | "partner.earnings" | "partner.training" | "partner.availability" | "partner.help"
-  | "partner.assessments"
+  | "partner.assessments" | "partner.teleconsult"
   // Support
   | "support.queue" | "support.assign" | "support.resolve" | "support.tickets"
   // Operations
@@ -104,8 +111,10 @@ export type Permission =
 const ADMIN_ALL: Permission[] = [
   "overview.view", "ops.view", "system.view",
   "users.view", "users.approve", "onboarding.review", "background.review",
-  "clinical.escalation", "clinical.packages", "clinical.rules", "clinical.insurance",
-  "finance.reconciliation", "finance.subscriptions", "finance.disputes",
+  "prescription.review",
+  "clinical.escalation", "clinical.packages", "clinical.services", "clinical.rules", "clinical.insurance",
+  "clinical.teledoctor",
+  "finance.reconciliation", "finance.subscriptions", "finance.disputes", "finance.payout_approvals",
   "trust.incidents", "trust.complaints",
   "compliance.retention", "compliance.audit", "compliance.settings",
   "review.training", "admin.reviewer.mgmt", "admin.roles",
@@ -117,6 +126,7 @@ const ADMIN_ALL: Permission[] = [
 const REVIEWER_PERMISSIONS: Permission[] = [
   "users.approve",       // Nurse Approval
   "onboarding.review",   // Onboarding Review
+  "prescription.review", // Pharmacist Rx review (Step 2 of both care workflows)
   "background.review",   // Background Check
   "review.training",     // Training + assessment review
 ];
@@ -129,7 +139,7 @@ const CONSUMER_ALL: Permission[] = [
 const PARTNER_ALL: Permission[] = [
   "partner.home", "partner.assignments", "partner.visits", "partner.documentation",
   "partner.earnings", "partner.training", "partner.availability", "partner.services", "partner.help",
-  "partner.assessments",
+  "partner.assessments", "partner.teleconsult",
 ];
 
 const SUPPORT_PERMISSIONS: Permission[] = [
@@ -147,6 +157,7 @@ const OPERATIONS_PERMISSIONS: Permission[] = [
 
 const CLINICAL_TRAINING_LEAD_PERMISSIONS: Permission[] = [
   "training.review_queue",
+  "training.author",
 ];
 
 const CLINICAL_TRAINER_PERMISSIONS: Permission[] = [
@@ -180,27 +191,42 @@ export interface NavItem {
   section: NavSection;
   permission: Permission;
   portal: Portal;
+  /** Optional collapsible parent group within its section (e.g. "Onboarding"
+   *  groups Nurse + Reviewer under one expandable row in the sidebar). */
+  group?: string;
 }
 
 export const NAV_REGISTRY: NavItem[] = [
   // ---------- ADMIN ----------
   { to: "/dashboard",               label: "Dashboard",          icon: LayoutDashboard, section: "Overview",       permission: "overview.view",             portal: "admin" },
   { to: "/ops-dashboard",           label: "Live Ops",           icon: Activity,        section: "Overview",       permission: "ops.view",                  portal: "admin" },
+  { to: "/location-dashboard",      label: "Location Dashboard", icon: MapPin,          section: "Overview",       permission: "overview.view",             portal: "admin" },
   { to: "/system-index",            label: "System Index",       icon: Network,         section: "Overview",       permission: "system.view",               portal: "admin" },
 
   { to: "/users/patients",          label: "Patients",           icon: Users,           section: "Users",          permission: "users.view",                portal: "admin" },
   { to: "/users/nurses",            label: "Nurses",             icon: HeartHandshake,  section: "Users",          permission: "users.view",                portal: "admin" },
-  { to: "/nurse-approval",          label: "Nurse Approval",     icon: UserCheck,       section: "Users",          permission: "users.approve",             portal: "admin" },
+  { to: "/nurse-approval",          label: "Nurse",              icon: UserCheck,       section: "Users",          permission: "users.approve",             portal: "admin", group: "Onboarding" },
+  { to: "/reviewer-management",     label: "Reviewer",           icon: UserCog,         section: "Users",          permission: "admin.reviewer.mgmt",       portal: "admin", group: "Onboarding" },
   { to: "/onboarding-review",       label: "Onboarding Review",  icon: ClipboardCheck,  section: "Users",          permission: "onboarding.review",         portal: "admin" },
-  { to: "/background-verification", label: "Background Check",   icon: ShieldCheck,     section: "Users",          permission: "background.review",         portal: "admin" },
+  { to: "/provider-agreements",     label: "Provider Agreements",icon: FileSignature,   section: "Users",          permission: "onboarding.review",         portal: "admin" },
+  { to: "/prescription-review",     label: "Prescription Review", icon: FileCheck,      section: "Clinical",       permission: "prescription.review",       portal: "admin" },
   { to: "/moderation/training",     label: "Training Review",    icon: GraduationCap,   section: "Users",          permission: "review.training",           portal: "admin" },
 
   { to: "/clinical-escalation",     label: "Clinical Escalation",icon: AlertOctagon,    section: "Clinical",       permission: "clinical.escalation",       portal: "admin" },
   { to: "/care-packages",           label: "Care Packages",      icon: Package,         section: "Clinical",       permission: "clinical.packages",         portal: "admin" },
+  { to: "/services-catalogue",      label: "Service Catalogue",  icon: ListChecks,      section: "Clinical",       permission: "clinical.services",         portal: "admin" },
   { to: "/clinical-rule-sets",      label: "Clinical Rule Sets", icon: BookOpen,        section: "Clinical",       permission: "clinical.rules",            portal: "admin" },
   { to: "/insurance-review",        label: "Insurance Review",   icon: FileSearch,      section: "Clinical",       permission: "clinical.insurance",        portal: "admin" },
+  { to: "/teledoctor-queue",        label: "Teledoctor Queue",   icon: Stethoscope,     section: "Clinical",       permission: "clinical.teledoctor",       portal: "admin" },
 
   { to: "/financial-reconciliation",label: "Financial Recon",    icon: Wallet,          section: "Finance",        permission: "finance.reconciliation",    portal: "admin" },
+  { to: "/payout-approvals",        label: "Payout Approvals",   icon: BadgeCheck,      section: "Finance",        permission: "finance.payout_approvals",  portal: "admin" },
+  // Release sits behind the same permission as approvals: both are the same
+  // finance responsibility, and reusing it avoids widening the role matrix.
+  // IndianRupee is reused from the existing barrel import above rather than
+  // pulling in a new icon — see the ListChecks note for why new named icon
+  // imports here are risky under production tree-shaking.
+  { to: "/payout-release",          label: "Payout Release",     icon: IndianRupee,     section: "Finance",        permission: "finance.payout_approvals",  portal: "admin" },
   { to: "/subscription-subsidy",    label: "Subscriptions",      icon: CreditCard,      section: "Finance",        permission: "finance.subscriptions",     portal: "admin" },
   { to: "/disputes",                label: "Disputes",           icon: Scale,           section: "Finance",        permission: "finance.disputes",          portal: "admin" },
 
@@ -213,10 +239,8 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/settings",                label: "Settings",           icon: Settings,        section: "Compliance",     permission: "compliance.settings",       portal: "admin" },
 
   // ---------- NEW ROUTES ----------
-  { to: "/reviewer-management", label: "Reviewer Workload", icon: LayoutDashboard, section: "Users",    permission: "admin.reviewer.mgmt", portal: "admin" },
   { to: "/roles-permissions",   label: "Roles & Permissions", icon: UserCog,       section: "Users",    permission: "admin.roles",         portal: "admin" },
   { to: "/consumer/addresses",  label: "Addresses",         icon: LayoutDashboard, section: "Account",  permission: "consumer.addresses",  portal: "consumer" },
-  { to: "/partner/services",    label: "Care Packages",     icon: LayoutDashboard, section: "Work",     permission: "partner.services",    portal: "partner" },
 
   // ---------- CLINICAL TRAINING LEAD / TRAINER (admin shell, filtered) ----------
   { to: "/training-review",     label: "Training Review",   icon: GraduationCap,   section: "Training", permission: "training.review_queue", portal: "admin" },
@@ -232,13 +256,17 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/consumer/profile",        label: "Profile",            icon: UserIcon,        section: "Account",        permission: "consumer.profile",          portal: "consumer" },
 
   // ---------- PARTNER ----------
+  // Order matters: nav renders items in array order within a section, so
+  // Workspace sits at the top of Work and Care Packages after Documentation.
   { to: "/partner",                 label: "Workspace",          icon: LayoutDashboard, section: "Work",           permission: "partner.home",              portal: "partner" },
   { to: "/partner/assignments",     label: "Assignments",        icon: Briefcase,       section: "Work",           permission: "partner.assignments",       portal: "partner" },
   { to: "/partner/visits",          label: "Visits",             icon: MapPin,          section: "Work",           permission: "partner.visits",            portal: "partner" },
   { to: "/partner/documentation",   label: "Documentation",      icon: FileText,        section: "Work",           permission: "partner.documentation",     portal: "partner" },
+  { to: "/partner/services",        label: "Care Packages",      icon: Package,         section: "Work",           permission: "partner.services",          portal: "partner" },
   { to: "/partner/earnings",        label: "Earnings",           icon: IndianRupee,     section: "Personal",       permission: "partner.earnings",          portal: "partner" },
   { to: "/partner/training",        label: "Training",           icon: GraduationCap,   section: "Personal",       permission: "partner.training",          portal: "partner" },
   { to: "/partner/assessments",     label: "Assessments",        icon: ClipboardCheck,  section: "Personal",       permission: "partner.assessments",       portal: "partner" },
+  { to: "/partner/teleconsult",     label: "Teleconsult",        icon: Stethoscope,     section: "Work",           permission: "partner.teleconsult",       portal: "partner" },
   { to: "/partner/availability",    label: "Availability",       icon: Clock,           section: "Personal",       permission: "partner.availability",      portal: "partner" },
   { to: "/partner/help",            label: "Help & Support",     icon: LifeBuoy,        section: "Personal",       permission: "partner.help",              portal: "partner" },
 
@@ -274,6 +302,19 @@ export function portalForRole(role: Role | null): Portal | null {
 
 export function portalHome(role: Role | null): string {
   return role ? PORTAL_HOME[role] : "/auth/login";
+}
+
+// Roles that have a dedicated profile/account page. Others fall back to their
+// portal home (they manage their details elsewhere / not at all).
+const PROFILE_HOME: Partial<Record<Role, string>> = {
+  partner: "/partner/profile",
+  consumer: "/consumer/profile",
+};
+
+/** Where the "My profile" menu item should land for a given role. */
+export function profileHome(role: Role | null): string {
+  if (!role) return "/auth/login";
+  return PROFILE_HOME[role] ?? PORTAL_HOME[role];
 }
 
 function matchNav(pathname: string): NavItem | undefined {

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Loader2, ArrowLeft, KeyRound } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiErrorMessage } from "@/lib/api";
 
 export const Route = createFileRoute("/auth/forgot-password")({
   component: ForgotPassword,
@@ -20,10 +20,10 @@ function ForgotPassword() {
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function parseErr(e: any) {
-    let m = String(e?.message ?? e);
-    try { const j = JSON.parse(m); m = j.detail ?? m; } catch { /* keep */ }
-    return m;
+  // Was: `j.detail ?? m` — on a 429 `detail` is an object, which React
+  // cannot render ("Objects are not valid as a React child") → blank page.
+  function parseErr(e: unknown) {
+    return apiErrorMessage(e, "Something went wrong. Please try again.");
   }
 
   async function requestCode() {
@@ -32,7 +32,10 @@ function ForgotPassword() {
       const res = await apiFetch("/api/auth/forgot-password", {
         method: "POST", body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
-      setMsg(res?.message ?? "If that account exists, a reset code has been sent.");
+      setMsg(
+        (res?.message ?? "If that account exists, a reset code has been sent.") +
+        " If no SMS arrives within a couple of minutes, go back and request a new code.",
+      );
       setStep(2);
     } catch (e) { setError(parseErr(e)); } finally { setBusy(false); }
   }

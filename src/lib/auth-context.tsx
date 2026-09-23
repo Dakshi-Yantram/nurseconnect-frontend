@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { hasPermission as rbacHas, type Permission, type Role } from "./rbac";
+import { revokeSession, SESSION_EXPIRED_EVENT } from "./api";
 
 /**
  * Auth context for the web portal.
@@ -72,8 +73,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
   }, []);
 
+  // The session (and the access_token it's paired with) lives in
+  // localStorage, which is shared across every tab on this origin — admin,
+  // ops, and consumer portals included. If another tab logs into a
+  // different account, it silently overwrites this tab's token too, even
+  // though this tab's UI keeps showing the old user until it re-renders.
+  // That mismatch is what produces confusing "role required" 403s: the
+  // page still looks like the old account, but every request now goes out
+  // under the new tab's identity. Re-sync on the `storage` event so this
+  // tab reflects reality instead of lying about who's logged in.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY && e.key !== null) return;
+      setUser(readSession());
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const signIn = useCallback((u: SessionUser) => { writeSession(u); setUser(u); }, []);
-  const signOut = useCallback(() => { writeSession(null); setUser(null); }, []);
+  // SECURITY: signOut used to clear only the UI session — the access and
+  // refresh tokens stayed in localStorage and valid on the server. Now it
+  // revokes the server session and removes both tokens.
+  const signOut = useCallback(() => {
+    void revokeSession();
+    writeSession(null);
+    setUser(null);
+  }, []);
+
+  // Refresh token rejected (expired / revoked / password changed): drop the
+  // UI session so route guards send the user to sign in.
+  useEffect(() => {
+    const onExpired = () => { writeSession(null); setUser(null); };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

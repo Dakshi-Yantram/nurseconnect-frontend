@@ -16,7 +16,7 @@ import { Bell, Search, ChevronDown, Menu, LogOut, User as UserIcon } from "lucid
 import { useState } from "react";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useAuth } from "@/lib/auth-context";
-import { portalForRole, portalHome, routeMeta, type Portal } from "@/lib/rbac";
+import { portalForRole, profileHome, routeMeta, type Portal } from "@/lib/rbac";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { PortalBadge } from "@/components/shared/PortalBadge";
 
@@ -119,7 +119,7 @@ export function TopBar({ onOpenMobileNav }: TopBarProps) {
                       <button
                         onClick={() => {
                           setMenuOpen(false);
-                          nav({ to: portalHome(user.role) });
+                          nav({ to: profileHome(user.role) });
                         }}
                         className="w-full text-left px-2 py-1.5 rounded-md text-[12.5px] hover:bg-secondary flex items-center gap-2"
                       >

@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, LogOut, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, LogOut, X } from "lucide-react";
 import logo from "@/assets/yantram-logo.jpg";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -25,6 +25,7 @@ type SidebarProps = {
  */
 export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { user, signOut } = useAuth();
   const items = navForRole(user?.role ?? null);
@@ -99,6 +100,15 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
         {NAV_SECTIONS.map((section) => {
           const sectionItems = items.filter((n) => n.section === section);
           if (sectionItems.length === 0) return null;
+
+          // Split into standalone items and grouped items, preserving the
+          // registry's original order for groups (first occurrence wins).
+          const groupOrder: string[] = [];
+          for (const it of sectionItems) {
+            if (it.group && !groupOrder.includes(it.group)) groupOrder.push(it.group);
+          }
+          const standalone = sectionItems.filter((it) => !it.group);
+
           return (
             <div key={section}>
               {!collapsed && (
@@ -107,7 +117,58 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
                 </div>
               )}
               <ul className="space-y-0.5">
-                {sectionItems.map((item) => {
+                {groupOrder.map((groupName) => {
+                  const groupItems = sectionItems.filter((it) => it.group === groupName);
+                  const groupHasActive = groupItems.some((it) => it.to === bestMatch);
+                  const isOpen = openGroups[groupName] ?? groupHasActive;
+                  return (
+                    <li key={groupName}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenGroups((g) => ({ ...g, [groupName]: !isOpen }))}
+                        className={cn(
+                          "w-full flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition-colors",
+                          groupHasActive && !isOpen
+                            ? "text-white"
+                            : "text-sidebar-muted hover:bg-white/5 hover:text-white"
+                        )}
+                        title={groupName}
+                      >
+                        <span className="h-[18px] w-[18px] shrink-0 grid place-items-center">
+                          <ChevronDown className={cn("h-[14px] w-[14px] transition-transform", !isOpen && "-rotate-90")} />
+                        </span>
+                        {!collapsed && <span className="truncate flex-1 text-left">{groupName}</span>}
+                      </button>
+                      {isOpen && (
+                        <ul className={cn("space-y-0.5 mt-0.5", !collapsed && "ml-[18px] pl-3 border-l border-white/10")}>
+                          {groupItems.map((item) => {
+                            const active = item.to === bestMatch;
+                            const Icon = item.icon;
+                            return (
+                              <li key={item.to}>
+                                <Link
+                                  to={item.to}
+                                  onClick={onCloseMobile}
+                                  className={cn(
+                                    "flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition-colors",
+                                    active
+                                      ? "bg-[var(--sidebar-active)] text-white"
+                                      : "text-sidebar-muted hover:bg-white/5 hover:text-white"
+                                  )}
+                                  title={item.label}
+                                >
+                                  <Icon className="h-[16px] w-[16px] shrink-0" />
+                                  {!collapsed && <span className="truncate">{item.label}</span>}
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+                {standalone.map((item) => {
                   const active = item.to === bestMatch;
                   const Icon = item.icon;
                   return (

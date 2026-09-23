@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Navigate, useNavigate, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ApiError, apiErrorMessage, fetchWithTimeout, setTokens, toApiError } from "@/lib/api";
 import { ShieldCheck, Clock, HeartHandshake, ArrowRight, Eye, EyeOff, Smartphone } from "lucide-react";
 import logo from "@/assets/yantram-logo.jpg";
 import { useAuth } from "@/lib/auth-context";
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/auth/login")({
   head: () => ({ meta: [{ title: "Login — NurseConnect" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     redirect: typeof s.redirect === "string" ? s.redirect : undefined,
+    reason: typeof s.reason === "string" ? s.reason : undefined,
   }),
 });
 
@@ -50,19 +52,27 @@ const SELF_ROLE_TO_BACKEND: Record<SelfRegisterRole, string> = {
 };
 
 async function apiRequest(path: string, body: unknown) {
-  const res = await fetch(`${API}/api${path}`, {
+  // 30s cap: the OTP send can wait on the SMS provider (with one retry);
+  // without a timeout a stuck request left "Sending OTP…" spinning forever.
+  const res = await fetchWithTimeout(`${API}/api${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    timeoutMs: 30_000,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      err?.detail?.[0]?.msg ?? err?.detail ?? `Request failed (${res.status})`
-    );
-  }
+  // Previously `new Error(err.detail)` — when `detail` was an object (rate
+  // limit, OTP_SEND_FAILED) the user saw "[object Object]".
+  if (!res.ok) throw await toApiError(res);
   return res.json();
 }
+
+/** Error text for the auth forms (a 401 here means bad credentials, not an expired session). */
+function authErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError && err.status === 401) return err.userMessage ?? fallback;
+  return apiErrorMessage(err, fallback);
+}
+
+const OTP_RESEND_COOLDOWN_S = 30;
 
 async function apiLogin(email: string, password: string) {
   return apiRequest("/auth/login", { email, password });
@@ -91,8 +101,7 @@ async function apiOtpVerify(phone_e164: string, code: string) {
 }
 
 function saveTokens(access: string, refresh: string) {
-  localStorage.setItem("access_token", access);
-  localStorage.setItem("refresh_token", refresh);
+  setTokens(access, refresh);
 }
 
 function normalizePhone(raw: string): string {
@@ -102,6 +111,22 @@ function normalizePhone(raw: string): string {
 }
 
 const PASSWORD_HINT = "8+ characters, with an uppercase letter, lowercase letter, and a number.";
+
+// Mirrors backend app/core/provider_types.py PROVIDER_TYPE_LABELS /
+// LICENSED_PROVIDER_TYPES. mother_baby_caregiver is deliberately not offered
+// at self-registration — that specialization is set later by admin/ops, not
+// chosen at signup.
+const PARTNER_REGISTER_TYPES: {
+  value: "nurse" | "doctor" | "dentist" | "physiotherapist" | "caregiver";
+  label: string;
+  tagline: string;
+}[] = [
+  { value: "nurse", label: "Nurse", tagline: "Professionally trained, licensed nurse" },
+  { value: "doctor", label: "Doctor", tagline: "Registered medical practitioner (MBBS/MD and above)" },
+  { value: "dentist", label: "Dentist", tagline: "Registered dental practitioner (BDS/MDS)" },
+  { value: "physiotherapist", label: "Physiotherapist", tagline: "Registered physiotherapy professional" },
+  { value: "caregiver", label: "Caregiver / Attendant", tagline: "Care helper / companion (non-clinical)" },
+];
 
 function isPasswordValid(pw: string): boolean {
   return (
@@ -118,7 +143,7 @@ type Mode = "signin" | "register" | "verify" | "otp_phone" | "otp_code";
 function LoginPage() {
   const nav = useNavigate();
   const { signIn, isAuthenticated, user, hydrated } = useAuth();
-  const { redirect } = useSearch({ from: "/auth/login" });
+  const { redirect, reason } = useSearch({ from: "/auth/login" });
 
   const [mode, setMode] = useState<Mode>("signin");
   const [showPassword, setShowPassword] = useState(false);
@@ -133,7 +158,9 @@ function LoginPage() {
   const [phone, setPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regRole, setRegRole] = useState<SelfRegisterRole>("consumer");
-  const [workerType, setWorkerType] = useState<"nurse" | "caregiver">("nurse");
+  const [workerType, setWorkerType] = useState<
+    "nurse" | "doctor" | "dentist" | "physiotherapist" | "caregiver"
+  >("nurse");
 
   // Verify
   const [verifyEmail, setVerifyEmail] = useState("");
@@ -145,6 +172,14 @@ function LoginPage() {
   const [otpCode, setOtpCode] = useState("");
   const [otpPhone_e164, setOtpPhone_e164] = useState("");
   const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+  const [otpSendFailed, setOtpSendFailed] = useState(false);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = window.setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [resendIn]);
 
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +213,7 @@ function LoginPage() {
       const target = safeRedirect(mappedRole, redirect) ?? portalHome(mappedRole);
       nav({ to: target as string });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(authErrorMessage(err, "Login failed"));
     } finally {
       setLoading(false);
     }
@@ -190,6 +225,8 @@ function LoginPage() {
 
     if (!fullName.trim()) return setError("Full name is required");
     if (!phone.trim()) return setError("Mobile number is required");
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizePhone(phone)) || (normalizePhone(phone).startsWith("+91") && normalizePhone(phone).length !== 13))
+      return setError("Enter a valid 10-digit mobile number");
     if (!isPasswordValid(regPassword)) return setError(PASSWORD_HINT);
 
     setLoading(true);
@@ -204,10 +241,20 @@ function LoginPage() {
       });
       setVerifyEmail(data.email ?? regEmail.trim());
       setDevCode(data.dev_verification_code ?? null);
-      setInfo("We've emailed you a verification code.");
+      // Only claim the mail went out if the backend says it did. When
+      // email_sent is false the user has no way to obtain a code, so
+      // telling them to check their inbox just strands them on this screen.
+      if (data.email_sent === false) {
+        setInfo(null);
+        setError(
+          "We couldn't send the verification email right now. Please try 'Resend code', or contact support if it keeps failing.",
+        );
+      } else {
+        setInfo("We've emailed you a verification code.");
+      }
       setMode("verify");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      setError(authErrorMessage(err, "Registration failed"));
     } finally {
       setLoading(false);
     }
@@ -224,7 +271,33 @@ function LoginPage() {
       setInfo("Email verified — sign in to continue.");
       setMode("signin");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Verification failed");
+      setError(authErrorMessage(err, "Verification failed"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendOtp = async (e164: string) => {
+    setError(null);
+    setInfo(null);
+    setOtpSendFailed(false);
+    setLoading(true);
+    try {
+      const data = await apiOtpSend(e164);
+      setOtpPhone_e164(e164);
+      setDevOtp(data.dev_otp ?? null);
+      setOtpCode("");
+      setInfo(`OTP sent to ${e164}. It can take up to a minute to arrive.`);
+      setResendIn(OTP_RESEND_COOLDOWN_S);
+      setMode("otp_code");
+    } catch (err: unknown) {
+      // OTP_SEND_FAILED = the SMS provider didn't accept it; the backend has
+      // already retried once, retired the code and refunded the attempt.
+      if (err instanceof ApiError && err.code === "OTP_SEND_FAILED") setOtpSendFailed(true);
+      if (err instanceof ApiError && err.status === 429 && err.retryAfterSeconds) {
+        setResendIn(err.retryAfterSeconds);
+      }
+      setError(authErrorMessage(err, "We couldn't send the OTP. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -232,22 +305,12 @@ function LoginPage() {
 
   const submitOtpSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     if (!otpPhone.trim()) return setError("Please enter your mobile number");
-    setLoading(true);
-    try {
-      const e164 = normalizePhone(otpPhone);
-      const data = await apiOtpSend(e164);
-      setOtpPhone_e164(e164);
-      setDevOtp(data.dev_otp ?? null);
-      setOtpCode("");
-      setInfo(`OTP sent to ${e164}`);
-      setMode("otp_code");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to send OTP");
-    } finally {
-      setLoading(false);
+    const digits = otpPhone.replace(/\D/g, "").replace(/^0/, "");
+    if (!otpPhone.trim().startsWith("+") && digits.length !== 10) {
+      return setError("Enter a valid 10-digit mobile number");
     }
+    await sendOtp(normalizePhone(otpPhone));
   };
 
   const submitOtpVerify = async (e: React.FormEvent) => {
@@ -267,7 +330,7 @@ function LoginPage() {
       const target = safeRedirect(mappedRole, redirect) ?? portalHome(mappedRole);
       nav({ to: target as string });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "OTP verification failed");
+      setError(authErrorMessage(err, "OTP verification failed"));
     } finally {
       setLoading(false);
     }
@@ -339,6 +402,13 @@ function LoginPage() {
               <>
                 <h2 className="text-2xl font-semibold tracking-tight">Welcome Back</h2>
                 <p className="text-sm text-muted-foreground mt-1">Login to continue to your portal</p>
+
+                {reason === "session_mismatch" && (
+                  <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-800">
+                    You were signed out because a different account was logged in on
+                    another tab in this browser. Please sign in again to continue.
+                  </div>
+                )}
 
                 <form className="mt-6 space-y-4" onSubmit={submitSignIn}>
                   <div>
@@ -432,17 +502,20 @@ function LoginPage() {
                   </div>
                   <div>
                     <label className="text-[12px] font-medium text-foreground">Mobile Number</label>
-                    <input
-                      value={phone}
-                      onChange={(e) => {
-                        const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
-                        setPhone(digitsOnly);
-                      }}
-                      placeholder="9999900001"
-                      inputMode="numeric"
-                      maxLength={10}
-                      className="mt-1.5 w-full px-3 py-2.5 text-[14px] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40"
-                    />
+                    <div className="mt-1.5 flex items-center rounded-md border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-ring/40">
+                      <span className="mr-1.5 text-[14px] text-muted-foreground select-none">+91</span>
+                      <input
+                        value={phone}
+                        onChange={(e) => {
+                          const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setPhone(digitsOnly);
+                        }}
+                        placeholder="9999900001"
+                        inputMode="numeric"
+                        maxLength={10}
+                        className="w-full py-2.5 text-[14px] bg-transparent focus:outline-none"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="text-[12px] font-medium text-foreground">Password</label>
@@ -483,16 +556,16 @@ function LoginPage() {
                   {regRole === "partner" && (
                     <div>
                       <label className="text-[12px] font-medium text-foreground">I am a</label>
-                      <div className="mt-1.5 grid grid-cols-2 gap-1.5 p-1 rounded-md bg-secondary/60 text-[12px] font-medium">
-                        {(["nurse", "caregiver"] as const).map((t) => (
-                          <button key={t} type="button" onClick={() => setWorkerType(t)}
-                            className={`px-2 py-1.5 rounded-md capitalize transition ${workerType === t ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
-                            {t}
+                      <div className="mt-1.5 grid grid-cols-3 gap-1.5 p-1 rounded-md bg-secondary/60 text-[11.5px] font-medium">
+                        {PARTNER_REGISTER_TYPES.map((t) => (
+                          <button key={t.value} type="button" onClick={() => setWorkerType(t.value)}
+                            className={`px-2 py-1.5 rounded-md transition ${workerType === t.value ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}>
+                            {t.label}
                           </button>
                         ))}
                       </div>
                       <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        {workerType === "nurse" ? "Professionally trained, licensed nurse" : "Care helper / companion (non-clinical)"}
+                        {PARTNER_REGISTER_TYPES.find((t) => t.value === workerType)?.tagline}
                       </p>
                     </div>
                   )}
@@ -539,7 +612,7 @@ function LoginPage() {
                       autoComplete="one-time-code"
                       className="mt-1.5 w-full px-3 py-2.5 text-[14px] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40"
                     />
-                    {devCode && (
+                    {import.meta.env.DEV && devCode && (
                       <p className="mt-1.5 text-[11px] text-muted-foreground">
                         Dev mode code: <span className="font-mono">{devCode}</span>
                       </p>
@@ -583,17 +656,18 @@ function LoginPage() {
                 <form className="mt-6 space-y-4" onSubmit={submitOtpSend}>
                   <div>
                     <label className="text-[12px] font-medium text-foreground">Mobile Number</label>
-                    <div className="relative mt-1.5">
+                    <div className="relative mt-1.5 flex items-center rounded-md border border-border bg-card pl-10 pr-3 focus-within:ring-2 focus-within:ring-ring/40">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[14px]">
                         <Smartphone className="h-4 w-4" />
                       </span>
+                      <span className="mr-1.5 text-[14px] text-muted-foreground select-none">+91</span>
                       <input
                         value={otpPhone}
                         onChange={(e) => setOtpPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                         placeholder="9999900001"
                         inputMode="numeric"
                         maxLength={10}
-                        className="w-full pl-10 pr-3 py-2.5 text-[14px] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40"
+                        className="w-full py-2.5 text-[14px] bg-transparent focus:outline-none"
                       />
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">Enter 10-digit mobile number (India)</p>
@@ -605,11 +679,20 @@ function LoginPage() {
                     </div>
                   )}
 
+                  {otpSendFailed && (
+                    <p className="text-[12px] text-muted-foreground">
+                      Nothing was sent, so it's safe to try again. If it keeps failing, use{" "}
+                      <button type="button" onClick={() => switchMode("signin")} className="text-primary font-medium">
+                        email login
+                      </button>.
+                    </p>
+                  )}
+
                   <button
-                    disabled={loading}
+                    disabled={loading || resendIn > 0}
                     className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-md font-medium hover:opacity-95 disabled:opacity-60 transition"
                   >
-                    {loading ? "Sending OTP…" : "Send OTP"}
+                    {loading ? "Sending OTP…" : resendIn > 0 ? `Try again in ${resendIn}s` : otpSendFailed ? "Retry sending OTP" : "Send OTP"}
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </form>
@@ -642,7 +725,7 @@ function LoginPage() {
                       maxLength={6}
                       className="mt-1.5 w-full px-3 py-2.5 text-[14px] rounded-md border border-border bg-card text-center tracking-[0.4em] text-[18px] focus:outline-none focus:ring-2 focus:ring-ring/40"
                     />
-                    {devOtp && (
+                    {import.meta.env.DEV && devOtp && (
                       <p className="mt-1.5 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                         Dev mode OTP: <span className="font-mono font-bold">{devOtp}</span>
                       </p>
@@ -669,9 +752,21 @@ function LoginPage() {
                   </button>
                 </form>
 
-                <div className="mt-6 text-[13px] text-muted-foreground text-center">
+                <div className="mt-4 text-[13px] text-muted-foreground text-center">
+                  Didn't get the code?{" "}
+                  <button
+                    type="button"
+                    disabled={loading || resendIn > 0}
+                    onClick={() => sendOtp(otpPhone_e164)}
+                    className="text-primary font-medium disabled:text-muted-foreground disabled:cursor-not-allowed"
+                  >
+                    {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend code"}
+                  </button>
+                </div>
+
+                <div className="mt-2 text-[13px] text-muted-foreground text-center">
                   Wrong number?{" "}
-                  <button type="button" onClick={() => { switchMode("otp_phone"); setInfo(null); }} className="text-primary font-medium">
+                  <button type="button" onClick={() => { switchMode("otp_phone"); setInfo(null); setResendIn(0); }} className="text-primary font-medium">
                     Go back
                   </button>
                 </div>

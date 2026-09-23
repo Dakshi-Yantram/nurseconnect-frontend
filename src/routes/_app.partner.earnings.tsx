@@ -1,6 +1,6 @@
 ﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, IndianRupee, Clock, CheckCircle2 } from "lucide-react";
+import { Loader2, IndianRupee, Clock, CheckCircle2, FileText } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -21,10 +21,31 @@ type Payout = {
 };
 type Earnings = { total_paid: number; total_pending: number; payouts: Payout[] };
 
+/** One "Payout Advice & Tax Invoice" — the partner-facing statement showing
+ *  gross earned, the platform fee billed back, deductions and the final
+ *  disbursal. `payout_status` and `utr` reflect what Razorpay has actually
+ *  confirmed, so an unconfirmed transfer is never shown as money received. */
+type Statement = {
+  statement_number: string;
+  booking_ref: string;
+  generated_at: string | null;
+  gross_earned: number;
+  platform_fee: number;
+  platform_fee_gst: number;
+  net_take_home: number;
+  total_deductions: number;
+  final_disbursal: number;
+  payout_status: string;
+  utr: string | null;
+  paid_at: string | null;
+  pdf_url: string | null;
+};
+
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`;
 
 function WorkerEarnings() {
   const [data, setData] = useState<Earnings | null>(null);
+  const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +54,12 @@ function WorkerEarnings() {
       .then(setData)
       .catch((e) => setError(String(e?.message ?? e)))
       .finally(() => setLoading(false));
+
+    // Statements load independently: a failure here must not blank out the
+    // earnings totals, which are the primary content of this screen.
+    apiFetch("/api/payments/worker/payout-statements")
+      .then((rows: Statement[]) => setStatements(rows))
+      .catch(() => setStatements([]));
   }, []);
 
   if (loading) {
@@ -91,6 +118,64 @@ function WorkerEarnings() {
                   )}>
                     {p.status}
                   </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-border bg-background overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border flex items-center gap-2">
+            <FileText size={15} className="text-primary" />
+            <span className="text-[14px] font-bold text-foreground">Payout Statements</span>
+          </div>
+          {statements.length === 0 ? (
+            <div className="px-5 py-8 text-center text-[12.5px] text-muted-foreground">
+              Your payout advice appears here once a payment is released.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {statements.map((st) => (
+                <div key={st.statement_number} className="px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-foreground">
+                        {inr(st.final_disbursal)}
+                        <span className="font-normal text-muted-foreground"> · {st.booking_ref}</span>
+                      </p>
+                      <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                        Earned {inr(st.gross_earned)} · platform fee {inr(st.platform_fee + st.platform_fee_gst)}
+                        {st.total_deductions > 0 ? ` · deductions ${inr(st.total_deductions)}` : ""}
+                      </p>
+                      {st.utr ? (
+                        <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">UTR {st.utr}</p>
+                      ) : st.payout_status !== "paid" ? (
+                        <p className="text-[11px] text-amber-700 mt-0.5">
+                          Awaiting bank confirmation — the UTR appears once settled.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span className={cn(
+                        "rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase",
+                        st.payout_status === "paid" ? "bg-emerald-100 text-emerald-700"
+                          : st.payout_status === "failed" ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700"
+                      )}>
+                        {st.payout_status === "processing" ? "in transit" : st.payout_status}
+                      </span>
+                      {st.pdf_url && (
+                        <a
+                          href={st.pdf_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[11.5px] text-primary hover:underline"
+                        >
+                          <FileText size={12} /> Statement PDF
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

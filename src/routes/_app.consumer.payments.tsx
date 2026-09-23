@@ -3,8 +3,16 @@ import { Card } from "@/components/shared/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useAuth } from "@/lib/auth-context";
 import { useBookings } from "@/lib/domain";
-import { CreditCard, CheckCircle2, Clock, XCircle, AlertCircle, IndianRupee } from "lucide-react";
-import { toAmount } from "@/lib/payment-status";
+import { CreditCard, CheckCircle2, Clock, XCircle, AlertCircle, IndianRupee, Banknote } from "lucide-react";
+import {
+  toAmount,
+  deriveAmount,
+  derivePaymentStatus,
+  mapRealPaymentStatus,
+  formatINR as formatAmount,
+  type PaymentStatus,
+} from "@/lib/payment-status";
+import { InvoiceButton } from "@/components/shared/InvoiceButton";
 
 
 
@@ -14,10 +22,12 @@ export const Route = createFileRoute("/_app/consumer/payments")({
 });
 
 // ---------------------------------------------------------------------------
-// Payment state derivation — maps booking workflow state → payment status
+// Payment state derivation lives in @/lib/payment-status — imported above so
+// this page, the booking-detail pages and any future screen share one
+// mapping rather than three copies that can silently drift apart (this file
+// used to keep its own copy "in sync by hand" with the others, which is how
+// a case like cash_due gets missed in one place but not another).
 // ---------------------------------------------------------------------------
-
-type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "processing";
 
 interface PaymentRow {
   bookingId: string;
@@ -28,64 +38,6 @@ interface PaymentRow {
   paymentStatus: PaymentStatus;
   bookingState: string;
   date: string | null;
-}
-
-/**
- * Derives payment status from booking state.
- *
- * Booking workflow states → Payment meaning:
- *   completed              → paid       (service delivered, payment settled)
- *   active / in_progress   → processing (nurse on the way / at patient, payment in-flight)
- *   pending / claimed      → pending    (booked, awaiting service, payment authorised)
- *   cancelled              → refunded   (booking cancelled, refund due)
- *   escalated              → failed     (escalation may mean payment issue)
- */
-function derivePaymentStatus(bookingState: string): PaymentStatus {
-  switch (bookingState) {
-    case "completed": return "paid";
-    case "active":
-    case "in_progress": return "processing";
-    case "pending":
-    case "claimed": return "pending";
-    case "cancelled": return "refunded";
-    case "escalated": return "failed";
-    default: return "pending";
-  }
-}
-
-/** Maps the real backend payment_status (BookingOut.payment_status) to the
- *  display categories this page already knows how to render. Only falls
- *  back to state-derived heuristics when the backend hasn't told us yet
- *  (e.g. still hydrating, or a demo/seed record with no payment row).
- *  Kept in sync with the same mapping in _app.consumer.bookings.$bookingId.tsx. */
-function mapRealPaymentStatus(raw: string | undefined): PaymentStatus | null {
-  switch (raw) {
-    case "captured": return "paid";
-    case "initiated": return "processing";
-    case "pending": return "pending";
-    case "failed": return "failed";
-    case "refunded": case "partially_refunded": return "refunded";
-    default: return null;
-  }
-}
-
-/** Derive a realistic per-booking amount.
- *  In production this would come from a pricing API; here we
- *  use service-name heuristics so different rows show different amounts. */
-function deriveAmount(service: string | undefined): number {
-  const s = (service ?? "").toLowerCase();
-  if (s.includes("live-in") || s.includes("live in")) return 8500;
-  if (s.includes("post") || s.includes("surgery")) return 4200;
-  if (s.includes("geriatric") || s.includes("elderly")) return 3600;
-  if (s.includes("physio")) return 2800;
-  if (s.includes("diabetes") || s.includes("diabetic")) return 2200;
-  if (s.includes("wound")) return 1800;
-  if (s.includes("blood") || s.includes("bp")) return 1400;
-  return 2400; // default
-}
-
-function formatAmount(n: number): string {
-  return "₹" + n.toLocaleString("en-IN");
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +54,7 @@ const STATUS_CONFIG: Record<PaymentStatus, {
   pending: { label: "Pending", icon: Clock, classes: "text-amber-700 bg-amber-50 border-amber-200" },
   refunded: { label: "Refunded", icon: XCircle, classes: "text-muted-foreground bg-muted border-border" },
   failed: { label: "Failed", icon: AlertCircle, classes: "text-rose-700 bg-rose-50 border-rose-200" },
+  cash_due: { label: "Pay at visit", icon: Banknote, classes: "text-sky-700 bg-sky-50 border-sky-200" },
 };
 
 function PaymentBadge({ status }: { status: PaymentStatus }) {
@@ -123,16 +76,23 @@ function SummaryStrip({ rows }: { rows: PaymentRow[] }) {
   const paid = rows.filter(r => r.paymentStatus === "paid").reduce((s, r) => s + r.amount, 0);
   const pending = rows.filter(r => r.paymentStatus === "pending" || r.paymentStatus === "processing").reduce((s, r) => s + r.amount, 0);
   const refunded = rows.filter(r => r.paymentStatus === "refunded").reduce((s, r) => s + r.amount, 0);
+  // Without its own bucket, cash_due money was counted in "Total charged"
+  // but in none of the itemized cells below it — the cells would never
+  // sum back to the total. Kept separate from "Pending / processing"
+  // because the booking IS confirmed; it's collection method, not status,
+  // that's still open.
+  const cashDue = rows.filter(r => r.paymentStatus === "cash_due").reduce((s, r) => s + r.amount, 0);
 
   const cells = [
     { label: "Total charged", value: formatAmount(total), tone: "text-foreground bg-muted border-border" },
     { label: "Paid", value: formatAmount(paid), tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
     { label: "Pending / processing", value: formatAmount(pending), tone: "text-amber-700 bg-amber-50 border-amber-200" },
+    { label: "Due at visit (cash)", value: formatAmount(cashDue), tone: "text-sky-700 bg-sky-50 border-sky-200" },
     { label: "Refunded", value: formatAmount(refunded), tone: "text-muted-foreground bg-muted border-border" },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
       {cells.map(c => (
         <div key={c.label} className={`rounded-lg border px-3 py-3 ${c.tone}`}>
           <div className="text-[10.5px] uppercase tracking-wide opacity-75">{c.label}</div>
@@ -188,7 +148,10 @@ function ConsumerPayments() {
 
   // Sort: failed → pending → processing → paid → refunded
   const ORDER: Record<PaymentStatus, number> = {
-    failed: 0, pending: 1, processing: 2, paid: 3, refunded: 4,
+    // cash_due sits with pending/processing — it needs the customer's
+    // attention (a visit is coming where they'll pay), just like an online
+    // payment still in flight.
+    failed: 0, pending: 1, cash_due: 2, processing: 3, paid: 4, refunded: 5,
   };
   rows.sort((a, b) => ORDER[a.paymentStatus] - ORDER[b.paymentStatus]);
 
@@ -224,6 +187,7 @@ function ConsumerPayments() {
                   <th className="px-5 py-2.5 font-medium">Date</th>
                   <th className="px-5 py-2.5 font-medium text-right">Amount</th>
                   <th className="px-5 py-2.5 font-medium">Status</th>
+                  <th className="px-5 py-2.5 font-medium">Receipt</th>
                   <th className="px-5 py-2.5 font-medium"></th>
                 </tr>
               </thead>
@@ -246,6 +210,13 @@ function ConsumerPayments() {
                     </td>
                     <td className="px-5 py-3">
                       <PaymentBadge status={r.paymentStatus} />
+                    </td>
+                    <td className="px-5 py-3">
+                      {r.paymentStatus === "paid" || r.paymentStatus === "refunded" ? (
+                        <InvoiceButton bookingId={r.bookingId} label="Download" />
+                      ) : (
+                        <span className="text-[12px] text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Link
@@ -275,8 +246,9 @@ function ConsumerPayments() {
               key === "paid" ? "Booking completed, settled" :
                 key === "processing" ? "Visit in progress, payment in-flight" :
                   key === "pending" ? "Booking confirmed, awaiting completion" :
-                    key === "refunded" ? "Booking cancelled, refund issued" :
-                      "Payment issue — escalation raised"
+                    key === "cash_due" ? "Booking confirmed, pay your care professional directly" :
+                      key === "refunded" ? "Booking cancelled, refund issued" :
+                        "Payment issue — escalation raised"
             }</span>
           </span>
         ))}

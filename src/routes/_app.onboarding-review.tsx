@@ -3,9 +3,52 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/shared/Card";
 import { StatusChip, statusToneFor } from "@/components/shared/StatusChip";
 import { WorkflowModal, FormField, textareaCls } from "@/components/shared/WorkflowModals";
-import { ChevronRight, Clock, UserCheck, RotateCcw, MessageSquarePlus, FilePlus2, ArrowUpRight, Loader2 } from "lucide-react";
+import { ChevronRight, Clock, UserCheck, RotateCcw, MessageSquarePlus, FilePlus2, ArrowUpRight, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+
+// Backend document_type codes -> friendly labels shown to reviewers.
+const DOCUMENT_LABELS: Record<string, string> = {
+  aadhaar: "Aadhaar Card",
+  degree_certificate: "Degree Certificate",
+  nursing_license: "Nursing License",
+  police_verification: "Police Verification",
+  resume: "Resume",
+  reference_letter: "Reference Letter",
+};
+
+function labelForDocument(code: string): string {
+  return DOCUMENT_LABELS[code] ?? code.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof Error ? e.message : fallback;
+}
+
+// Works whether `api.ts` throws a plain Error (message = raw/parsed text)
+// or a custom ApiError with a `.detail` object attached — no hard import
+// dependency on api.ts internals, so this file compiles either way.
+function missingDocumentsFrom(e: unknown): { message: string; documents: string[] } | null {
+  const detail = (e as any)?.detail;
+  if (detail && typeof detail === "object" && Array.isArray(detail.documents) && detail.documents.length) {
+    return { message: detail.message ?? "Required documents are not verified", documents: detail.documents };
+  }
+  // Fallback: try to parse it out of a raw JSON message string.
+  if (e instanceof Error) {
+    try {
+      const parsed = JSON.parse(e.message);
+      const d = parsed?.detail;
+      if (d && Array.isArray(d.documents) && d.documents.length) {
+        return { message: d.message ?? "Required documents are not verified", documents: d.documents };
+      }
+    } catch {
+      // not JSON, ignore
+    }
+  }
+  return null;
+}
+
+type MoveBlockedInfo = { message: string; documents: string[] } | null;
 
 export const Route = createFileRoute("/_app/onboarding-review")({ component: OnboardingPage });
 
@@ -35,6 +78,7 @@ type Ticket = {
   nurse_id: string;
   nurse_name: string | null;
   nurse_email: string | null;
+  worker_type: string | null;
   specialty: string | null;
   experience_years: number | null;
   city: string | null;
@@ -45,6 +89,16 @@ type Ticket = {
   created_at: string;
 };
 
+// Mirrors app/core/provider_types.py PROVIDER_TYPE_LABELS
+const PROVIDER_TYPES: { value: string; label: string }[] = [
+  { value: "nurse", label: "Nurse" },
+  { value: "doctor", label: "Doctor" },
+  { value: "dentist", label: "Dentist" },
+  { value: "physiotherapist", label: "Physiotherapist" },
+  { value: "caregiver", label: "Caregiver" },
+  { value: "mother_baby_caregiver", label: "Mother & Baby Caregiver" },
+];
+
 type ModalType = "move" | "reject" | "reopen" | "comment" | "request-docs" | "escalate" | null;
 
 function OnboardingPage() {
@@ -53,12 +107,14 @@ function OnboardingPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<ModalType>(null);
+  const [providerFilter, setProviderFilter] = useState("");
 
   const [comment, setComment] = useState("");
   const [requestInstructions, setRequestInstructions] = useState("");
   const [escalationNotes, setEscalationNotes] = useState("");
   const [rejectNotes, setRejectNotes] = useState("");
   const [transitionNote, setTransitionNote] = useState("");
+  const [moveBlocked, setMoveBlocked] = useState<MoveBlockedInfo>(null);
 
   async function load() {
     setLoading(true);
@@ -69,7 +125,7 @@ function OnboardingPage() {
         setSelectedId(rows[0].id);
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to load onboarding queue");
+      toast.error(errorMessage(e, "Failed to load onboarding queue"));
     } finally {
       setLoading(false);
     }
@@ -78,9 +134,9 @@ function OnboardingPage() {
   useEffect(() => { load(); }, []);
 
   const selected = tickets.find(t => t.id === selectedId) ?? tickets[0];
-  const close = () => setModal(null);
+  const close = () => { setModal(null); setMoveBlocked(null); };
 
-  async function updateStatus(newStatus: string, note?: string) {
+  async function updateStatus(newStatus: string, note?: string, opts?: { silent?: boolean }) {
     if (!selected) return;
     setBusy(true);
     try {
@@ -90,30 +146,56 @@ function OnboardingPage() {
       });
       setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, ...updated } : t));
       return true;
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to update ticket");
-      return false;
+    } catch (e) {
+      if (!opts?.silent) {
+        toast.error(errorMessage(e, "Failed to update ticket"));
+      }
+      throw e;
     } finally {
       setBusy(false);
     }
   }
 
   async function handleMove() {
+    setMoveBlocked(null);
     const nextStatus = selected.status === "PENDING_REVIEW" ? "IN_REVIEW" : "APPROVED";
-    const ok = await updateStatus(nextStatus, transitionNote);
-    if (ok) { toast.success(`Advanced to ${nextStatus.replace("_", " ")}`); setTransitionNote(""); close(); }
+    try {
+      await updateStatus(nextStatus, transitionNote, { silent: true });
+      toast.success(`Advanced to ${nextStatus.replace("_", " ")}`);
+      setTransitionNote("");
+      close();
+    } catch (e) {
+      // Show missing-document errors inline in the modal instead of a raw toast.
+      const blocked = missingDocumentsFrom(e);
+      if (blocked) {
+        setMoveBlocked(blocked);
+      } else {
+        toast.error(errorMessage(e, "Failed to update ticket"));
+      }
+    }
   }
   async function handleReject() {
-    const ok = await updateStatus("REJECTED", rejectNotes);
-    if (ok) { toast.error("Application rejected"); setRejectNotes(""); close(); }
+    try {
+      await updateStatus("REJECTED", rejectNotes);
+      toast.error("Application rejected");
+      setRejectNotes("");
+      close();
+    } catch { /* toast already shown inside updateStatus */ }
   }
   async function handleRequestDocs() {
-    const ok = await updateStatus("NEEDS_CLARIFICATION", requestInstructions);
-    if (ok) { toast.success("Marked as needing clarification"); setRequestInstructions(""); close(); }
+    try {
+      await updateStatus("NEEDS_CLARIFICATION", requestInstructions);
+      toast.success("Marked as needing clarification");
+      setRequestInstructions("");
+      close();
+    } catch { /* toast already shown inside updateStatus */ }
   }
   async function handleReopen() {
-    const ok = await updateStatus("IN_REVIEW", "Re-opened for additional review");
-    if (ok) { toast.success("Stage re-opened"); close(); }
+    try {
+      await updateStatus("IN_REVIEW", "Re-opened for additional review");
+      toast.success("Stage re-opened");
+      close();
+    } catch { /* toast already shown inside updateStatus */ }
   }
   function handleComment() {
     // No backend endpoint exists yet for reviewer notes/comments — this stays
@@ -137,12 +219,31 @@ function OnboardingPage() {
   }
 
   const stageIdx = stageIndexForStatus(selected.status);
+  const visibleTickets = providerFilter ? tickets.filter(t => t.worker_type === providerFilter) : tickets;
 
   return (
     <div className="grid grid-cols-12 gap-6">
-      <Card title="Applications in Pipeline" className="col-span-12 lg:col-span-5" padded={false}>
+      <Card
+        title="Applications in Pipeline"
+        className="col-span-12 lg:col-span-5"
+        padded={false}
+        action={
+          <select
+            value={providerFilter}
+            onChange={(e) => setProviderFilter(e.target.value)}
+            className="rounded-md border border-border bg-background px-2 py-1 text-[11.5px]"
+            title="Filter by provider type"
+          >
+            <option value="">All types</option>
+            {PROVIDER_TYPES.map(pt => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
+          </select>
+        }
+      >
         <ul className="divide-y divide-border max-h-[640px] overflow-y-auto nc-scroll">
-          {tickets.map(t => {
+          {visibleTickets.length === 0 && (
+            <li className="p-4 text-[12.5px] text-muted-foreground text-center">No applications match this filter.</li>
+          )}
+          {visibleTickets.map(t => {
             const idx = stageIndexForStatus(t.status);
             return (
               <li key={t.id} onClick={() => setSelectedId(t.id)} className={`p-4 cursor-pointer ${selected.id === t.id ? "bg-blue-50/60 border-l-2 border-l-primary" : "hover:bg-muted/40"}`}>
@@ -152,6 +253,11 @@ function OnboardingPage() {
                     <Clock className="h-3 w-3" /> {t.sla_due_at ? new Date(t.sla_due_at).toLocaleDateString("en-IN") : "No SLA"}
                   </span>
                 </div>
+                {t.worker_type && (
+                  <span className="inline-block mt-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10.5px] font-semibold text-sky-700">
+                    {PROVIDER_TYPES.find(pt => pt.value === t.worker_type)?.label ?? t.worker_type}
+                  </span>
+                )}
                 <div className="text-[11px] text-muted-foreground">
                   {t.id.slice(0, 8)} · Submitted {new Date(t.created_at).toLocaleDateString("en-IN")}
                 </div>
@@ -174,7 +280,7 @@ function OnboardingPage() {
             <div>
               <div className="text-[16px] font-semibold">{selected.nurse_name ?? "Unnamed applicant"}</div>
               <div className="text-[12px] text-muted-foreground">
-                {selected.id.slice(0, 8)} · {selected.specialty ?? "—"} · {selected.experience_years ?? "—"} yrs · {selected.city ?? "—"}
+                {selected.id.slice(0, 8)} · {selected.worker_type ? (PROVIDER_TYPES.find(pt => pt.value === selected.worker_type)?.label ?? selected.worker_type) : "—"} · {selected.specialty ?? "—"} · {selected.experience_years ?? "—"} yrs · {selected.city ?? "—"}
               </div>
               <div className="mt-2 flex items-center gap-3 text-[12px] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5"><UserCheck className="h-3.5 w-3.5" /> Email: <b className="text-foreground">{selected.nurse_email ?? "—"}</b></span>
@@ -215,6 +321,15 @@ function OnboardingPage() {
 
       <WorkflowModal open={modal === "move"} onClose={close} title="Move to Next Stage" description={`${selected.nurse_name} – ${selected.id.slice(0, 8)}`} submitLabel="Confirm Transition" onSubmit={handleMove} disabled={busy}>
         <p className="text-[13px]">Move status forward from <b>{selected.status.replace("_", " ")}</b>.</p>
+        {moveBlocked && (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+            <div className="text-[11.5px] leading-snug text-amber-800">
+              <span className="font-medium">Pending verification:</span>{" "}
+              {moveBlocked.documents.map(labelForDocument).join(", ")}
+            </div>
+          </div>
+        )}
         <textarea value={transitionNote} onChange={e => setTransitionNote(e.target.value)} className={`${textareaCls} mt-3`} placeholder="Optional note…" />
       </WorkflowModal>
       <WorkflowModal open={modal === "comment"} onClose={close} title="Internal Comment" submitLabel="Post Comment" onSubmit={handleComment} disabled={comment.trim().length < 5}>

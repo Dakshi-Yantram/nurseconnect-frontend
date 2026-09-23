@@ -1,3 +1,4 @@
+import { apiErrorMessage, apiFetch as sharedApiFetch } from "@/lib/api";
 import { createFileRoute, Link, Outlet, useRouterState, useSearch, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/shared/Card";
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 import type { ReactNode } from "react";
 import { AddressPicker } from "@/components/AddressPicker";
 import { PaymentDialog } from "@/components/PaymentDialog";
+import { VisitOtpChip } from "@/components/VisitOtpChip";
 
 export const Route = createFileRoute("/_app/consumer/bookings")({
   component: BookingsLayout,
@@ -130,35 +132,23 @@ async function resolveLocation(
   };
 }
 
+// Delegates to the shared client in @/lib/api so this screen gets token
+// refresh + consistent error text. Re-throws a plain Error whose .message is
+// already user-readable (callers here display e.message directly); the old
+// version could show "[object Object]" when `detail` was an object.
 async function apiPost(path: string, body: unknown) {
-  const token = localStorage.getItem("access_token");
-  const res = await fetch(`${API}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      err?.detail?.[0]?.msg ?? err?.detail ?? `Request failed (${res.status})`
-    );
+  try {
+    return await sharedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
+  } catch (e) {
+    throw new Error(apiErrorMessage(e));
   }
-  return res.json();
 }
 
 // Fetch the logged-in consumer's profile to get stored location fields.
 async function fetchConsumerProfile() {
-  const token = localStorage.getItem("access_token");
-  if (!token) return null;
+  if (!localStorage.getItem("access_token")) return null;
   try {
-    const res = await fetch(`${API}/api/consumers/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return null;
-    return res.json();
+    return await sharedApiFetch(`/api/consumers/me`);
   } catch {
     return null;
   }
@@ -280,20 +270,30 @@ function ConsumerBookings() {
     };
   }, [patients, packageOptions, prefillPackageId]);
 
+  // Buckets match the real backend BookingStatus values (app/models/enums.py):
+  // draft, pending_payment, confirmed, assigned, worker_en_route,
+  // worker_arrived, in_progress, completed, cancelled, missed,
+  // rematch_pending, disputed. The previous version checked for
+  // "pending"/"claimed"/"active"/"escalated", none of which the backend
+  // ever produces — every booking from "nurse accepted" through "nurse
+  // arrived" was silently falling through both buckets.
   const care = {
     all: bookings,
     upcoming: bookings.filter(b =>
       b.rawStatus === "pending_payment" ||
-      b.rawStatus === "pending" ||
       b.rawStatus === "confirmed" ||
-      b.rawStatus === "claimed"
+      b.rawStatus === "assigned" ||
+      b.rawStatus === "worker_en_route" ||
+      b.rawStatus === "worker_arrived" ||
+      b.rawStatus === "rematch_pending"
     ),
-    inCare: bookings.filter(b =>
-      b.rawStatus === "active" ||
-      b.rawStatus === "in_progress"
+    inCare: bookings.filter(b => b.rawStatus === "in_progress"),
+    completed: bookings.filter(b =>
+      b.rawStatus === "completed" ||
+      b.rawStatus === "cancelled" ||
+      b.rawStatus === "missed"
     ),
-    completed: bookings.filter(b => b.rawStatus === "completed"),
-    escalated: bookings.filter(b => b.rawStatus === "escalated"),
+    escalated: bookings.filter(b => b.rawStatus === "disputed"),
   };
 
   const onCreate = async (values: Record<string, unknown>) => {
@@ -504,6 +504,7 @@ function JourneySection({
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <VisitOtpChip bookingId={b.id} status={b.rawStatus} />
                 <StatusBadge workflow="booking" state={state} />
                 <SLAIndicator workflow="booking" state={state} enteredAt={parseEnteredAt(b.startedAt)} />
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />

@@ -13,6 +13,7 @@ interface ApiPatient {
   age?: number;
   gender?: string;
   phone_e164?: string;
+  email?: string;
   city?: string;
   care_plan?: string;
   is_bpl?: boolean;
@@ -101,6 +102,7 @@ function PatientsPage() {
       )
     },
     { key: "phone", header: "Contact", cell: r => <span className="text-[12px]">{r.phone_e164 ?? "—"}</span> },
+    { key: "email", header: "Email", cell: r => <span className="text-[12px]">{r.email ?? "—"}</span> },
     { key: "city", header: "City", cell: r => r.city ?? "—" },
     { key: "plan", header: "Care Plan", cell: r => r.care_plan ? <StatusChip tone="info" label={r.care_plan} /> : "—" },
     { key: "bpl", header: "Subsidy", cell: r => r.is_bpl ? <StatusChip tone="purple" label="BPL" dot /> : <span className="text-muted-foreground text-[12px]">—</span> },

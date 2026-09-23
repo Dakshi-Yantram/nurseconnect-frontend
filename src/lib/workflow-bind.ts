@@ -12,13 +12,13 @@ import { WORKFLOWS, type WorkflowKey } from "./workflows";
 
 /** Per-workflow alias table → canonical registry state. */
 const ALIASES: Partial<Record<WorkflowKey, Record<string, string>>> = {
-  booking: {
-    checkin_pending: "active",
-    delayed:         "escalated",
-    scheduled:       "pending",
-    pending_payment: "in_progress",
-    confirmed:       "active",
-  },
+  // booking: intentionally empty — WORKFLOWS.booking.states now matches
+  // app/models/enums.py BookingStatus values directly (pending_payment,
+  // confirmed, assigned, worker_en_route, worker_arrived, in_progress,
+  // completed, cancelled, missed, rematch_pending, disputed), so no
+  // aliasing is needed. The old aliases here (pending_payment→in_progress,
+  // confirmed→active, etc.) were mapping real backend statuses to
+  // mock-era state names, mislabeling every booking's status badge.
   escalation: {
     "in_progress":   "investigating",
     "in progress":   "investigating",

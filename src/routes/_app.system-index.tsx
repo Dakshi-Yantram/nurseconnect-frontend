@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/shared/Card";
-import { Users, HeartPulse, Activity, Wallet, Network, ShieldCheck, AlertOctagon, CreditCard, Package, FileSearch, Database, ScrollText } from "lucide-react";
+import { Users, HeartPulse, Activity, Wallet, Network, ShieldCheck, AlertOctagon, CreditCard, Package, FileSearch, Database, ScrollText, MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/_app/system-index")({ component: SystemIndexPage });
 
@@ -15,6 +15,7 @@ const MODULES = [
   { icon: Users, label: "User Management", to: "/users/patients", color: "bg-blue-50 text-blue-600" },
   { icon: HeartPulse, label: "Nurse Management", to: "/users/nurses", color: "bg-emerald-50 text-emerald-600" },
   { icon: Activity, label: "Live Operations", to: "/ops-dashboard", color: "bg-amber-50 text-amber-600" },
+  { icon: MapPin, label: "Location Dashboard", to: "/location-dashboard", color: "bg-lime-50 text-lime-600" },
   { icon: AlertOctagon, label: "Clinical Desk", to: "/clinical-escalation", color: "bg-rose-50 text-rose-600" },
   { icon: Wallet, label: "Financial Ops", to: "/financial-reconciliation", color: "bg-violet-50 text-violet-600" },
   { icon: Package, label: "Care Packages", to: "/care-packages", color: "bg-sky-50 text-sky-600" },

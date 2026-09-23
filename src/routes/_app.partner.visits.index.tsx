@@ -1,11 +1,9 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
-import { useEntitiesClaimedBy } from "@/lib/orchestration";
-import { bookingPatientName, bookingService, bookingArea } from "@/lib/orchestration/links";
+import { apiFetch } from "@/lib/api";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
-import { useAuth } from "@/lib/auth-context";
 import { MapPin, ChevronRight, UserRound, Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,19 +14,49 @@ export const Route = createFileRoute("/_app/partner/visits/")({
 
 const STATUS_ACCENT: Record<string, string> = {
   in_progress: "bg-teal-500",
-  active: "bg-sky-500",
-  escalated: "bg-rose-500",
+  worker_en_route: "bg-sky-500",
+  worker_arrived: "bg-sky-500",
+  disputed: "bg-rose-500",
   completed: "bg-emerald-500",
-  claimed: "bg-amber-400",
+  assigned: "bg-amber-400",
 };
 function accentFor(state: string) {
   return STATUS_ACCENT[state] ?? "bg-slate-300";
 }
 
+interface WorkerVisitRow {
+  id: string;
+  state: string;
+  patientName: string;
+  service: string;
+  area: string;
+  enteredAt?: string;
+}
+
+function useWorkerVisits() {
+  const [rows, setRows] = useState<WorkerVisitRow[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/bookings/worker")
+      .then((data: any[]) => {
+        if (cancelled) return;
+        setRows(data.map(b => ({
+          id: b.id,
+          state: b.status ?? "assigned",
+          patientName: b.patient_name ?? "—",
+          service: b.service_name ?? "—",
+          area: b.address_snapshot ? [b.address_snapshot.line1, b.address_snapshot.city].filter(Boolean).join(", ") : "—",
+          enteredAt: b.accepted_at ?? b.created_at,
+        })));
+      })
+      .catch(() => setRows([]));
+    return () => { cancelled = true; };
+  }, []);
+  return rows;
+}
+
 function WorkerVisits() {
-  const { user } = useAuth();
-  const claimantId = user?.id ?? "worker-anon";
-  const rows = useEntitiesClaimedBy("booking", claimantId);
+  const rows = useWorkerVisits();
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -55,9 +83,9 @@ function WorkerVisits() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {rows.map((r) => {
               const state = bindStatus("booking", r.state);
-              const patient = bookingPatientName(r) ?? "—";
-              const service = bookingService(r) ?? "—";
-              const area = bookingArea(r) ?? "—";
+              const patient = r.patientName;
+              const service = r.service;
+              const area = r.area;
 
               return (
                 <Link
@@ -91,7 +119,7 @@ function WorkerVisits() {
                         </span>
                         <SLAIndicator
                           workflow="booking" state={state}
-                          enteredAt={parseEnteredAt(typeof r.enteredAt === "string" ? r.enteredAt : undefined)}
+                          enteredAt={parseEnteredAt(r.enteredAt)}
                         />
                       </div>
                     </div>

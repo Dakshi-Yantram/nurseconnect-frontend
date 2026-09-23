@@ -1,3 +1,4 @@
+import { ProtectedContent } from "@/components/shared/ProtectedContent";
 import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Card } from "@/components/shared/Card";
@@ -69,6 +70,7 @@ function EscalationDetail() {
             <div><span className="text-muted-foreground">Total escalations:</span> {c.escalations.length}</div>
           </div>
         </Card>
+        <ProtectedContent label="Patient vitals">
         <Card title="Current Vitals">
           <div className="grid grid-cols-2 gap-2">
             <Vital label="BP" value={c.vitals.bp} />
@@ -77,6 +79,7 @@ function EscalationDetail() {
             <Vital label="SpO₂" value={`${c.vitals.spo2}%`} />
           </div>
         </Card>
+        </ProtectedContent>
       </div>
 
       <Card title="Escalation History">
@@ -98,6 +101,7 @@ function EscalationDetail() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ProtectedContent label="Vitals timeline">
         <Card title="Vitals Timeline (last 4 hours)">
           <table className="w-full text-[12px]">
             <thead><tr className="text-left text-muted-foreground"><th className="py-1.5">Time</th><th>BP</th><th>HR</th><th>SpO₂</th><th>Temp</th></tr></thead>
@@ -108,6 +112,7 @@ function EscalationDetail() {
             </tbody>
           </table>
         </Card>
+        </ProtectedContent>
 
         <Card title="Medications">
           <ul className="text-[12.5px] divide-y divide-border -my-1">
