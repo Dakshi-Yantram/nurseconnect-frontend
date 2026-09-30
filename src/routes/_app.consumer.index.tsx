@@ -28,17 +28,23 @@ export const Route = createFileRoute("/_app/consumer/")({
 function useConsumerCareSnapshot() {
   const bookings = useBookings();
   return useMemo(() => {
+    // A slot that already passed is never "upcoming" — the server sets
+    // timeBucket/isExpired (it owns timezone + slot-boundary rules).
+    const isPast = (b: BookingEntity) => b.timeBucket === "past" || b.isExpired === true;
     const upcoming = bookings.filter(b =>
-      b.rawStatus === "pending_payment" ||
-      b.rawStatus === "confirmed" ||
-      b.rawStatus === "assigned" ||
-      b.rawStatus === "worker_en_route" ||
-      b.rawStatus === "worker_arrived" ||
-      b.rawStatus === "rematch_pending"
+      !isPast(b) && (
+        b.rawStatus === "pending_payment" ||
+        b.rawStatus === "confirmed" ||
+        b.rawStatus === "assigned" ||
+        b.rawStatus === "worker_en_route" ||
+        b.rawStatus === "worker_arrived" ||
+        b.rawStatus === "rematch_pending"
+      )
     );
     const inCare = bookings.filter(b => b.rawStatus === "in_progress");
     const completed = bookings.filter(b =>
-      b.rawStatus === "completed" || b.rawStatus === "cancelled" || b.rawStatus === "missed"
+      b.rawStatus === "completed" || b.rawStatus === "cancelled" || b.rawStatus === "missed" ||
+      (isPast(b) && ["pending_payment", "confirmed", "assigned", "rematch_pending"].includes(b.rawStatus))
     );
     const escalated = bookings.filter(b => b.rawStatus === "disputed");
 
