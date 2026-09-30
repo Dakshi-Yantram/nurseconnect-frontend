@@ -128,6 +128,8 @@ export function VerifyVisitOtp({
     try {
       const data = await apiFetch(`/api/visits/${bookingId}/verify-start-otp`, {
         method: "POST",
+        // latitude/longitude MUST be a real device fix from the caller: the
+        // server rejects (0,0) and anything not near the customer's address.
         body: JSON.stringify({ otp: otp.trim(), latitude, longitude }),
         timeoutMs: 20_000,
       });

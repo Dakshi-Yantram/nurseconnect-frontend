@@ -42,6 +42,9 @@ export interface BookingEntity {
   totalAmount?: number;
   latitude?: number;
   longitude?: number;
+  /** Server-computed; the backend owns expiry/timezone rules. */
+  timeBucket?: "upcoming" | "active" | "past";
+  isExpired?: boolean;
 }
 
 export interface VisitEntity extends BookingEntity { }
@@ -167,6 +170,8 @@ function mapBooking(
     rawStatus: b.status ?? "pending",
     paymentStatus: b.payment_status ?? undefined,
     totalAmount: b.total_amount ?? undefined,
+    timeBucket: b.time_bucket ?? undefined,
+    isExpired: !!b.is_expired,
     latitude: latitude != null ? Number(latitude) : undefined,
     longitude: longitude != null ? Number(longitude) : undefined,
   };

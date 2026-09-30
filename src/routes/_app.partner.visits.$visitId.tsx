@@ -155,15 +155,26 @@ function PartnerVisitDetail() {
     try {
       // Backend's VisitStartOtpVerifyRequest requires otp + latitude + longitude.
       // Previously only otp was sent, causing a 422 "Field required" x2 on every attempt.
-      const coords: { latitude: number; longitude: number } = await new Promise((resolve) => {
-        const fallback = { latitude: Number(b?.latitude ?? 0), longitude: Number(b?.longitude ?? 0) };
-        if (!navigator.geolocation) return resolve(fallback);
-        navigator.geolocation.getCurrentPosition(
-          (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
-          () => resolve(fallback),
-          { timeout: 4000 },
-        );
-      });
+      // The server verifies the nurse is at the customer's address. The old
+      // fallback sent the BOOKING's own coordinates when GPS failed, which
+      // would have passed the check for a nurse who was nowhere near. A real,
+      // fresh device fix is now mandatory; failure is shown to the nurse.
+      const coords: { latitude: number; longitude: number; accuracy_m?: number; captured_at: string } =
+        await new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            return reject(new Error("This device can't share its location, so the visit can't be started here. Use the Nurse app."));
+          }
+          navigator.geolocation.getCurrentPosition(
+            (p) => resolve({
+              latitude: p.coords.latitude,
+              longitude: p.coords.longitude,
+              accuracy_m: p.coords.accuracy,
+              captured_at: new Date(p.timestamp || Date.now()).toISOString(),
+            }),
+            () => reject(new Error("Couldn't get your location. Allow location access and try again.")),
+            { timeout: 10000, enableHighAccuracy: true, maximumAge: 0 },
+          );
+        });
       await apiFetch(`/api/visits/${visitId}/verify-start-otp`, {
         method: "POST", body: JSON.stringify({ otp: otp.trim(), ...coords }),
       });
