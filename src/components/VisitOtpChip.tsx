@@ -8,7 +8,8 @@ import { apiFetch } from "@/lib/api";
 // fetches/displays the already-active code — no "send" click required.
 // The nurse enters this same code (POST /visits/{id}/verify-start-otp,
 // scoped to booking.worker_id) to start the visit.
-const ELIGIBLE = ["assigned", "worker_en_route", "worker_arrived", "in_progress"];
+// Not "in_progress": the code is spent once the visit starts (see backend visits.py).
+const ELIGIBLE = ["assigned", "worker_en_route", "worker_arrived"];
 
 export function VisitOtpChip({ bookingId, status }: { bookingId: string; status: string }) {
   const [otp, setOtp] = useState<string | null>(null);
