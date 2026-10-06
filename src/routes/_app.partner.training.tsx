@@ -41,6 +41,9 @@ interface TrainingModule {
   duration_minutes: number;
   is_mandatory: boolean;
   assessment: Question[];
+  video_url?: string | null;
+  content_url?: string | null;
+  required_for_tiers?: string[];
   pass_percent: number;
   completed?: boolean;
   passed?: boolean;
@@ -105,6 +108,9 @@ function AdaptiveMCQModal({
   onClose: () => void;
   onComplete: (passed: boolean) => void;
 }) {
+  // The quiz can't ask more questions than the module has (BLS has 2, the
+  // header used to say "of 8").
+  const maxQ = Math.min(MAX_QUESTIONS, module.assessment.length);
   const [state, setState] = useState<AdaptiveState>(() => {
     const first = pickNext(module.assessment, [], START_DIFFICULTY);
     return {
@@ -139,7 +145,7 @@ function AdaptiveMCQModal({
       phase: "feedback",
       lastCorrect: correct,
       currentDifficulty:
-        newTotal >= MAX_QUESTIONS || newAnswers.length >= s.questions.length
+        newTotal >= maxQ || newAnswers.length >= s.questions.length
           ? s.currentDifficulty
           : correct
           ? Math.min(5, s.currentDifficulty + 1)
@@ -148,7 +154,7 @@ function AdaptiveMCQModal({
   }, [selected, state]);
 
   const handleNext = useCallback(() => {
-    const isDone = state.totalAnswered >= MAX_QUESTIONS || state.answers.length >= state.questions.length;
+    const isDone = state.totalAnswered >= maxQ || state.answers.length >= state.questions.length;
     if (isDone) {
       setState(s => ({ ...s, phase: "result" }));
       return;
@@ -199,14 +205,14 @@ function AdaptiveMCQModal({
           <div className="px-6 pt-3 pb-1">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[11px] text-muted-foreground">
-                Question {state.totalAnswered + (state.phase === "question" ? 1 : 0)} of {MAX_QUESTIONS}
+                Question {state.totalAnswered + (state.phase === "question" ? 1 : 0)} of {maxQ}
               </span>
               <span className="text-[11px] text-muted-foreground">
                 Difficulty: {"★".repeat(state.currentDifficulty)}{"☆".repeat(5 - state.currentDifficulty)}
               </span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full rounded-full bg-indigo-500 transition-all duration-300" style={{ width: `${(state.totalAnswered / MAX_QUESTIONS) * 100}%` }} />
+              <div className="h-full rounded-full bg-indigo-500 transition-all duration-300" style={{ width: `${(state.totalAnswered / maxQ) * 100}%` }} />
             </div>
           </div>
         )}
@@ -271,7 +277,7 @@ function AdaptiveMCQModal({
                 onClick={handleNext}
                 className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-semibold py-3 flex items-center justify-center gap-2 transition-all"
               >
-                {state.totalAnswered >= MAX_QUESTIONS || state.answers.length >= state.questions.length ? "See Results" : "Next Question"}
+                {state.totalAnswered >= maxQ || state.answers.length >= state.questions.length ? "See Results" : "Next Question"}
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -396,7 +402,29 @@ function ModuleCard({ module, onStart }: { module: TrainingModule; onStart: () =
           </div>
         </div>
 
-        {module.description && <p className="text-[12px] text-muted-foreground leading-[1.55] mb-2.5 line-clamp-2">{module.description}</p>}
+        <p className="text-[12px] text-muted-foreground leading-[1.55] mb-2.5">
+          {module.description || "Short module with a quiz. Study the material below, then take the assessment."}
+        </p>
+        {(module.content_url || module.video_url) && (
+          <div className="flex flex-wrap gap-2 mb-2.5">
+            {module.content_url && (
+              <a href={module.content_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11.5px] font-medium text-indigo-700 hover:bg-indigo-100">
+                <BookOpen className="h-3 w-3" /> Study material
+              </a>
+            )}
+            {module.video_url && (
+              <a href={module.video_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11.5px] font-medium text-indigo-700 hover:bg-indigo-100">
+                <GraduationCap className="h-3 w-3" /> Watch video
+              </a>
+            )}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground mb-2.5">
+          {module.is_mandatory ? "Required for your eligibility to accept assignments. " : "Optional. "}
+          Pass mark {module.pass_percent}%.
+          {module.required_for_tiers && module.required_for_tiers.length > 0 && ` Counts toward ${module.required_for_tiers.map(t => t.replace("tier", "Tier ")).join(", ")}.`}
+          {" "}Passing this module does not change your badge level by itself — badges are earned from Assessments and assigned by the review team.
+        </p>
 
         <div className="flex items-center justify-between gap-2 flex-wrap pb-3.5">
           <div className="flex items-center gap-3">
