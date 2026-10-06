@@ -24,6 +24,11 @@ import type { ReactNode } from "react";
 import { AddressPicker } from "@/components/AddressPicker";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { VisitOtpChip } from "@/components/VisitOtpChip";
+import { MaterialsChecklist } from "@/components/MaterialsChecklist";
+import {
+  allMaterialsChecked, optionLabel, optionPrice, packageMaterialsApi,
+  type PackageGroup, type PackageMaterial,
+} from "@/lib/package-materials";
 
 export const Route = createFileRoute("/_app/consumer/bookings")({
   component: BookingsLayout,
@@ -168,6 +173,12 @@ function ConsumerBookings() {
   const [submitting, setSubmitting] = useState(false);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [pendingBooking, setPendingBooking] = useState<any>(null);
+  // Grouped catalogue (dropdown cards). null => feature off / not loaded: old flat list.
+  const [groups, setGroups] = useState<PackageGroup[] | null>(null);
+  // Booking-stage materials confirmation (shown between booking and payment).
+  const [matStep, setMatStep] = useState<{ booking: any; materials: PackageMaterial[] } | null>(null);
+  const [matChecked, setMatChecked] = useState<Record<string, boolean>>({});
+  const [matBusy, setMatBusy] = useState(false);
   // Store consumer profile for location resolution
   const [consumerProfile, setConsumerProfile] = useState<any>(null);
   // Prefill notes + selection when arriving from a Care Package's "Book" button
@@ -181,6 +192,10 @@ function ConsumerBookings() {
   const patients = useConsumerPatients(user?.id);
   const packages = usePackages();
   const refetchBookings = useRefetchBookings();
+
+  useEffect(() => {
+    packageMaterialsApi.listGrouped().then(setGroups).catch(() => setGroups(null));
+  }, []);
 
   // Load consumer profile on mount for location fields
   useEffect(() => {
@@ -236,6 +251,10 @@ function ConsumerBookings() {
     setOpen(true);
   };
 
+  // Grouped picker is used only if the backend returned groups; otherwise the
+  // old flat "service" select in the form is used unchanged.
+  const groupedOn = !!groups && groups.length > 0;
+
   const liveSchema: FormSchema = useMemo(() => {
     const patientField = BOOKING_REQUEST_SCHEMA.sections[0].fields[0];
     const serviceField = BOOKING_REQUEST_SCHEMA.sections[0].fields[1];
@@ -246,7 +265,7 @@ function ConsumerBookings() {
         if (i !== 0) return section;
         return {
           ...section,
-          fields: section.fields.map(f => {
+          fields: section.fields.filter(f => !(groupedOn && f.key === serviceField.key)).map(f => {
             if (f.key === patientField.key) {
               return {
                 ...f,
@@ -268,7 +287,7 @@ function ConsumerBookings() {
         };
       }),
     };
-  }, [patients, packageOptions, prefillPackageId]);
+  }, [patients, packageOptions, prefillPackageId, groupedOn]);
 
   // Buckets match the real backend BookingStatus values (app/models/enums.py):
   // draft, pending_payment, confirmed, assigned, worker_en_route,
@@ -302,7 +321,7 @@ function ConsumerBookings() {
       toast.error("Select a patient");
       return;
     }
-    const packageId = String(values.service ?? "");
+    const packageId = groupedOn ? String(selectedPackageId ?? "") : String(values.service ?? "");
     if (!packages.some(p => p.id === packageId)) {
       toast.error("Select a care package");
       return;
@@ -344,7 +363,18 @@ function ConsumerBookings() {
       });
 
       setOpen(false);
-      setPendingBooking(created);
+      // Materials checklist, step 1 (booking). No list / feature off => straight to payment.
+      let mats: PackageMaterial[] = [];
+      try {
+        const m = await packageMaterialsApi.getForBooking(created.id);
+        mats = m && !m.acks?.booking ? (m.materials ?? []) : [];
+      } catch { /* optional; server payment gate still applies */ }
+      if (mats.length > 0) {
+        setMatChecked({});
+        setMatStep({ booking: created, materials: mats });
+      } else {
+        setPendingBooking(created);
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create booking");
     } finally {
@@ -372,7 +402,7 @@ function ConsumerBookings() {
           </button>
         </div>
 
-        <CarePackagesGrid packages={packages} onBook={openBookingForPackage} />
+        <CarePackagesGrid packages={packages} groups={groups} onBook={openBookingForPackage} />
 
         {isEmpty ? (
           <Card><EmptyState icon={CalendarCheck} title="No bookings yet" description="Create your first booking to begin the care journey." /></Card>
@@ -438,10 +468,14 @@ function ConsumerBookings() {
             </div>
           )}
 
+          {groupedOn && (
+            <GroupedPackagePicker groups={groups!} value={selectedPackageId} onChange={setSelectedPackageId} />
+          )}
+
           <SchemaForm
             schema={liveSchema}
             onSubmit={onCreate}
-            onValuesChange={(v) => setSelectedPackageId(typeof v.service === "string" ? v.service : undefined)}
+            onValuesChange={(v) => { if (!groupedOn) setSelectedPackageId(typeof v.service === "string" ? v.service : undefined); }}
             submitLabel="Request booking"
             initialValues={{
               ...(prefillNotes ? { notes: prefillNotes } : {}),
@@ -449,6 +483,39 @@ function ConsumerBookings() {
             }}
           />
         </div>
+      </Modal>
+      <Modal
+        open={matStep !== null}
+        onClose={() => { /* must confirm to continue; booking stays in "pending payment" */ setMatStep(null); }}
+        title="Confirm materials"
+      >
+        {matStep && (
+          <div className="space-y-4">
+            <p className="text-[12.5px] text-muted-foreground">
+              Please check that these items are available for the visit. You will see this list once more before payment.
+            </p>
+            <MaterialsChecklist materials={matStep.materials} checked={matChecked} onChange={setMatChecked} />
+            <button
+              disabled={matBusy || !allMaterialsChecked(matStep.materials, matChecked)}
+              onClick={async () => {
+                setMatBusy(true);
+                try {
+                  await packageMaterialsApi.ack(matStep.booking.id, "booking", matChecked);
+                  const b = matStep.booking;
+                  setMatStep(null);
+                  setPendingBooking(b);
+                } catch (e) {
+                  toast.error(apiErrorMessage(e, "Couldn't save the confirmation. Please try again."));
+                } finally {
+                  setMatBusy(false);
+                }
+              }}
+              className="w-full rounded-lg bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40"
+            >
+              {matBusy ? "Saving…" : "Confirm & continue to payment"}
+            </button>
+          </div>
+        )}
       </Modal>
       <PaymentDialog
         booking={pendingBooking}
@@ -519,9 +586,102 @@ function JourneySection({
 
 // ── Care package cards — browse admin-managed packages, "Book" opens the
 // same booking modal above, pre-filled to that package. ─────────────────────
-function CarePackagesGrid({ packages, onBook }: { packages: PackageEntity[]; onBook: (pkg: PackageEntity) => void }) {
+// Two-step picker used in the New booking modal: service type (group) → option.
+function GroupedPackagePicker({
+  groups, value, onChange,
+}: { groups: PackageGroup[]; value: string | undefined; onChange: (id: string | undefined) => void }) {
+  const gi = Math.max(0, groups.findIndex(g => g.options.some(o => o.id === value)));
+  const hasValue = groups.some(g => g.options.some(o => o.id === value));
+  const group = groups[gi];
+  const select = "w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary";
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-medium text-foreground">Care package *</span>
+        <select
+          className={select}
+          value={hasValue ? String(gi) : ""}
+          onChange={e => {
+            const g = groups[Number(e.target.value)];
+            onChange(g?.options[0]?.id);
+          }}
+        >
+          {!hasValue && <option value="">Select a care package</option>}
+          {groups.map((g, i) => <option key={`${g.heading}-${i}`} value={i}>{g.title || g.heading}</option>)}
+        </select>
+      </label>
+      {hasValue && group.type === "dropdown" && (
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-medium text-foreground">{group.heading} *</span>
+          <select className={select} value={value} onChange={e => onChange(e.target.value)}>
+            {group.options.map(o => <option key={o.id} value={o.id}>{optionLabel(o)}</option>)}
+          </select>
+        </label>
+      )}
+    </div>
+  );
+}
+
+// One card per group: title, option dropdown (when it is a dropdown group), price, Book.
+function GroupCard({
+  group, packages, onBook,
+}: { group: PackageGroup; packages: PackageEntity[]; onBook: (pkg: PackageEntity) => void }) {
+  const opts = group.options.filter(o => packages.some(p => p.id === o.id && p.rawStatus === "active"));
+  const [sel, setSel] = useState(opts[0]?.id);
+  if (opts.length === 0) return null;
+  const cur = opts.find(o => o.id === sel) ?? opts[0];
+  const pkg = packages.find(p => p.id === cur.id)!;
+  const price = optionPrice(cur);
+  return (
+    <article className="rounded-lg border border-border bg-card p-4">
+      <h3 className="text-[14px] font-semibold text-foreground">
+        {group.type === "dropdown" ? (group.title || group.heading) : cur.name}
+      </h3>
+      {group.type === "dropdown" && (
+        <select
+          className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary"
+          value={cur.id}
+          onChange={e => setSel(e.target.value)}
+        >
+          {opts.map(o => <option key={o.id} value={o.id}>{optionLabel(o)}</option>)}
+        </select>
+      )}
+      <p className="mt-3 line-clamp-3 min-h-[36px] text-[12.5px] leading-relaxed text-muted-foreground">
+        {cur.description || cur.included_scope || "Structured visits from verified care professionals."}
+      </p>
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] text-muted-foreground">Package price</p>
+          <p className="text-[15px] font-semibold text-foreground">
+            {price != null ? `₹${price.toLocaleString("en-IN")}` : "Price on request"}
+          </p>
+        </div>
+        <button
+          onClick={() => onBook(pkg)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground hover:opacity-90"
+        >
+          Book <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function CarePackagesGrid({
+  packages, groups, onBook,
+}: { packages: PackageEntity[]; groups: PackageGroup[] | null; onBook: (pkg: PackageEntity) => void }) {
   const active = packages.filter(p => p.rawStatus === "active");
   if (active.length === 0) return null;
+
+  if (groups && groups.length > 0) {
+    return (
+      <Card title="Care Packages" padded={false}>
+        <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+          {groups.map((g, i) => <GroupCard key={`${g.heading}-${i}`} group={g} packages={packages} onBook={onBook} />)}
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card title="Care Packages" padded={false}>

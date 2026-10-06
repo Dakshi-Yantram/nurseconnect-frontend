@@ -1,5 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { payForBooking } from "@/lib/payments";
+import { MaterialsChecklist } from "@/components/MaterialsChecklist";
+import {
+  allMaterialsChecked, packageMaterialsApi, type PackageMaterial,
+} from "@/lib/package-materials";
 
 // Minimal shape of the booking returned by POST /api/bookings/
 export type CreatedBooking = {
@@ -30,6 +34,30 @@ export function PaymentDialog({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Materials checklist (only when the backend feature is on and this package
+  // has a list). Confirmed once at booking, and again here before paying.
+  const [materials, setMaterials] = useState<PackageMaterial[]>([]);
+  const [bookingAckDone, setBookingAckDone] = useState(false);
+  const [matChecked, setMatChecked] = useState<Record<string, boolean>>({});
+  const [matLoading, setMatLoading] = useState(false);
+
+  const bookingId = booking?.id;
+  useEffect(() => {
+    if (!open || !bookingId) return;
+    let alive = true;
+    setMaterials([]); setMatChecked({}); setBookingAckDone(false); setMatLoading(true);
+    packageMaterialsApi.getForBooking(bookingId)
+      .then((r) => {
+        if (!alive || !r) return; // null => feature off, old flow
+        setMaterials(r.materials ?? []);
+        setBookingAckDone(!!r.acks?.booking);
+      })
+      .catch(() => { /* checklist is optional; the server gate still applies */ })
+      .finally(() => { if (alive) setMatLoading(false); });
+    return () => { alive = false; };
+  }, [open, bookingId]);
+
+  const materialsOk = materials.length === 0 || allMaterialsChecked(materials, matChecked);
 
   if (!open || !booking) return null;
   const rows = [
@@ -48,6 +76,14 @@ export function PaymentDialog({
     setBusy(true);
 
     try {
+      if (materials.length > 0) {
+        if (!materialsOk) throw new Error("Please tick every item in the materials list before paying.");
+        if (!bookingAckDone) {
+          await packageMaterialsApi.ack(currentBooking.id, "booking", matChecked);
+          setBookingAckDone(true);
+        }
+        await packageMaterialsApi.ack(currentBooking.id, "payment", matChecked);
+      }
       const result = await payForBooking({
         bookingId: currentBooking.id,
         description: `Booking ${currentBooking.booking_ref ?? ""}`,
@@ -87,6 +123,17 @@ export function PaymentDialog({
           </div>
         </div>
 
+        {materials.length > 0 && (
+          <div className="mt-4">
+            <MaterialsChecklist
+              materials={materials}
+              checked={matChecked}
+              onChange={setMatChecked}
+              title="Confirm the materials before paying"
+            />
+          </div>
+        )}
+
         {error && <p className="mt-3 text-[12.5px] text-red-600">{error}</p>}
 
         <div className="mt-5 flex gap-2">
@@ -94,7 +141,7 @@ export function PaymentDialog({
             className="flex-1 rounded-lg border border-border px-4 py-2.5 text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-40">
             Cancel
           </button>
-          <button onClick={pay} disabled={busy}
+          <button onClick={pay} disabled={busy || matLoading || !materialsOk}
             className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40">
             {busy ? "Processing…" : `Pay ${inr(booking.total_amount)}`}
           </button>
