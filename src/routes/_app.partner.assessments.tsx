@@ -52,6 +52,7 @@ function AssessmentSessionModal({
   const [question, setQuestion] = useState<SessionQuestion | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [textAnswer, setTextAnswer] = useState("");
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ score: number; passed: boolean; pass_score: number } | null>(null);
@@ -89,15 +90,21 @@ function AssessmentSessionModal({
   }, [expiresAt]);
 
   const submitAnswer = async () => {
-    if (selected === null || !sessionId) return;
+    const isText = question?.type === "text";
+    if (!sessionId || (isText ? !textAnswer.trim() : selected === null)) return;
     setSubmitting(true);
     setError(null);
     try {
       const res = await apiFetch(`/api/training/assessments/${assessment.id}/sessions/${sessionId}/answer`, {
         method: "POST",
-        body: JSON.stringify({ answer: selected }),
+        body: JSON.stringify({ answer: isText ? textAnswer.trim() : selected }),
       });
-      setLastCorrect(res.correct);
+      setLastCorrect(isText ? null : res.correct);
+      if (isText && !res.finished) {
+        setQuestion(res.question);
+        setTextAnswer("");
+        setSelected(null);
+      }
       if (res.finished) {
         setResult({ score: res.score, passed: res.passed, pass_score: res.pass_score });
         setQuestion(null);
@@ -157,6 +164,16 @@ function AssessmentSessionModal({
 
               <p className="text-[14.5px] font-medium text-foreground leading-relaxed">{question.text}</p>
 
+              {question.type === "text" && (
+                <textarea
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  disabled={submitting}
+                  rows={5}
+                  placeholder="Type your answer here…"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+              )}
               <div className="space-y-2">
                 {question.options.map((opt, i) => (
                   <button
@@ -187,7 +204,7 @@ function AssessmentSessionModal({
               ) : (
                 <button
                   onClick={submitAnswer}
-                  disabled={selected === null || submitting}
+                  disabled={(question.type === "text" ? !textAnswer.trim() : selected === null) || submitting}
                   className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[13px] font-semibold py-3 transition-all"
                 >
                   {submitting ? "Submitting…" : "Submit Answer"}
@@ -275,7 +292,12 @@ function PartnerAssessments() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[14px] font-semibold text-foreground">{a.title}</p>
-                  {a.description && <p className="text-[12px] text-muted-foreground mt-0.5">{a.description}</p>}
+                  <p className="text-[12px] text-muted-foreground mt-0.5">
+                    {a.description || "Theory test on this topic."}
+                  </p>
+                  <p className="text-[11.5px] text-muted-foreground mt-1">
+                    <b className="text-foreground">Why you need this:</b> passing earns the matching skill badge and unlocks the care packages/services that require it. You need {a.pass_score}% to pass; {a.questions_per_attempt} questions are picked for each attempt.
+                  </p>
                   <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                     <span>{a.questions_per_attempt} questions</span>
                     <span>Pass mark {a.pass_score}%</span>

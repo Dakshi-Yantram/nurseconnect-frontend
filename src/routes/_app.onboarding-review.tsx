@@ -158,7 +158,9 @@ function OnboardingPage() {
 
   async function handleMove() {
     setMoveBlocked(null);
-    const nextStatus = selected.status === "PENDING_REVIEW" ? "IN_REVIEW" : "APPROVED";
+    // A ticket stuck on NEEDS_CLARIFICATION used to jump straight to APPROVED
+    // here; it must go back to IN_REVIEW first (only IN_REVIEW can be approved).
+    const nextStatus = selected.status === "IN_REVIEW" ? "APPROVED" : "IN_REVIEW";
     try {
       await updateStatus(nextStatus, transitionNote, { silent: true });
       toast.success(`Advanced to ${nextStatus.replace("_", " ")}`);
@@ -185,7 +187,7 @@ function OnboardingPage() {
   async function handleRequestDocs() {
     try {
       await updateStatus("NEEDS_CLARIFICATION", requestInstructions);
-      toast.success("Marked as needing clarification");
+      toast.success("Request sent — the nurse will see it in Notifications and on their dashboard");
       setRequestInstructions("");
       close();
     } catch { /* toast already shown inside updateStatus */ }

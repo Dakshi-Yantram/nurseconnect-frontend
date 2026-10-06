@@ -1,6 +1,6 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Briefcase, MapPin, IndianRupee, Award, ChevronRight, CalendarCheck, Activity, Wifi, WifiOff } from "lucide-react";
+import { Briefcase, MapPin, IndianRupee, Award, ChevronRight, CalendarCheck, Activity, Wifi, WifiOff, Info, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,23 @@ type BookingRow = {
   patient_name?: string | null;
   service_name?: string | null;
 };
+type Notif = { id: string; template_code?: string | null; title?: string | null; body?: string | null; read_at?: string | null; created_at: string };
+
+const TIER_INFO: Record<string, string> = {
+  TIER1: "Tier 1 · Care Support — basic home-care tasks (vitals, hygiene, mobility support).",
+  TIER2: "Tier 2 · Assistant Nurse — Tier 1 plus basic nursing procedures.",
+  TIER3: "Tier 3 · Registered Nurse — injections and IV care.",
+  TIER4: "Tier 4 · Specialist Nurse — specialised clinical care.",
+  TIER5: "Tier 5 · Clinical Lead — senior clinical responsibility.",
+};
+
+function badgeExplanation(b: Badge): string {
+  if (b.source === "tier") {
+    return `${TIER_INFO[b.code.toUpperCase()] ?? "Your base skill level."} Assigned by our review team when your onboarding was approved, based on your registration and verified documents.`;
+  }
+  return "Earned by passing a skill assessment. It unlocks the matching services and care packages.";
+}
+
 type TodayVisit = { id: string; patient: string; service: string; time: string; status: string };
 
 function formatTime(hhmm: string): string {
@@ -142,6 +159,7 @@ function WorkerHome() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [todayVisits, setTodayVisits] = useState<TodayVisit[]>([]);
   const [todayVisitsCount, setTodayVisitsCount] = useState<number | string>("—");
+  const [requests, setRequests] = useState<Notif[]>([]);
 
   useEffect(() => {
     // Each call degrades independently so one failure never blanks the page.
@@ -159,6 +177,12 @@ function WorkerHome() {
         setEarnings(`₹${total.toLocaleString("en-IN")}`);
       })
       .catch(() => setEarnings("—"));
+
+    // Reviewer requests (e.g. "send your bank statement") arrive as
+    // onboarding_clarification notifications.
+    apiFetch("/api/notifications/")
+      .then((n: Notif[]) => setRequests((Array.isArray(n) ? n : []).filter((x) => x.template_code === "onboarding_clarification" && !x.read_at).slice(0, 3)))
+      .catch(() => setRequests([]));
 
     apiFetch("/api/workers/me/badges")
       .then((b) => setBadges(Array.isArray(b) ? b : []))
@@ -205,6 +229,20 @@ function WorkerHome() {
           </div>
         </div>
 
+        {requests.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 space-y-2">
+            <p className="flex items-center gap-2 text-[13.5px] font-bold text-amber-800">
+              <AlertTriangle size={15} /> Action needed on your application
+            </p>
+            {requests.map((r) => (
+              <p key={r.id} className="text-[12.5px] text-amber-900">{r.body}</p>
+            ))}
+            <Link to="/partner/documentation" className="inline-flex items-center gap-1 text-[12px] font-semibold text-amber-800 hover:underline">
+              Upload documents <ChevronRight size={13} />
+            </Link>
+          </div>
+        )}
+
         {/* Online/Offline toggle */}
         <AvailabilityToggle />
 
@@ -227,11 +265,24 @@ function WorkerHome() {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {badges.map((b) => (
-                  <span key={b.id} className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[12px] font-semibold text-primary">
+                  <span key={b.id} title={badgeExplanation(b)} className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[12px] font-semibold text-primary">
                     <Award size={12} /> {b.label}
                   </span>
                 ))}
               </div>
+            )}
+            {badges.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {badges.map((b) => (
+                  <li key={b.id} className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
+                    <Info size={12} className="mt-0.5 shrink-0" />
+                    <span><b className="text-foreground">{b.label}:</b> {badgeExplanation(b)}</span>
+                  </li>
+                ))}
+                <li className="text-[11.5px] text-muted-foreground pl-[18px]">
+                  Pass assessments in <Link to="/partner/training" className="text-primary hover:underline">Training</Link> to earn more badges and unlock more services.
+                </li>
+              </ul>
             )}
           </div>
         </div>
