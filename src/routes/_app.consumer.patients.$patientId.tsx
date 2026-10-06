@@ -30,10 +30,12 @@ function PatientDetail() {
 
   const inCare = ledger.filter(r => r.rawStatus === "active" || r.rawStatus === "in_progress");
   const upcoming = ledger.filter(r =>
-    r.rawStatus === "pending" ||
-    r.rawStatus === "claimed" ||
-    r.rawStatus === "confirmed" ||
-    r.rawStatus === "pending_payment"
+    r.timeBucket !== "past" && !r.isExpired && (
+      r.rawStatus === "pending" ||
+      r.rawStatus === "claimed" ||
+      r.rawStatus === "confirmed" ||
+      r.rawStatus === "pending_payment"
+    )
   );
   const completed = ledger.filter(r => r.rawStatus === "completed");
 

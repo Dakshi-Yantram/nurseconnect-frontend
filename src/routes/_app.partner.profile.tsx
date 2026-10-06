@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, ArrowLeft, MapPin } from "lucide-react";
+import { Loader2, ArrowLeft, MapPin, Pencil } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/_app/partner/profile")({
@@ -13,6 +13,8 @@ function PartnerProfile() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  // View-first: show the saved profile read-only, with an Edit button.
+  const [editing, setEditing] = useState(false);
 
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [registrationNo, setRegistrationNo] = useState("");
@@ -49,6 +51,8 @@ function PartnerProfile() {
       setBankHolder(me.bank_account_holder ?? "");
       setBankAccount(me.bank_account_number ?? "");
       setBankIfsc(me.bank_ifsc ?? "");
+      // First-time (nothing saved yet) → straight into the form.
+      setEditing(!(me.registration_no && me.date_of_birth));
     } catch (e: any) {
       setError(String(e?.message ?? e));
     } finally {
@@ -129,6 +133,7 @@ function PartnerProfile() {
       }
 
       setSuccess(true);
+      setEditing(false);
     } catch (e: any) {
       setError(String(e?.message ?? e));
     } finally {
@@ -140,6 +145,50 @@ function PartnerProfile() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!editing) {
+    const maskedAcct = bankAccount ? `••••${bankAccount.slice(-4)}` : "—";
+    const rows: [string, string][] = [
+      ["Date of Birth", dateOfBirth || "—"],
+      ["Nursing Registration Number", registrationNo || "—"],
+      ["Registration Authority", registrationAuthority || "—"],
+      ["Registration Valid Until", registrationValidUntil || "—"],
+      ["Home address", homeAddress || "—"],
+      ["Home city", baseCity || "—"],
+      ["Travel radius", serviceRadius ? `${serviceRadius} km` : "—"],
+      ["Account holder", bankHolder || "—"],
+      ["Account number", maskedAcct],
+      ["IFSC", bankIfsc || "—"],
+    ];
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <div className="mx-auto max-w-md px-4 py-8 space-y-4">
+          <Link to="/partner" className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Workspace
+          </Link>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-[18px] font-bold text-foreground">My Profile</h1>
+              <p className="text-[12.5px] text-muted-foreground mt-0.5">Your saved details. Tap Edit to change them.</p>
+            </div>
+            <button type="button" onClick={() => { setSuccess(false); setEditing(true); }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold hover:bg-secondary">
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </button>
+          </div>
+          {success && <p className="text-[12.5px] text-emerald-600">Profile updated successfully!</p>}
+          <dl className="divide-y divide-border rounded-xl border border-border bg-card">
+            {rows.map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-4 px-5 py-3">
+                <dt className="text-[12px] text-muted-foreground">{k}</dt>
+                <dd className="text-[13px] font-medium text-foreground text-right break-words">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </div>
     );
   }
@@ -156,7 +205,7 @@ function PartnerProfile() {
         </Link>
 
         <div>
-          <h1 className="text-[18px] font-bold text-foreground">Complete Your Profile</h1>
+          <h1 className="text-[18px] font-bold text-foreground">Edit Your Profile</h1>
           <p className="text-[12.5px] text-muted-foreground mt-0.5">
             These details are required before you can submit for review.
           </p>
@@ -289,6 +338,10 @@ function PartnerProfile() {
             className="w-full rounded-lg bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save Profile"}
+          </button>
+          <button type="button" onClick={() => { setEditing(false); load(); }}
+            className="w-full rounded-lg border border-border px-4 py-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary">
+            Cancel
           </button>
         </form>
       </div>
