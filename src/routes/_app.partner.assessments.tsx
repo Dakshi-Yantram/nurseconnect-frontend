@@ -4,7 +4,7 @@ import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   ClipboardCheck, Clock, RefreshCw, Lock, CheckCircle2, XCircle,
-  X, ShieldAlert, Timer,
+  X, ShieldAlert, Timer, Check,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -52,6 +52,8 @@ function AssessmentSessionModal({
   const [question, setQuestion] = useState<SessionQuestion | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [selectedMulti, setSelectedMulti] = useState<number[]>([]);
+  const [textAnswer, setTextAnswer] = useState("");
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ score: number; passed: boolean; pass_score: number } | null>(null);
@@ -67,6 +69,7 @@ function AssessmentSessionModal({
       setQuestion(res.question);
       setExpiresAt(res.expires_at);
       setSelected(null);
+      setSelectedMulti([]);
       setLastCorrect(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to start assessment");
@@ -89,15 +92,30 @@ function AssessmentSessionModal({
   }, [expiresAt]);
 
   const submitAnswer = async () => {
-    if (selected === null || !sessionId) return;
+    const isText = question?.type === "text";
+    const isMulti = question?.type === "multi_select";
+    if (!sessionId) return;
+    if (isText ? !textAnswer.trim() : isMulti ? selectedMulti.length === 0 : selected === null) return;
     setSubmitting(true);
     setError(null);
     try {
       const res = await apiFetch(`/api/training/assessments/${assessment.id}/sessions/${sessionId}/answer`, {
         method: "POST",
-        body: JSON.stringify({ answer: selected }),
+        body: JSON.stringify({
+          answer: isText
+            ? textAnswer.trim()
+            : isMulti
+            ? [...selectedMulti].sort((a, b) => a - b)
+            : selected,
+        }),
       });
-      setLastCorrect(res.correct);
+      setLastCorrect(isText ? null : res.correct);
+      if (isText && !res.finished) {
+        setQuestion(res.question);
+        setTextAnswer("");
+        setSelected(null);
+        setSelectedMulti([]);
+      }
       if (res.finished) {
         setResult({ score: res.score, passed: res.passed, pass_score: res.pass_score });
         setQuestion(null);
@@ -106,6 +124,7 @@ function AssessmentSessionModal({
         setTimeout(() => {
           setQuestion(res.question);
           setSelected(null);
+          setSelectedMulti([]);
           setLastCorrect(null);
         }, 700);
       }
@@ -157,26 +176,64 @@ function AssessmentSessionModal({
 
               <p className="text-[14.5px] font-medium text-foreground leading-relaxed">{question.text}</p>
 
+              {question.type === "text" && (
+                <textarea
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  disabled={submitting}
+                  rows={5}
+                  placeholder="Type your answer here…"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+              )}
+              {question.type === "multi_select" && (
+                <p className="text-[11.5px] font-medium text-indigo-600">Select all that apply</p>
+              )}
               <div className="space-y-2">
-                {question.options.map((opt, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    disabled={submitting || lastCorrect !== null}
-                    onClick={() => setSelected(i)}
-                    className={cn(
-                      "w-full text-left rounded-xl border px-4 py-3 text-[13px] transition-all disabled:cursor-default",
-                      lastCorrect !== null && i === selected
-                        ? lastCorrect ? "border-emerald-400 bg-emerald-50" : "border-red-400 bg-red-50"
-                        : selected === i
-                        ? "border-indigo-400 bg-indigo-50 text-indigo-800 font-medium"
-                        : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-gray-50"
-                    )}
-                  >
-                    <span className="font-mono text-[11px] mr-2 opacity-60">{["A", "B", "C", "D", "E"][i]}.</span>
-                    {opt}
-                  </button>
-                ))}
+                {question.options.map((opt, i) => {
+                  const isMulti = question.type === "multi_select";
+                  const isChosen = isMulti ? selectedMulti.includes(i) : selected === i;
+                  const locked = submitting || lastCorrect !== null;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      role={isMulti ? "checkbox" : "radio"}
+                      aria-checked={isChosen}
+                      disabled={locked}
+                      onClick={() =>
+                        isMulti
+                          ? setSelectedMulti((prev) =>
+                              prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]
+                            )
+                          : setSelected(i)
+                      }
+                      className={cn(
+                        "w-full text-left rounded-xl border px-4 py-3 text-[13px] transition-all disabled:cursor-default flex items-start gap-3",
+                        lastCorrect !== null && isChosen
+                          ? lastCorrect ? "border-emerald-400 bg-emerald-50" : "border-red-400 bg-red-50"
+                          : isChosen
+                          ? "border-indigo-400 bg-indigo-50 text-indigo-800 font-medium"
+                          : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-gray-50"
+                      )}
+                    >
+                      {isMulti && (
+                        <span
+                          className={cn(
+                            "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                            isChosen ? "border-indigo-600 bg-indigo-600 text-white" : "border-gray-300 bg-white"
+                          )}
+                        >
+                          {isChosen && <Check className="h-3 w-3" strokeWidth={3} />}
+                        </span>
+                      )}
+                      <span>
+                        <span className="font-mono text-[11px] mr-2 opacity-60">{["A", "B", "C", "D", "E", "F", "G", "H"][i]}.</span>
+                        {opt}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {lastCorrect !== null ? (
@@ -187,7 +244,13 @@ function AssessmentSessionModal({
               ) : (
                 <button
                   onClick={submitAnswer}
-                  disabled={selected === null || submitting}
+                  disabled={
+                    (question.type === "text"
+                      ? !textAnswer.trim()
+                      : question.type === "multi_select"
+                      ? selectedMulti.length === 0
+                      : selected === null) || submitting
+                  }
                   className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[13px] font-semibold py-3 transition-all"
                 >
                   {submitting ? "Submitting…" : "Submit Answer"}
@@ -275,7 +338,12 @@ function PartnerAssessments() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[14px] font-semibold text-foreground">{a.title}</p>
-                  {a.description && <p className="text-[12px] text-muted-foreground mt-0.5">{a.description}</p>}
+                  <p className="text-[12px] text-muted-foreground mt-0.5">
+                    {a.description || "Theory test on this topic."}
+                  </p>
+                  <p className="text-[11.5px] text-muted-foreground mt-1">
+                    <b className="text-foreground">Why you need this:</b> passing earns the matching skill badge and unlocks the care packages/services that require it. You need {a.pass_score}% to pass; {a.questions_per_attempt} questions are picked for each attempt.
+                  </p>
                   <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                     <span>{a.questions_per_attempt} questions</span>
                     <span>Pass mark {a.pass_score}%</span>
