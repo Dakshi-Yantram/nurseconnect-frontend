@@ -84,6 +84,8 @@ async function apiRegister(input: {
   phone_e164: string;
   password: string;
   role: string;
+  worker_type?: string;
+  phone_otp?: string;
 }) {
   return apiRequest("/auth/register", input);
 }
@@ -92,8 +94,12 @@ async function apiVerifyEmail(email: string, code: string) {
   return apiRequest("/auth/verify-email", { email, code });
 }
 
-async function apiOtpSend(phone_e164: string) {
-  return apiRequest("/auth/otp/send", { phone_e164, purpose: "login" });
+async function apiOtpSend(phone_e164: string, purpose: "login" | "signup" = "login") {
+  return apiRequest("/auth/otp/send", { phone_e164, purpose, ...(purpose === "signup" ? { role: "worker" } : {}) });
+}
+
+async function apiOtpVerifySignup(phone_e164: string, code: string) {
+  return apiRequest("/auth/otp/verify-signup", { phone_e164, code, role: "worker" });
 }
 
 async function apiOtpVerify(phone_e164: string, code: string) {
@@ -162,6 +168,15 @@ function LoginPage() {
     "nurse" | "doctor" | "dentist" | "physiotherapist" | "caregiver"
   >("nurse");
 
+  // Registration mobile OTP (required for care professionals)
+  const [regOtp, setRegOtp] = useState("");
+  const [regOtpPhone, setRegOtpPhone] = useState<string | null>(null); // number the code was sent to
+  const [regDevOtp, setRegDevOtp] = useState<string | null>(null);
+  const [regOtpResend, setRegOtpResend] = useState(0);
+  const [regOtpSending, setRegOtpSending] = useState(false);
+  const [regOtpVerifying, setRegOtpVerifying] = useState(false);
+  const [regVerifiedPhone, setRegVerifiedPhone] = useState<string | null>(null); // number verified server-side
+
   // Verify
   const [verifyEmail, setVerifyEmail] = useState("");
   const [code, setCode] = useState("");
@@ -180,6 +195,12 @@ function LoginPage() {
     const t = window.setTimeout(() => setResendIn((n) => n - 1), 1000);
     return () => window.clearTimeout(t);
   }, [resendIn]);
+
+  useEffect(() => {
+    if (regOtpResend <= 0) return;
+    const t = window.setTimeout(() => setRegOtpResend((n) => n - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [regOtpResend]);
 
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -219,6 +240,51 @@ function LoginPage() {
     }
   };
 
+  const regPhoneValid = () => {
+    const n = normalizePhone(phone);
+    return /^\+[1-9]\d{7,14}$/.test(n) && !(n.startsWith("+91") && n.length !== 13);
+  };
+
+  const sendRegisterOtp = async () => {
+    setError(null);
+    setInfo(null);
+    if (!regPhoneValid()) return setError("Enter a valid 10-digit mobile number");
+    setRegOtpSending(true);
+    try {
+      const e164 = normalizePhone(phone);
+      const data = await apiOtpSend(e164, "signup");
+      setRegOtpPhone(e164);
+      setRegVerifiedPhone(null);
+      setRegOtp("");
+      setRegDevOtp(data.dev_otp ?? null);
+      setRegOtpResend(OTP_RESEND_COOLDOWN_S);
+      setInfo(`OTP sent to ${e164}. It can take up to a minute to arrive.`);
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 429 && err.retryAfterSeconds) setRegOtpResend(err.retryAfterSeconds);
+      setError(authErrorMessage(err, "We couldn't send the OTP. Please try again."));
+    } finally {
+      setRegOtpSending(false);
+    }
+  };
+
+  const verifyRegisterOtp = async () => {
+    setError(null);
+    setInfo(null);
+    if (!regOtpPhone) return setError("Tap 'Send OTP' first.");
+    if (!/^\d{6}$/.test(regOtp)) return setError("Enter the 6-digit OTP sent to your mobile number.");
+    setRegOtpVerifying(true);
+    try {
+      await apiOtpVerifySignup(regOtpPhone, regOtp);
+      setRegVerifiedPhone(regOtpPhone);
+      setInfo("Mobile number verified.");
+    } catch (err: unknown) {
+      setRegVerifiedPhone(null);
+      setError(authErrorMessage(err, "OTP verification failed. Please try again."));
+    } finally {
+      setRegOtpVerifying(false);
+    }
+  };
+
   const submitRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -228,6 +294,9 @@ function LoginPage() {
     if (!/^\+[1-9]\d{7,14}$/.test(normalizePhone(phone)) || (normalizePhone(phone).startsWith("+91") && normalizePhone(phone).length !== 13))
       return setError("Enter a valid 10-digit mobile number");
     if (!isPasswordValid(regPassword)) return setError(PASSWORD_HINT);
+    if (regRole === "partner") {
+      if (regVerifiedPhone !== normalizePhone(phone)) return setError("Verify your mobile number with the OTP first.");
+    }
 
     setLoading(true);
     try {
@@ -254,6 +323,11 @@ function LoginPage() {
       }
       setMode("verify");
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.code === "PHONE_OTP_REQUIRED") {
+        // Server no longer has the proof (expired after 15 min) — verify again.
+        setRegVerifiedPhone(null);
+        setRegOtp("");
+      }
       setError(authErrorMessage(err, "Registration failed"));
     } finally {
       setLoading(false);
@@ -509,13 +583,61 @@ function LoginPage() {
                         onChange={(e) => {
                           const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
                           setPhone(digitsOnly);
+                          // Changing the number invalidates any OTP already sent.
+                          if (regOtpPhone || regVerifiedPhone) { setRegOtpPhone(null); setRegVerifiedPhone(null); setRegOtp(""); setRegDevOtp(null); }
                         }}
                         placeholder="9999900001"
                         inputMode="numeric"
                         maxLength={10}
                         className="w-full py-2.5 text-[14px] bg-transparent focus:outline-none"
                       />
+                      {regRole === "partner" && (
+                        <button
+                          type="button"
+                          onClick={sendRegisterOtp}
+                          disabled={regOtpSending || regOtpResend > 0 || phone.length !== 10}
+                          className="ml-2 shrink-0 text-[12px] font-semibold text-primary disabled:text-muted-foreground"
+                        >
+                          {regOtpSending ? "Sending…" : regOtpResend > 0 ? `Resend in ${regOtpResend}s` : regOtpPhone ? "Resend OTP" : "Send OTP"}
+                        </button>
+                      )}
                     </div>
+                    {regRole === "partner" && (
+                      <div className="mt-3">
+                        <label className="text-[12px] font-medium text-foreground">Mobile OTP</label>
+                        <div className="mt-1.5 flex items-center gap-2">
+                        <input
+                          value={regOtp}
+                          onChange={(e) => setRegOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          disabled={!regOtpPhone || regVerifiedPhone !== null}
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          placeholder={regOtpPhone ? "6-digit code" : "Tap 'Send OTP' first"}
+                          className="w-full px-3 py-2.5 text-[14px] tracking-[0.2em] rounded-md border border-border bg-card focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-60"
+                        />
+                          {regVerifiedPhone && regVerifiedPhone === normalizePhone(phone) ? (
+                            <span className="shrink-0 inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2.5 text-[13px] font-semibold text-emerald-700">
+                              Verified ✓
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={verifyRegisterOtp}
+                              disabled={regOtpVerifying || !regOtpPhone || regOtp.length !== 6}
+                              className="shrink-0 rounded-md bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-50"
+                            >
+                              {regOtpVerifying ? "Verifying…" : "Verify OTP"}
+                            </button>
+                          )}
+                        </div>
+                        {regDevOtp && (
+                          <p className="mt-1 text-[11px] text-muted-foreground">Dev mode OTP: <span className="font-mono font-bold">{regDevOtp}</span></p>
+                        )}
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Verify your mobile number to enable "Create account". You'll still verify your email after this.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-[12px] font-medium text-foreground">Password</label>
@@ -570,6 +692,11 @@ function LoginPage() {
                     </div>
                   )}
 
+                  {info && !error && (
+                    <div className="text-[13px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                      {info}
+                    </div>
+                  )}
                   {error && (
                     <div className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
                       {error}
@@ -577,7 +704,7 @@ function LoginPage() {
                   )}
 
                   <button
-                    disabled={loading}
+                    disabled={loading || (regRole === "partner" && regVerifiedPhone !== normalizePhone(phone))}
                     className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-md font-medium hover:opacity-95 disabled:opacity-60 transition"
                   >
                     {loading ? "Creating account…" : "Create account"}

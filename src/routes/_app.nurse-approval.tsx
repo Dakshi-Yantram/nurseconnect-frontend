@@ -80,8 +80,11 @@ function NurseApproval() {
   const loadDetail = useCallback(async (ticket: TicketEntry | null) => {
     if (!ticket) { setDetail(null); return; }
     try {
-      const rows: WorkerDetail[] = await apiFetch("/api/admin/workers/pending");
-      setDetail(rows.find((r) => r.worker_id === ticket.nurse_id) ?? null);
+      // The pending list only holds workers whose onboarding_status is
+      // pending_review, so a nurse on a NEEDS_CLARIFICATION ticket showed
+      // "Profile not found". Fetch the worker directly instead.
+      const one: WorkerDetail = await apiFetch(`/api/admin/workers/${ticket.nurse_id}/review-detail`);
+      setDetail(one ?? null);
     } catch {
       setDetail(null);
     }
@@ -128,8 +131,14 @@ function NurseApproval() {
     if (status === "failed" && !reason) return;
     return act(() => apiFetch(`/api/admin/workers/${detail!.worker_id}/background-check`, { method: "POST", body: JSON.stringify({ status, reason }) }));
   };
-  const updateTicketStatus = (status: string) =>
-    act(() => apiFetch(`/api/review/tickets/${selectedTicket!.id}/status`, { method: "POST", body: JSON.stringify({ status }) }));
+  const updateTicketStatus = (status: string) => {
+    let note: string | undefined;
+    if (status === "NEEDS_CLARIFICATION") {
+      note = window.prompt("What do you need from the nurse? (e.g. 'Please upload your last 3 months bank statement')") ?? "";
+      if (note.trim().length < 8) return;
+    }
+    return act(() => apiFetch(`/api/review/tickets/${selectedTicket!.id}/status`, { method: "POST", body: JSON.stringify({ status, note }) }));
+  };
   const approve = () => act(() => apiFetch(`/api/admin/workers/${detail!.worker_id}/approve`, { method: "POST" }));
   const reject = () => {
     const reason = window.prompt("Reason for rejection?") ?? "";
@@ -206,7 +215,7 @@ function NurseApproval() {
                 {loadingDetail ? (
                   <div className="flex justify-center py-8"><Loader2 className="animate-spin text-primary" /></div>
                 ) : !detail ? (
-                  <div className="rounded-xl border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground">Profile not found.</div>
+                  <div className="rounded-xl border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground">Couldn't load this nurse's profile. Click Refresh and try again.</div>
                 ) : (
                   <>
                     <div className="rounded-xl border border-border bg-card px-5 py-4">

@@ -14,6 +14,7 @@ function ForgotPassword() {
   const nav = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
+  const [channel, setChannel] = useState<"sms" | "email">("sms");
   const [code, setCode] = useState("");
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,11 +31,13 @@ function ForgotPassword() {
     setError(null); setMsg(null); setBusy(true);
     try {
       const res = await apiFetch("/api/auth/forgot-password", {
-        method: "POST", body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        method: "POST", body: JSON.stringify({ email: email.trim().toLowerCase(), channel }),
       });
       setMsg(
         (res?.message ?? "If that account exists, a reset code has been sent.") +
-        " If no SMS arrives within a couple of minutes, go back and request a new code.",
+        (channel === "email"
+          ? " If no email arrives within a couple of minutes, check spam or go back and request a new code."
+          : " If no SMS arrives within a couple of minutes, go back and request a new code."),
       );
       setStep(2);
     } catch (e) { setError(parseErr(e)); } finally { setBusy(false); }
@@ -54,7 +57,6 @@ function ForgotPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-6 shadow-sm">
-        // Link near line 54
         <Link to="/auth/login" search={{ redirect: undefined }} className="inline-flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft size={14} /> Back to sign in
         </Link>
@@ -67,17 +69,26 @@ function ForgotPassword() {
         {step === 1 ? (
           <>
             <p className="text-[12.5px] text-muted-foreground mb-4">
-              Enter your email. We'll text a reset code to your registered phone number.
+              Enter your registered email, then choose where we should send the 6-digit reset code.
             </p>
             <label className="text-[12px] font-semibold text-foreground">Email</label>
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email"
               placeholder="you@example.com"
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px]" />
+            <label className="mt-3 block text-[12px] font-semibold text-foreground">Send code via</label>
+            <div className="mt-1 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-[12.5px] font-medium">
+              {([["sms", "Mobile OTP (SMS)"], ["email", "Email"]] as const).map(([v, label]) => (
+                <button key={v} type="button" onClick={() => setChannel(v)}
+                  className={`rounded-md px-3 py-1.5 transition ${channel === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
             {msg && <p className="mt-2 text-[12px] text-emerald-700">{msg}</p>}
             {error && <p className="mt-2 text-[12px] text-red-600">{error}</p>}
             <button onClick={requestCode} disabled={busy || !email.includes("@")}
               className="mt-4 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13.5px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40">
-              {busy ? <Loader2 size={15} className="animate-spin" /> : null} Send reset code
+              {busy ? <Loader2 size={15} className="animate-spin" /> : null} {channel === "email" ? "Send code to email" : "Send OTP to mobile"}
             </button>
           </>
         ) : (
