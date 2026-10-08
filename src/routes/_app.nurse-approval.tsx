@@ -19,6 +19,11 @@ const DOC_LABELS: Record<string, string> = {
   degree_certificate: "Degree / Education Certificate",
   police_verification: "Police Verification",
 };
+const EXTRA_DOC_LABELS: Record<string, string> = {
+  bank_statement: "Bank Statement",
+  experience_certificate: "Experience Certificate",
+  specialization_certificate: "Specialization Certificate",
+};
 const TIERS = [
   { id: "tier1", label: "Tier 1 · Care Support" },
   { id: "tier2", label: "Tier 2 · Assistant Nurse" },
@@ -151,6 +156,33 @@ function NurseApproval() {
   const backgroundPassed = detail?.background_check_status === "passed";
   const canApprove = allDocsVerified && backgroundPassed && !busy;
 
+  const extraDocuments = (detail?.documents ?? []).filter((d) => !REQUIRED_DOCS.includes(d.document_type));
+  const extraLabel = (t: string) =>
+    EXTRA_DOC_LABELS[t] ?? t.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  const renderDocRow = (key: string, label: string, doc: Doc | undefined) => (
+                            <div key={key} className="px-5 py-3 flex items-center gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-semibold">{label}</p>
+                                <p className="text-[11.5px] text-muted-foreground">{doc ? doc.verification_status : "Not uploaded"}{doc?.rejection_reason ? ` · ${doc.rejection_reason}` : ""}</p>
+                              </div>
+                              {doc?.document_url && <a href={doc.document_url} target="_blank" rel="noreferrer" className="text-primary text-[12px] flex items-center gap-1">View <ExternalLink size={11} /></a>}
+                              {doc ? (
+                                doc.verification_status === "verified" ? (
+                                  <CheckCircle2 size={17} className="text-emerald-600" />
+                                ) : doc.verification_status === "rejected" ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-semibold text-red-700">
+                                    <XCircle size={12} /> Rejected
+                                  </span>
+                                ) : (
+                                  <div className="flex gap-1.5">
+                                    <button onClick={() => reviewDoc(doc, "verified")} disabled={busy} className="rounded bg-emerald-600 px-2.5 py-1 text-[11.5px] font-semibold text-white hover:opacity-90 disabled:opacity-40">Verify</button>
+                                    <button onClick={() => reviewDoc(doc, "rejected")} disabled={busy} className="rounded border border-red-300 px-2.5 py-1 text-[11.5px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40">Reject</button>
+                                  </div>
+                                )
+                              ) : <span className="text-[11px] text-muted-foreground">Awaiting</span>}
+                            </div>
+  );
+
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
   return (
@@ -231,32 +263,23 @@ function NurseApproval() {
                       <div className="divide-y divide-border">
                         {REQUIRED_DOCS.map((type) => {
                           const doc = detail.documents.find((d) => d.document_type === type);
-                          return (
-                            <div key={type} className="px-5 py-3 flex items-center gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-semibold">{DOC_LABELS[type]}</p>
-                                <p className="text-[11.5px] text-muted-foreground">{doc ? doc.verification_status : "Not uploaded"}{doc?.rejection_reason ? ` · ${doc.rejection_reason}` : ""}</p>
-                              </div>
-                              {doc?.document_url && <a href={doc.document_url} target="_blank" rel="noreferrer" className="text-primary text-[12px] flex items-center gap-1">View <ExternalLink size={11} /></a>}
-                              {doc ? (
-                                doc.verification_status === "verified" ? (
-                                  <CheckCircle2 size={17} className="text-emerald-600" />
-                                ) : doc.verification_status === "rejected" ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-semibold text-red-700">
-                                    <XCircle size={12} /> Rejected
-                                  </span>
-                                ) : (
-                                  <div className="flex gap-1.5">
-                                    <button onClick={() => reviewDoc(doc, "verified")} disabled={busy} className="rounded bg-emerald-600 px-2.5 py-1 text-[11.5px] font-semibold text-white hover:opacity-90 disabled:opacity-40">Verify</button>
-                                    <button onClick={() => reviewDoc(doc, "rejected")} disabled={busy} className="rounded border border-red-300 px-2.5 py-1 text-[11.5px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40">Reject</button>
-                                  </div>
-                                )
-                              ) : <span className="text-[11px] text-muted-foreground">Awaiting</span>}
-                            </div>
-                          );
+                          return renderDocRow(type, DOC_LABELS[type], doc);
                         })}
                       </div>
                     </div>
+
+                    {extraDocuments.length > 0 && (
+                      <div className="rounded-xl border border-border bg-card overflow-hidden">
+                        <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+                          <FileText size={14} className="text-primary" />
+                          <span className="text-[13.5px] font-bold">Additional documents</span>
+                          <span className="text-[11px] text-muted-foreground">(not required for approval)</span>
+                        </div>
+                        <div className="divide-y divide-border">
+                          {extraDocuments.map((d) => renderDocRow(d.id, extraLabel(d.document_type), d))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="rounded-xl border border-border bg-card px-5 py-4">
