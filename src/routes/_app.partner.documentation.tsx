@@ -17,6 +17,14 @@ const DOC_LABELS: Record<string, string> = {
 };
 const REQUIRED = Object.keys(DOC_LABELS);
 
+// Supporting documents a reviewer may ask for via "Request Docs". These never
+// block approval; a worker can upload several of each (e.g. 3 bank statements).
+const EXTRA_LABELS: Record<string, string> = {
+  bank_statement: "Bank Statement",
+  experience_certificate: "Experience Certificate",
+};
+const EXTRA = Object.keys(EXTRA_LABELS);
+
 type Doc = {
   id: string;
   document_type: string;
@@ -78,6 +86,7 @@ function WorkerDocumentation() {
   }
 
   const byType = new Map(docs.map((d) => [d.document_type, d]));
+  const extraDocs = (type: string) => docs.filter((d) => d.document_type === type);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -124,6 +133,63 @@ function WorkerDocumentation() {
                       onChange={(e) => e.target.files?.[0] && upload(type, e.target.files[0])}
                     />
                   </label>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="pt-2">
+          <h2 className="text-[14px] font-bold text-foreground">Additional documents</h2>
+          <p className="text-[12px] text-muted-foreground mt-0.5">
+            Upload anything our review team has asked for (for example a bank statement). You can add more than one file.
+          </p>
+        </div>
+        <div className="space-y-3">
+          {EXTRA.map((type) => {
+            const uploaded = extraDocs(type);
+            return (
+              <div key={type} className="rounded-xl border border-border bg-card px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <FileText size={16} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13.5px] font-semibold text-foreground">{EXTRA_LABELS[type]}</p>
+                    <p className="text-[11.5px] text-muted-foreground">
+                      {uploaded.length ? `${uploaded.length} file${uploaded.length > 1 ? "s" : ""} uploaded` : "Not uploaded"}
+                    </p>
+                  </div>
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground hover:opacity-90">
+                    {busy === type ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {uploaded.length ? "Add another" : "Upload"}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      disabled={busy !== null}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) upload(type, f);
+                      }}
+                    />
+                  </label>
+                </div>
+                {uploaded.length > 0 && (
+                  <ul className="mt-3 space-y-1.5 border-t border-border pt-3">
+                    {uploaded.map((d) => {
+                      const pill = statusPill(d.verification_status);
+                      return (
+                        <li key={d.id} className="flex items-center justify-between text-[12px] text-muted-foreground">
+                          <span>Uploaded {new Date(d.created_at).toLocaleDateString("en-IN")}</span>
+                          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-semibold", pill.cls)}>
+                            {pill.icon} {pill.label}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </div>
             );
