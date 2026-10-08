@@ -30,7 +30,11 @@ const TIER_INFO: Record<string, string> = {
 
 function badgeExplanation(b: Badge): string {
   if (b.source === "tier") {
-    return `${TIER_INFO[b.code.toUpperCase()] ?? "Your base skill level."} Assigned by our review team when your onboarding was approved, based on your registration and verified documents.`;
+    const info = TIER_INFO[b.code.toUpperCase()] ?? "Your base skill level.";
+    if (!/certified/i.test(b.label)) {
+      return `${info} This is your starting level only. It becomes "Certified" once our team verifies your documents and approves your onboarding.`;
+    }
+    return `${info} Assigned by our review team when your onboarding was approved, based on your registration and verified documents.`;
   }
   return "Earned by passing a skill assessment. It unlocks the matching services and care packages.";
 }
