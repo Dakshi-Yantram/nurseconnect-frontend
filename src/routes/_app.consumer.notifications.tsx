@@ -1,140 +1,122 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { Card } from "@/components/shared/Card";
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { useIncidents, useBookings } from "@/lib/domain";
-import { bindStatus } from "@/lib/workflow-bind";
-import { Bell, ChevronRight, AlertTriangle, CalendarCheck } from "lucide-react";
+import { useIncidents, useBookings, type BookingEntity } from "@/lib/domain";
+import { bookingRef, isPastBooking, needsPayment, relativeWhen, whenParts } from "@/lib/booking-view";
+import {
+  Bell, ChevronRight, AlertTriangle, CheckCircle2, Clock, CreditCard, Stethoscope, XCircle, Search, CalendarCheck,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_app/consumer/notifications")({
   component: ConsumerNotifications,
   head: () => ({ meta: [{ title: "Notifications — NurseConnect" }] }),
 });
 
+type Item = { b: BookingEntity; icon: typeof Bell; tone: string; title: string; text: string; sort: number };
+
+/** Turn a booking's current state into a plain-language update. */
+function describe(b: BookingEntity): Item {
+  const when = whenParts(b.startedAt);
+  const at = when ? `${when.date} at ${when.time}` : "";
+  const rel = relativeWhen(b.startedAt);
+  const svc = b.service ?? "Care visit";
+  const who = b.patientName && b.patientName !== "—" ? ` for ${b.patientName}` : "";
+  const sort = Date.parse((b.startedAt ?? "").replace(" ", "T")) || 0;
+  const mk = (icon: Item["icon"], tone: string, title: string, text: string, rank = 0): Item =>
+    ({ b, icon, tone, title, text, sort: rank * 1e13 + sort });
+
+  if (needsPayment(b)) return mk(CreditCard, "text-amber-700 bg-amber-50", "Payment pending", `${svc}${who} · ${at}. Pay to confirm your nurse.`, 9);
+  switch (b.rawStatus) {
+    case "pending_payment":
+      return mk(XCircle, "text-muted-foreground bg-muted", "Booking expired", `${svc}${who} was not paid before ${at}.`, 1);
+    case "prescription_pending":
+      return mk(Stethoscope, "text-amber-700 bg-amber-50", "Prescription under review", `${svc}${who}. We'll confirm once it is verified.`, 8);
+    case "searching_nurse":
+      return mk(Search, "text-sky-700 bg-sky-50", "Finding your nurse", `${svc}${who} · ${at}.`, 7);
+    case "confirmed": case "assigned":
+      if (isPastBooking(b)) return mk(XCircle, "text-muted-foreground bg-muted", "Visit not completed", `${svc}${who} · ${at}.`, 1);
+      return mk(CheckCircle2, "text-emerald-700 bg-emerald-50", b.rawStatus === "assigned" ? "Nurse assigned" : "Booking confirmed", `${svc}${who} · ${at}${rel ? ` (${rel})` : ""}.`, 6);
+    case "worker_en_route":
+      return mk(Clock, "text-primary bg-primary/10", "Your nurse is on the way", `${svc}${who}. Keep your start code ready.`, 10);
+    case "worker_arrived":
+      return mk(Clock, "text-primary bg-primary/10", "Your nurse has arrived", `${svc}${who}. Share the start code to begin.`, 10);
+    case "in_progress":
+      return mk(Clock, "text-emerald-700 bg-emerald-50", "Visit in progress", `${svc}${who}.`, 10);
+    case "completed":
+      return mk(CheckCircle2, "text-emerald-700 bg-emerald-50", "Visit completed", `${svc}${who} · ${at}. Your care summary is ready.`, 2);
+    case "cancelled":
+      return mk(XCircle, "text-muted-foreground bg-muted", "Booking cancelled", `${svc}${who} · ${at}.`, 1);
+    case "missed":
+      return mk(XCircle, "text-rose-700 bg-rose-50", "Visit missed", `${svc}${who} · ${at}.`, 1);
+    case "disputed": case "quality_discrepancy_alert":
+      return mk(AlertTriangle, "text-rose-700 bg-rose-50", "Under review", `Your care team is reviewing ${svc}${who}.`, 11);
+    default:
+      return mk(CalendarCheck, "text-muted-foreground bg-muted", "Booking update", `${svc}${who}.`, 3);
+  }
+}
+
 function ConsumerNotifications() {
   const allIncidents = useIncidents();
   const bookings = useBookings();
 
-  const bookingPriority: Record<string, number> = {
-    escalated: 0,
-    active: 1,
-    in_progress: 2,
-    claimed: 3,
-    pending_payment: 4,
-    pending: 5,
-    completed: 6,
-  };
-
-  const bookingByPatientId = useMemo(() => {
-    const map = new Map<string, string>();
-    bookings.forEach((booking) => {
-      if (booking.patientId && !map.has(booking.patientId)) {
-        map.set(booking.patientId, booking.id);
-      }
-    });
-    return map;
-  }, [bookings]);
-
-  const resolveBookingIdForIncident = (incident: ReturnType<typeof useIncidents>[number]) => {
-    if ((incident as any).bookingId) return String((incident as any).bookingId);
-
-    if (incident.patientId) {
-      const byPatientId = bookings
-        .filter((booking) => booking.patientId === incident.patientId)
-        .sort((a, b) => (bookingPriority[a.rawStatus] ?? 99) - (bookingPriority[b.rawStatus] ?? 99))[0];
-      if (byPatientId) return byPatientId.id;
-
-      const mapped = bookingByPatientId.get(incident.patientId);
-      if (mapped) return mapped;
-    }
-
-    const patientName = incident.title.split("—").pop()?.trim();
-    if (!patientName) return undefined;
-
-    return bookings.find(
-      (booking) => booking.patientName.toLowerCase() === patientName.toLowerCase(),
-    )?.id;
-  };
-
-  // Only show alerts that actually link somewhere — avoids rendering
-  // dead-end rows for demo/seed incidents unrelated to this consumer.
-  const incidents = useMemo(() => {
-    return allIncidents
-      .map((i) => ({ incident: i, bookingId: resolveBookingIdForIncident(i) }))
+  const incidents = useMemo(
+    () => allIncidents
+      .map((i) => ({ i, bookingId: i.bookingId ?? bookings.find((b) => b.patientId && b.patientId === i.patientId)?.id }))
       .filter((x) => x.bookingId)
-      .slice(0, 4);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allIncidents, bookings]);
+      .slice(0, 4),
+    [allIncidents, bookings],
+  );
+
+  const items = useMemo(() => bookings.map(describe).sort((a, b) => b.sort - a.sort), [bookings]);
+  const action = items.filter((x) => x.sort >= 6e13);
+  const earlier = items.filter((x) => x.sort < 6e13);
+
+  const row = (x: Item) => (
+    <Link key={x.b.id} to="/consumer/bookings/$bookingId" params={{ bookingId: x.b.id }}
+      className="flex items-start gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+      <span className={`mt-0.5 h-8 w-8 rounded-full grid place-items-center shrink-0 ${x.tone}`}><x.icon className="h-4 w-4" /></span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] font-semibold text-foreground">{x.title}</div>
+        <div className="text-[12px] text-muted-foreground">{x.text}</div>
+        <div className="mt-0.5 text-[10.5px] font-mono text-muted-foreground/70">{bookingRef(x.b)}</div>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground mt-2 shrink-0" />
+    </Link>
+  );
 
   return (
     <div className="space-y-6">
-      <Card
-        title={<span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-rose-600" /> Care alerts</span>}
-        padded={false}
-      >
-        {incidents.length === 0 ? (
-          <div className="p-5">
-            <EmptyState icon={Bell} title="No active alerts" description="Clinical alerts for your patients will appear here." />
-          </div>
-        ) : (
-          incidents.map(({ incident: i, bookingId }) => (
-            <Link
-              key={i.id}
-              to="/consumer/bookings/$bookingId"
-              params={{ bookingId: bookingId! }}
-              className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted/30"
-            >
+      <div>
+        <div className="text-[18px] font-semibold">Notifications</div>
+        <div className="text-[12.5px] text-muted-foreground">Updates on your bookings and your patients' care.</div>
+      </div>
+
+      {incidents.length > 0 && (
+        <Card title={<span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-rose-600" /> Care alerts</span>} padded={false}>
+          {incidents.map(({ i, bookingId }) => (
+            <Link key={i.id} to="/consumer/bookings/$bookingId" params={{ bookingId: bookingId! }}
+              className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted/30">
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-medium truncate">{i.title}</div>
-                <div className="text-[11.5px] text-muted-foreground truncate">
-                  {i.id} · reporter {i.reporter}
-                </div>
+                <div className="text-[11.5px] text-muted-foreground">Our care team is following up.</div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <SeverityBadge severity={i.severity} />
-                <StatusBadge workflow="incident" state={bindStatus("incident", i.rawStatus)} />
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
+              <SeverityBadge severity={i.severity} />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Link>
-          ))
-        )}
-      </Card>
+          ))}
+        </Card>
+      )}
 
-      {/* Booking updates section unchanged */}
-      <Card
-        title={<span className="flex items-center gap-2"><CalendarCheck className="h-4 w-4 text-primary" /> Booking updates</span>}
-        padded={false}
-      >
-        {bookings.length === 0 ? (
-          <div className="p-5">
-            <EmptyState icon={CalendarCheck} title="No booking updates" description="Updates for your bookings will appear here." />
-          </div>
-        ) : (
-          bookings.map(b => (
-            <Link
-              key={b.id}
-              to="/consumer/bookings/$bookingId"
-              params={{ bookingId: b.id }}
-              className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted/30"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-medium truncate">
-                  #{b.id} — {b.service}
-                </div>
-                <div className="text-[11.5px] text-muted-foreground truncate">
-                  {b.patientName} · {b.area}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <StatusBadge workflow="booking" state={bindStatus("booking", b.rawStatus)} />
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Link>
-          ))
-        )}
-      </Card>
+      {items.length === 0 ? (
+        <Card><EmptyState icon={Bell} title="You're all caught up" description="Updates for your bookings will appear here." /></Card>
+      ) : (
+        <>
+          {action.length > 0 && <Card title="Needs your attention" padded={false}>{action.map(row)}</Card>}
+          {earlier.length > 0 && <Card title="Earlier updates" padded={false}>{earlier.map(row)}</Card>}
+        </>
+      )}
     </div>
   );
 }

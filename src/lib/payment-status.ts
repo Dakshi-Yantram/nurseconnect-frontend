@@ -43,7 +43,8 @@ export function derivePaymentStatus(bookingState: string): PaymentStatus {
 export function mapRealPaymentStatus(raw: string | undefined): PaymentStatus | null {
   switch (raw) {
     case "captured": return "paid";
-    case "initiated": return "processing";
+    // Checkout opened but not completed = still unpaid, whatever the gateway calls it.
+    case "initiated": return "pending";
     case "pending": return "pending";
     case "failed": return "failed";
     case "refunded":
@@ -53,14 +54,16 @@ export function mapRealPaymentStatus(raw: string | undefined): PaymentStatus | n
     // arrangement made yet) — without this case it fell through to `null`
     // and the workflow heuristic below, which could wrongly offer a
     // "Pay now" button on a booking that is already confirmed.
-    case "cash_due": return "cash_due";
+    // Pay-at-visit no longer exists (prepaid only): a legacy cash_due booking is
+    // simply UNPAID and can be paid online.
+    case "cash_due": return "pending";
     default: return null;
   }
 }
 
 /** Whether a "Pay now" action should be offered for this payment status. */
 export function isPayable(raw: string | undefined): boolean {
-  return raw === "pending" || raw === "failed" || raw === "initiated";
+  return raw === "pending" || raw === "failed" || raw === "initiated" || raw === "cash_due";
 }
 
 /** Human label for the payment-status pill. */
