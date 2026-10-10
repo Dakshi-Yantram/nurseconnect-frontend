@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft, HeartPulse, MapPin, Clock, IndianRupee,
-  CheckCircle2, AlertCircle, XCircle, Ban, Loader2,
+  CheckCircle2, AlertCircle, XCircle, Ban, Loader2, User,
   ClipboardList, Thermometer, Activity, FileText, ArrowRight,
 } from "lucide-react";
 import { useBooking, useRefetchBookings } from "@/lib/domain";
@@ -19,6 +19,7 @@ import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError, apiFetch, apiErrorMessage } from "@/lib/api";
 import { payForBooking, refundBooking } from "@/lib/payments";
+import { whenParts, relativeWhen, isPastBooking } from "@/lib/booking-view";
 import { BookingProgress } from "@/components/consumer/BookingProgress";
 import { VerificationPanel, type VerificationState } from "@/components/booking/VerificationPanel";
 import { StartVisitCodeButton } from "@/components/StartVisitCodeButton";
@@ -246,6 +247,9 @@ function ConsumerBookingDetail() {
   const started = domainBooking?.startedAt ?? "—";
   const duration = domainBooking?.duration ?? "—";
   const nurse = domainBooking?.nurseName ?? "Unassigned";
+  const whenParts_ = whenParts(domainBooking?.startedAt);
+  const whenText = whenParts_ ? `${whenParts_.date} · ${whenParts_.time}` : null;
+  const rel = isPastBooking(domainBooking as any) ? null : relativeWhen(domainBooking?.startedAt);
   const hasNurse = nurse !== "Unassigned" && nurse !== "—" && nurse.trim() !== "";
 
   const rawPaymentStatus = domainBooking?.paymentStatus;
@@ -320,29 +324,30 @@ function ConsumerBookingDetail() {
 
       <Card padded={false}>
         <div className="flex items-start justify-between gap-4 px-5 py-4 flex-wrap">
-          <div>
-            <div className="text-[15px] font-semibold">
-              {domainBooking?.bookingRef ? `${domainBooking.bookingRef} · ` : ""}{service}
-            </div>
-            <div className="text-[12.5px] text-muted-foreground mt-0.5">
-              {patientName} · {area}
+          <div className="min-w-0">
+            <div className="text-[17px] font-semibold text-foreground">{service}</div>
+            <div className="text-[12px] text-muted-foreground mt-0.5">
+              Booking {domainBooking?.bookingRef ?? bookingRefOf(record.id)}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <StatusBadge workflow="booking" state={state} />
-            <SLAIndicator
-              workflow="booking"
-              state={state}
-              enteredAt={parseEnteredAt(record.enteredAt)}
-            />
-          </div>
+          <StatusBadge workflow="booking" state={state} />
         </div>
 
-        <div className="border-t border-border px-5 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Detail icon={HeartPulse} label="Service" value={service} />
-          <Detail icon={MapPin} label="Location" value={area} />
-          <Detail icon={Clock} label="Time" value={started !== "—" ? `${started}${duration !== "—" ? ` · ${duration}` : ""}` : "—"} />
-          <Detail icon={IndianRupee} label="Nurse" value={nurse} />
+        <div className="border-t border-border px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+          <Detail icon={User} label="Patient" value={patientName !== "—" ? patientName : "Not available"} />
+          <Detail
+            icon={Clock}
+            label="Date & time"
+            value={whenText ?? "To be scheduled"}
+            sub={[rel ? rel : null, duration !== "—" ? duration : null].filter(Boolean).join(" · ") || undefined}
+          />
+          <Detail icon={MapPin} label="Visit address" value={area !== "—" ? area : "Saved address on this booking"} />
+          <Detail
+            icon={HeartPulse}
+            label="Your nurse"
+            value={hasNurse ? nurse : "Being assigned"}
+            sub={hasNurse ? undefined : "You'll be notified when a nurse accepts"}
+          />
         </div>
       </Card>
       <TrackNurseMap bookingId={record.id} status={record.state} destLat={record.latitude} destLng={record.longitude} />
@@ -576,6 +581,8 @@ function ConsumerBookingDetail() {
   );
 }
 
+const bookingRefOf = (id: string) => `NC-${id.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+
 function BackLink() {
   return (
     <Link
@@ -605,14 +612,17 @@ function VitalStat({ label, value }: { label: string; value: string | null }) {
 }
 
 function Detail({
-  icon: Icon, label, value,
-}: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+  icon: Icon, label, value, sub,
+}: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; sub?: string }) {
   return (
-    <div className="flex items-start gap-2">
-      <Icon className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-      <div>
+    <div className="flex items-start gap-3">
+      <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
         <div className="text-[10.5px] text-muted-foreground uppercase tracking-wide">{label}</div>
-        <div className="text-[12.5px] font-medium truncate">{value}</div>
+        <div className="text-[13.5px] font-semibold text-foreground">{value}</div>
+        {sub && <div className="text-[11.5px] text-muted-foreground">{sub}</div>}
       </div>
     </div>
   );
