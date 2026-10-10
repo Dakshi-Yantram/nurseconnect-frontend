@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { apiFetch } from "@/lib/api";
 import { Card } from "@/components/shared/Card";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -57,9 +59,35 @@ function describe(b: BookingEntity): Item {
   }
 }
 
+type ServerNotification = {
+  id: string; title?: string | null; body?: string | null; created_at: string;
+  read_at?: string | null; payload?: { booking_id?: string } | null;
+};
+
 function ConsumerNotifications() {
   const allIncidents = useIncidents();
   const bookings = useBookings();
+  const navigate = useNavigate();
+
+  // The real notification inbox (e.g. "Visit report is ready"). This page used
+  // to build everything from booking state and never read it.
+  const [inbox, setInbox] = useState<ServerNotification[]>([]);
+  useEffect(() => {
+    let live = true;
+    apiFetch("/api/notifications/")
+      .then((r: any) => { if (live && Array.isArray(r)) setInbox(r); })
+      .catch(() => { /* the booking-based updates below still render */ });
+    return () => { live = false; };
+  }, []);
+
+  const openNotification = async (n: ServerNotification) => {
+    if (!n.read_at) {
+      setInbox((cur) => cur.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
+      apiFetch(`/api/notifications/${n.id}/read`, { method: "POST" }).catch(() => {});
+    }
+    const bid = n.payload?.booking_id;
+    if (bid) navigate({ to: "/consumer/bookings/$bookingId", params: { bookingId: bid } });
+  };
 
   const incidents = useMemo(
     () => allIncidents
@@ -109,7 +137,29 @@ function ConsumerNotifications() {
         </Card>
       )}
 
-      {items.length === 0 ? (
+      {inbox.length > 0 && (
+        <Card title="Messages" padded={false}>
+          {inbox.slice(0, 15).map((n) => (
+            <button key={n.id} type="button" onClick={() => openNotification(n)}
+              className="w-full text-left flex items-start gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <span className="mt-0.5 h-8 w-8 rounded-full grid place-items-center shrink-0 text-primary bg-primary/10"><Bell className="h-4 w-4" /></span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="text-[13px] font-semibold text-foreground">{n.title || "Update"}</div>
+                  {!n.read_at && <span className="h-2 w-2 rounded-full bg-primary" aria-label="Unread" />}
+                </div>
+                {n.body && <div className="text-[12px] text-muted-foreground line-clamp-2">{n.body}</div>}
+                <div className="mt-0.5 text-[10.5px] text-muted-foreground/70">
+                  {new Date(n.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground mt-2 shrink-0" />
+            </button>
+          ))}
+        </Card>
+      )}
+
+      {items.length === 0 && inbox.length === 0 ? (
         <Card><EmptyState icon={Bell} title="You're all caught up" description="Updates for your bookings will appear here." /></Card>
       ) : (
         <>
