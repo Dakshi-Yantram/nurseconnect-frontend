@@ -161,7 +161,7 @@ function mapBooking(
   // "Unknown, Unknown" on screen.
   const clean = (v: unknown) => {
     const t = typeof v === "string" ? v.trim() : "";
-    return t && !/^(unknown|—|-|n\/a|null|undefined)$/i.test(t) ? t : "";
+    return t && !/^(unknown|—|-|n\/a|null|undefined|0+)$/i.test(t) ? t : "";
   };
   const area = b.address_snapshot
     ? [clean(b.address_snapshot.line1), clean(b.address_snapshot.line2), clean(b.address_snapshot.city), clean(b.address_snapshot.pincode)]

@@ -3,8 +3,6 @@ import { createFileRoute, Link, Outlet, useRouterState, useSearch, useNavigate }
 import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/shared/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { Modal } from "@/components/shared/Modal";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
 import { NewBookingModal } from "@/components/booking/NewBookingModal";
@@ -14,7 +12,8 @@ import { useAuth } from "@/lib/auth-context";
 import {
   useBookings, useConsumerPatients, usePackages, useRefetchBookings, type PackageEntity,
 } from "@/lib/domain";
-import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
+import { BookingRow } from "@/components/consumer/BookingRow";
+import { bucketOf } from "@/lib/booking-view";
 import {
   CalendarCheck, ChevronRight, Clock, HeartPulse, Search, X,
   History as HistoryIcon, AlertTriangle, Plus, ShieldCheck,
@@ -86,33 +85,15 @@ function ConsumerBookings() {
   const openNewBooking = () => { setPrefillPackageId(undefined); setOpen(true); };
   const openBookingForPackage = (pkg: PackageEntity) => { setPrefillPackageId(pkg.id); setOpen(true); };
 
-  // Buckets match the real backend BookingStatus values (app/models/enums.py):
-  // draft, pending_payment, confirmed, assigned, worker_en_route,
-  // worker_arrived, in_progress, completed, cancelled, missed,
-  // rematch_pending, disputed. The previous version checked for
-  // "pending"/"claimed"/"active"/"escalated", none of which the backend
-  // ever produces — every booking from "nurse accepted" through "nurse
-  // arrived" was silently falling through both buckets.
+  // Same rule as Home (lib/booking-view.ts): unpaid/unattended bookings whose
+  // slot is over are "Expired or missed", never "completed".
   const care = {
     all: bookings,
-    upcoming: bookings.filter(b =>
-      b.rawStatus === "pending_payment" ||
-      b.rawStatus === "prescription_pending" ||
-      b.rawStatus === "searching_nurse" ||
-      b.rawStatus === "quality_discrepancy_alert" ||
-      b.rawStatus === "confirmed" ||
-      b.rawStatus === "assigned" ||
-      b.rawStatus === "worker_en_route" ||
-      b.rawStatus === "worker_arrived" ||
-      b.rawStatus === "rematch_pending"
-    ),
-    inCare: bookings.filter(b => b.rawStatus === "in_progress"),
-    completed: bookings.filter(b =>
-      b.rawStatus === "completed" ||
-      b.rawStatus === "cancelled" ||
-      b.rawStatus === "missed"
-    ),
-    escalated: bookings.filter(b => b.rawStatus === "disputed"),
+    upcoming: bookings.filter(b => bucketOf(b) === "upcoming"),
+    inCare: bookings.filter(b => bucketOf(b) === "in_care"),
+    completed: bookings.filter(b => bucketOf(b) === "done"),
+    notCompleted: bookings.filter(b => bucketOf(b) === "not_completed"),
+    escalated: bookings.filter(b => bucketOf(b) === "review"),
   };
 
   // Called by the booking modal once the booking exists and any prescription /
@@ -184,6 +165,14 @@ function ConsumerBookings() {
                 emptyHint="No upcoming visits scheduled."
               />
             </RuntimeBoundary>
+            {care.notCompleted.length > 0 && (
+              <RuntimeBoundary label="Not completed">
+                <JourneySection
+                  title={<span className="flex items-center gap-2"><HistoryIcon className="h-4 w-4 text-amber-600" /> Expired or missed</span>}
+                  rows={care.notCompleted} tone="amber"
+                />
+              </RuntimeBoundary>
+            )}
             <RuntimeBoundary label="Completed care">
               <JourneySection
                 title={<span className="flex items-center gap-2"><HistoryIcon className="h-4 w-4 text-muted-foreground" /> Recently completed</span>}
@@ -273,32 +262,12 @@ function JourneySection({
       {rows.length === 0 ? (
         <p className="px-4 py-3 text-[12.5px] text-muted-foreground">{emptyHint}</p>
       ) : (
-        rows.map((b) => {
-          const state = bindStatus("booking", b.rawStatus);
-          return (
-            <Link
-              key={b.id}
-              to="/consumer/bookings/$bookingId"
-              params={{ bookingId: b.id }}
-              className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0 hover:bg-muted/30"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-medium truncate">
-                  {b.bookingRef ? `${b.bookingRef} · ` : ""}{b.service ?? "Care visit"} · {b.patientName ?? "—"}
-                </div>
-                <div className="text-[11.5px] text-muted-foreground">
-                  {b.area ?? "—"}{b.startedAt ? ` · ${b.startedAt}` : ""}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <VisitOtpChip bookingId={b.id} status={b.rawStatus} />
-                <StatusBadge workflow="booking" state={state} />
-                <SLAIndicator workflow="booking" state={state} enteredAt={parseEnteredAt(b.startedAt)} />
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Link>
-          );
-        })
+        rows.map((b) => (
+          <div key={b.id} className="border-b border-border last:border-0 [&>a]:border-0">
+            <BookingRow b={b} tone={tone as any} />
+            <div className="px-5 pb-2 empty:hidden"><VisitOtpChip bookingId={b.id} status={b.rawStatus} /></div>
+          </div>
+        ))
       )}
     </Card>
   );
