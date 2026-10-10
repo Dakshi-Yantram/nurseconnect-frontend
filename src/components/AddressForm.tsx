@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Loader2, Navigation } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { forwardGeocode } from "@/lib/geocode";
 
 export type Address = {
   id: string;
@@ -80,8 +81,15 @@ export function AddressForm({
     setBusy(true);
     try {
       const phoneDigits = String(f.recipient_phone ?? "").replace(/^\+?91/, "").replace(/\D/g, "");
+      // Typed address with no GPS pin: work out the coordinates ourselves.
+      let coords = { latitude: f.latitude, longitude: f.longitude };
+      if (coords.latitude == null || coords.longitude == null) {
+        const found = await forwardGeocode(f);
+        if (found) coords = found;
+      }
       const body = JSON.stringify({
         ...f,
+        ...coords,
         recipient_phone: phoneDigits ? `+91${phoneDigits}` : f.recipient_phone,
       });
       const saved: Address = f.id
