@@ -246,7 +246,11 @@ function PartnerVisitDetail() {
             <div className="flex-1">
               <p className="text-[13px] font-semibold text-foreground">Service address</p>
               <p className="text-[12.5px] text-muted-foreground">
-                {[a.line1, a.city, a.state, a.pincode].filter(Boolean).join(", ") || "Address on map"}
+                {[a.line1, a.line2, a.landmark, a.city, a.state, a.pincode]
+                  .map((v: unknown) => (typeof v === "string" ? v.trim() : ""))
+                  // legacy placeholder rows ("Unknown", "India", "000000") are not an address
+                  .filter((v: string) => v && !/^(unknown|india|n\/a|null|undefined|-|—|0+)$/i.test(v))
+                  .join(", ") || "Address not available. Use Navigate or call the customer."}
               </p>
             </div>
           </div>
