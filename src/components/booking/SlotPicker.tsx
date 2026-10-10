@@ -32,6 +32,7 @@ interface SlotsResponse {
   date: string;
   min_lead_minutes: number;
   surcharge_inr: number;
+  standard_hours?: string;
   slots: ApiSlot[];
 }
 
@@ -169,6 +170,12 @@ export function SlotPicker({
             );
           })}
         </div>
+      )}
+
+      {data?.standard_hours && data.surcharge_inr > 0 && available.some((s) => s.surcharge > 0) && (
+        <p className="text-[11.5px] text-muted-foreground">
+          <span className="font-semibold text-amber-700">+ ₹{data.surcharge_inr}</span> applies to times outside regular hours ({data.standard_hours}).
+        </p>
       )}
 
       {value && value.surcharge > 0 && (
