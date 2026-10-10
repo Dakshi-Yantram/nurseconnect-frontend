@@ -2,14 +2,14 @@ import { useState } from "react";
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Card } from "@/components/shared/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
-  useConsumerPatients, usePatientVisitsById, usePatientConsentsById,
+  useConsumerPatients, useBookings,
   useCreatePatient, useRefetchBookings,
 } from "@/lib/domain";
+import { BookingRow } from "@/components/consumer/BookingRow";
+import { bucketOf, relativeWhen, whenParts } from "@/lib/booking-view";
 import { useAuth } from "@/lib/auth-context";
-import { bindStatus } from "@/lib/workflow-bind";
-import { HeartHandshake, CalendarCheck, FileSignature, Activity, Plus, X } from "lucide-react";
+import { HeartHandshake, CalendarCheck, Activity, CheckCircle2, ChevronRight, Plus, X } from "lucide-react";
 
 /**
  * Phase 6B+C — Consumer patient continuity surface.
@@ -39,15 +39,17 @@ function ConsumerPatients() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-[13px] text-muted-foreground">
-          Care continuity across the people you manage. Each row aggregates ongoing
-          services, consents and the most recent visit.
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-[18px] font-semibold">Your patients</div>
+          <div className="text-[12.5px] text-muted-foreground">
+            The people you book care for — their upcoming visits and recent history.
+          </div>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 shrink-0"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground hover:opacity-90 shrink-0"
         >
           <Plus className="h-4 w-4" /> Add patient
         </button>
@@ -59,7 +61,7 @@ function ConsumerPatients() {
             description="Add a patient to start tracking care continuity." />
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {patients.map(p => <PatientContinuityCard key={p.id} patient={p} />)}
         </div>
       )}
@@ -246,58 +248,62 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 function PatientContinuityCard({ patient }: { patient: ReturnType<typeof useConsumerPatients>[number] }) {
-  const visits = usePatientVisitsById(patient.id);
-  const consents = usePatientConsentsById(patient.id);
-  const active = visits.filter(v => v.rawStatus !== "completed" && v.rawStatus !== "cancelled");
-  const recent = visits.slice(0, 4);
+  const all = useBookings();
+  const mine = all.filter((b) => b.patientId === patient.id);
+  const upcoming = mine
+    .filter((b) => bucketOf(b) === "upcoming")
+    .sort((a, b) => (a.startedAt ?? "").localeCompare(b.startedAt ?? ""));
+  const inCare = mine.filter((b) => bucketOf(b) === "in_care").length;
+  const completed = mine.filter((b) => b.rawStatus === "completed").length;
+  const recent = [...mine]
+    .sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? ""))
+    .slice(0, 3);
+  const next = upcoming[0];
+  const nextWhen = next ? whenParts(next.startedAt) : null;
+
+  // Only show details that are real (the old card printed the raw id and "—").
+  const meta = [
+    patient.age ? `${patient.age} yrs` : null,
+    patient.gender === "F" ? "Female" : patient.gender === "M" ? "Male" : null,
+    patient.plan && patient.plan !== "—" ? patient.plan.charAt(0).toUpperCase() + patient.plan.slice(1) : null,
+  ].filter(Boolean).join(" · ");
 
   return (
-    <Link to="/consumer/patients/$patientId" params={{ patientId: patient.id }} className="block">
-      <Card title={
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-primary/10 text-primary grid place-items-center">
-            <HeartHandshake className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-[13.5px] font-semibold">{patient.name}</div>
-            <div className="text-[11px] text-muted-foreground">
-              {patient.id} · {patient.age}{patient.gender} · {patient.plan} · {patient.city}
-            </div>
-          </div>
+    <Card padded={false}>
+      <Link to="/consumer/patients/$patientId" params={{ patientId: patient.id }}
+        className="flex items-center gap-3 px-5 py-4 border-b border-border hover:bg-muted/30 transition-colors">
+        <div className="h-11 w-11 rounded-full bg-primary/10 text-primary grid place-items-center text-[16px] font-semibold shrink-0">
+          {patient.name.slice(0, 1).toUpperCase()}
         </div>
-      }>
-        <div className="grid grid-cols-3 gap-2 mt-1">
-          <Stat icon={Activity} label="In care" value={active.length} tone="primary" />
-          <Stat icon={CalendarCheck} label="Visits" value={visits.length} tone="info" />
-          <Stat icon={FileSignature} label="Consents" value={consents.length} tone="success" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[15px] font-semibold truncate">{patient.name}</div>
+          <div className="text-[12px] text-muted-foreground truncate">{meta || "Patient"}</div>
         </div>
-        <div className="mt-3 text-[12px] text-muted-foreground">
-          Last visit: <span className="text-foreground">{patient.lastVisit ?? "—"}</span>
-        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+      </Link>
 
-        {recent.length > 0 && (
-          <div className="mt-3 border-t border-border pt-3">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Care journey</div>
-            <ol className="relative pl-4 space-y-2">
-              <span className="absolute left-[5px] top-1 bottom-1 w-px bg-border" />
-              {recent.map(v => (
-                <li key={v.id} className="relative">
-                  <span className="absolute -left-[11px] top-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />
-                  <div className="flex items-center gap-2">
-                    <div className="text-[12px] truncate flex-1">
-                      <span className="font-medium">{v.service}</span>
-                      <span className="text-muted-foreground"> · {v.area}</span>
-                    </div>
-                    <StatusBadge workflow="booking" state={bindStatus("booking", v.rawStatus)} />
-                  </div>
-                  <div className="text-[10.5px] text-muted-foreground">{v.startedAt}</div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-      </Card>
-    </Link>
+      <div className="grid grid-cols-3 gap-2 px-5 py-3">
+        <Stat icon={Activity} label="In care" value={inCare} tone="primary" />
+        <Stat icon={CalendarCheck} label="Upcoming" value={upcoming.length} tone="info" />
+        <Stat icon={CheckCircle2} label="Completed" value={completed} tone="success" />
+      </div>
+
+      <div className="px-5 pb-3 text-[12px] text-muted-foreground">
+        {next && nextWhen ? (
+          <>Next visit: <span className="text-foreground font-medium">{nextWhen.date} · {nextWhen.time}</span>
+            {relativeWhen(next.startedAt) ? <span className="text-primary font-medium"> ({relativeWhen(next.startedAt)})</span> : null}</>
+        ) : "No upcoming visit"}
+      </div>
+
+      {recent.length > 0 && (
+        <div className="border-t border-border">
+          <div className="px-5 pt-3 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">Recent bookings</div>
+          {recent.map((b) => (
+            <BookingRow key={b.id} b={b} showPatient={false} tone={bucketOf(b) === "upcoming" ? "primary" : "muted"} />
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

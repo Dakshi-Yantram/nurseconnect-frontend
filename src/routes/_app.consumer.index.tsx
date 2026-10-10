@@ -1,18 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { Card } from "@/components/shared/Card";
-import { PortalBadge } from "@/components/shared/PortalBadge";
-import { RoleBadge } from "@/components/shared/RoleBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
+import { BookingRow } from "@/components/consumer/BookingRow";
 import { useAuth } from "@/lib/auth-context";
 import { useConsumerPatients, useBookings, type BookingEntity } from "@/lib/domain";
-import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
+import { bucketOf, needsPayment, relativeWhen, whenParts, bookingRef } from "@/lib/booking-view";
 import {
-  CalendarCheck, ChevronRight, AlertTriangle, Clock, HeartPulse,
-  History as HistoryIcon, Activity,
+  CalendarCheck, ChevronRight, AlertTriangle, Clock, HeartPulse, History as HistoryIcon,
+  Plus, Wallet, ArrowRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/consumer/")({
@@ -20,236 +17,206 @@ export const Route = createFileRoute("/_app/consumer/")({
   head: () => ({ meta: [{ title: "My Care — NurseConnect" }] }),
 });
 
-// Real BookingStatus values (app/models/enums.py) bucketed for the care
-// journey view. useBookings() is already server-scoped to the logged-in
-// consumer (/api/bookings/consumer), so no client-side ownerId filter here —
-// this previously read from the mock-seeded orchestration store via
-// useConsumerCareSnapshot, which never received real booking data at all.
-function useConsumerCareSnapshot() {
+// Sections come from one shared rule (lib/booking-view.ts → bucketOf) so Home,
+// Bookings, Patients and Notifications can never disagree. useBookings() is
+// already server-scoped to the logged-in consumer.
+function useCare() {
   const bookings = useBookings();
   return useMemo(() => {
-    // A slot that already passed is never "upcoming" — the server sets
-    // timeBucket/isExpired (it owns timezone + slot-boundary rules).
-    const isPast = (b: BookingEntity) => b.timeBucket === "past" || b.isExpired === true;
-    const upcoming = bookings.filter(b =>
-      !isPast(b) && (
-        b.rawStatus === "pending_payment" ||
-        b.rawStatus === "confirmed" ||
-        b.rawStatus === "assigned" ||
-        b.rawStatus === "worker_en_route" ||
-        b.rawStatus === "worker_arrived" ||
-        b.rawStatus === "rematch_pending"
-      )
-    );
-    const inCare = bookings.filter(b => b.rawStatus === "in_progress");
-    const completed = bookings.filter(b =>
-      b.rawStatus === "completed" || b.rawStatus === "cancelled" || b.rawStatus === "missed" ||
-      (isPast(b) && ["pending_payment", "confirmed", "assigned", "rematch_pending"].includes(b.rawStatus))
-    );
-    const escalated = bookings.filter(b => b.rawStatus === "disputed");
-
-    const byPatientId = new Map<string, BookingEntity[]>();
-    const byPatient = new Map<string, BookingEntity[]>();
-    for (const b of bookings) {
-      if (b.patientId) byPatientId.set(b.patientId, [...(byPatientId.get(b.patientId) ?? []), b]);
-      byPatient.set(b.patientName, [...(byPatient.get(b.patientName) ?? []), b]);
-    }
-
+    const by = (k: string) => bookings.filter((b) => bucketOf(b) === k);
+    const upcoming = by("upcoming").sort((a, b) => (a.startedAt ?? "").localeCompare(b.startedAt ?? ""));
     return {
-      all: bookings, upcoming, inCare, completed, escalated, byPatient, byPatientId,
-      counts: { upcoming: upcoming.length, inCare: inCare.length, completed: completed.length, escalated: escalated.length },
+      all: bookings,
+      upcoming,
+      inCare: by("in_care"),
+      review: by("review"),
+      notCompleted: by("not_completed").sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? "")),
+      done: by("done").sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? "")),
+      toPay: bookings.filter(needsPayment),
     };
   }, [bookings]);
 }
 
+function greeting() {
+  const h = Number(new Date().toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }));
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
 function ConsumerHome() {
   const { user } = useAuth();
-  const ownerId = user?.id ?? null;
-  const care = useConsumerCareSnapshot();
-  const patients = useConsumerPatients(ownerId).slice(0, 4);
+  const care = useCare();
+  const patients = useConsumerPatients(user?.id ?? null).slice(0, 4);
+  const first = user?.name?.split(" ")[0];
+  const next = care.upcoming[0];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-[18px] font-semibold">
-            Care journey{user ? ` · ${user.name.split(" ")[0]}` : ""}
-          </div>
-          <div className="text-[12.5px] text-muted-foreground">
-            A continuous view of care across your patients — visits in progress, what's coming next, and what's recently been delivered.
-          </div>
+          <div className="text-[20px] font-semibold leading-tight">{greeting()}{first ? `, ${first}` : ""}</div>
+          <div className="text-[12.5px] text-muted-foreground mt-0.5">Here's where your family's care stands today.</div>
         </div>
-        <div className="flex items-center gap-2">
-          <PortalBadge portal="consumer" />
-          {user && <RoleBadge role={user.role} />}
-        </div>
+        <Link
+          to="/consumer/bookings"
+          search={{ new: true }}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground hover:opacity-90"
+        >
+          <Plus className="h-4 w-4" /> New booking
+        </Link>
       </div>
 
-      <ContinuityStrip
-        upcoming={care.counts.upcoming}
-        inCare={care.counts.inCare}
-        completed={care.counts.completed}
-        escalated={care.counts.escalated}
-      />
-
-      {care.escalated.length > 0 && (
-        <RuntimeBoundary label="Care alerts">
-          <Card title={<span className="flex items-center gap-2 text-rose-700"><AlertTriangle className="h-4 w-4" /> Care alerts</span>} padded={false}>
-            {care.escalated.slice(0, 3).map(r => {
-              const state = bindStatus("booking", r.rawStatus);
-              return (
-                <Link key={r.id} to="/consumer/bookings/$bookingId" params={{ bookingId: r.id }}
-                  className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0 hover:bg-muted/30">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium truncate">#{r.id} · {r.service ?? "Service"} · {r.patientName ?? "—"}</div>
-                    <div className="text-[11.5px] text-muted-foreground">Escalated — your care team is actively reviewing this visit.</div>
-                  </div>
-                  <StatusBadge workflow="booking" state={state} />
-                </Link>
-              );
-            })}
-          </Card>
-        </RuntimeBoundary>
+      {/* Needs attention */}
+      {(care.review.length > 0 || care.toPay.length > 0) && (
+        <div className="space-y-2">
+          {care.review.length > 0 && (
+            <Link to="/consumer/bookings/$bookingId" params={{ bookingId: care.review[0].id }}
+              className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 hover:bg-rose-100/60">
+              <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold text-rose-800">Your care team is reviewing a visit</div>
+                <div className="text-[12px] text-rose-700/80 truncate">{care.review[0].service} · {care.review[0].patientName}</div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-rose-600" />
+            </Link>
+          )}
+          {care.toPay.length > 0 && (
+            <Link to="/consumer/bookings/$bookingId" params={{ bookingId: care.toPay[0].id }}
+              className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 hover:bg-amber-100/60">
+              <Wallet className="h-5 w-5 text-amber-700 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold text-amber-900">
+                  {care.toPay.length === 1 ? "1 booking is waiting for payment" : `${care.toPay.length} bookings are waiting for payment`}
+                </div>
+                <div className="text-[12px] text-amber-800/80">Pay now so we can send a nurse.</div>
+              </div>
+              <span className="rounded-full bg-amber-700 px-3 py-1 text-[11.5px] font-semibold text-white">Pay now</span>
+            </Link>
+          )}
+        </div>
       )}
+
+      {/* Next visit hero */}
+      {next && (
+        <Link to="/consumer/bookings/$bookingId" params={{ bookingId: next.id }}
+          className="block rounded-xl border border-primary/20 bg-primary/5 px-5 py-4 hover:bg-primary/10 transition-colors">
+          <div className="text-[10.5px] uppercase tracking-wide font-semibold text-primary">Next visit</div>
+          <div className="mt-1 flex flex-wrap items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[16px] font-semibold text-foreground truncate">{next.service}</div>
+              <div className="text-[12.5px] text-muted-foreground">
+                For {next.patientName} · {bookingRef(next)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[15px] font-semibold text-foreground">
+                {whenParts(next.startedAt)?.date} · {whenParts(next.startedAt)?.time}
+              </div>
+              {relativeWhen(next.startedAt) && <div className="text-[12px] font-medium text-primary">{relativeWhen(next.startedAt)}</div>}
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Tile label="In care now" value={care.inCare.length} hint="Visits underway" tone="text-emerald-700 bg-emerald-50 border-emerald-200" />
+        <Tile label="Upcoming" value={care.upcoming.length} hint="Scheduled next" tone="text-primary bg-primary/5 border-primary/20" />
+        <Tile label="Completed" value={care.done.filter((b) => b.rawStatus === "completed").length} hint="Visits delivered" tone="text-foreground bg-muted border-border" />
+        <Tile label="Needs review" value={care.review.length} hint="Open with care team" tone="text-rose-700 bg-rose-50 border-rose-200" />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RuntimeBoundary label="In care now">
-          <JourneyList
-            title={<span className="flex items-center gap-2"><HeartPulse className="h-4 w-4 text-emerald-600" /> In care now</span>}
-            emptyTitle="No visits are in progress" emptyHint="When a nurse is en route or with a patient, the visit appears here."
+          <Section
+            icon={<HeartPulse className="h-4 w-4 text-emerald-600" />} title="In care now"
             rows={care.inCare.slice(0, 5)} tone="emerald"
+            empty="No visit is in progress" hint="When a nurse is on the way or with the patient, it shows here."
           />
         </RuntimeBoundary>
         <RuntimeBoundary label="Upcoming care">
-          <JourneyList
-            title={<span className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> Upcoming care</span>}
-            action={<Link to="/consumer/bookings" className="text-[12px] text-primary">View all</Link>}
-            emptyTitle="No upcoming visits" emptyHint="Schedule a service to see it appear in the continuity timeline."
+          <Section
+            icon={<Clock className="h-4 w-4 text-primary" />} title="Upcoming"
+            action={<Link to="/consumer/bookings" className="text-primary">View all</Link>}
             rows={care.upcoming.slice(0, 5)} tone="primary"
+            empty="No upcoming visits" hint="Book a care package and it will appear here."
           />
         </RuntimeBoundary>
       </div>
 
       <RuntimeBoundary label="Recently completed">
-        <JourneyList
-          title={<span className="flex items-center gap-2"><HistoryIcon className="h-4 w-4 text-muted-foreground" /> Recently completed</span>}
-          action={<Link to="/consumer/bookings" className="text-[12px] text-primary">Full history</Link>}
-          emptyTitle="No completed visits yet" emptyHint="Completed visits will accumulate here as part of the care journey."
-          rows={care.completed.slice(0, 5)} tone="muted"
+        <Section
+          icon={<HistoryIcon className="h-4 w-4 text-muted-foreground" />} title="Recently completed"
+          action={<Link to="/consumer/bookings" className="text-primary">Full history</Link>}
+          rows={care.done.slice(0, 4)} tone="muted"
+          empty="No completed visits yet" hint="Finished visits will be listed here."
         />
       </RuntimeBoundary>
 
-      <RuntimeBoundary label="Patients under care">
+      {care.notCompleted.length > 0 && (
+        <RuntimeBoundary label="Not completed">
+          <Section
+            icon={<HistoryIcon className="h-4 w-4 text-amber-600" />} title="Expired or missed"
+            rows={care.notCompleted.slice(0, 3)} tone="amber"
+            empty="" hint="Bookings whose time passed without payment or a visit."
+          />
+        </RuntimeBoundary>
+      )}
+
+      <RuntimeBoundary label="Patients">
         <Card
-          title={<span className="flex items-center gap-2"><Activity className="h-4 w-4 text-muted-foreground" /> Patients under care</span>}
-          action={<Link to="/consumer/patients" className="text-[12px] text-primary">View all</Link>}
+          title="Your patients"
+          action={<Link to="/consumer/patients" className="text-primary inline-flex items-center gap-1">Manage <ArrowRight className="h-3 w-3" /></Link>}
           padded={false}
         >
-          {patients.length === 0
-            ? <div className="p-5"><EmptyState title="No patients yet" /></div>
-            : patients.map(p => {
-                const ledger = care.byPatientId.get(p.id) ?? care.byPatient.get(p.name) ?? [];
-                const upcoming  = ledger.filter(r =>
-                  r.rawStatus === "pending_payment" || r.rawStatus === "confirmed" ||
-                  r.rawStatus === "assigned" || r.rawStatus === "worker_en_route" ||
-                  r.rawStatus === "worker_arrived" || r.rawStatus === "rematch_pending"
-                ).length;
-                const inCare    = ledger.filter(r => r.rawStatus === "in_progress").length;
-                const completed = ledger.filter(r => r.rawStatus === "completed").length;
-                return (
-                  <Link
-                    key={p.id}
-                    to="/consumer/patients/$patientId"
-                    params={{ patientId: p.id }}
-                    className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
-                  >
-                    <div className="h-8 w-8 rounded-md bg-primary/10 text-primary grid place-items-center shrink-0">
-                      <HeartPulse className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium truncate">{p.name}</div>
-                      <div className="text-[11.5px] text-muted-foreground truncate">
-                        {p.plan} · last visit {p.lastVisit ?? "—"}
-                      </div>
-                    </div>
-                    <div className="hidden sm:flex items-center gap-3 text-[11px] text-muted-foreground shrink-0">
-                      <span><span className="text-emerald-700 font-semibold">{inCare}</span> in care</span>
-                      <span><span className="text-primary font-semibold">{upcoming}</span> upcoming</span>
-                      <span><span className="text-foreground font-semibold">{completed}</span> done</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  </Link>
-                );
-              })}
+          {patients.length === 0 ? (
+            <div className="p-5"><EmptyState title="No patients yet" /></div>
+          ) : patients.map((p) => {
+            const mine = care.all.filter((b) => b.patientId === p.id);
+            const up = mine.filter((b) => bucketOf(b) === "upcoming").length;
+            const done = mine.filter((b) => b.rawStatus === "completed").length;
+            return (
+              <Link key={p.id} to="/consumer/patients/$patientId" params={{ patientId: p.id }}
+                className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
+                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary grid place-items-center text-[13px] font-semibold shrink-0">
+                  {p.name.slice(0, 1).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium truncate">{p.name}</div>
+                  <div className="text-[11.5px] text-muted-foreground">{up} upcoming · {done} completed</div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </Link>
+            );
+          })}
         </Card>
       </RuntimeBoundary>
     </div>
   );
 }
 
-function ContinuityStrip({
-  upcoming, inCare, completed, escalated,
-}: { upcoming: number; inCare: number; completed: number; escalated: number }) {
-  const cells: Array<{ label: string; value: number; tone: string; hint: string }> = [
-    { label: "In care now",  value: inCare,    tone: "text-emerald-700 bg-emerald-50 border-emerald-200", hint: "Visits underway" },
-    { label: "Upcoming",     value: upcoming,  tone: "text-primary bg-primary/5 border-primary/20",       hint: "Scheduled next" },
-    { label: "Completed",    value: completed, tone: "text-foreground bg-muted border-border",            hint: "Recent care delivered" },
-    { label: "Needs review", value: escalated, tone: "text-rose-700 bg-rose-50 border-rose-200",          hint: "Escalations open" },
-  ];
+function Tile({ label, value, hint, tone }: { label: string; value: number; hint: string; tone: string }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      {cells.map(c => (
-        <div key={c.label} className={`rounded-lg border px-3 py-3 ${c.tone}`}>
-          <div className="text-[10.5px] uppercase tracking-wide opacity-80">{c.label}</div>
-          <div className="text-[22px] font-semibold leading-tight mt-0.5">{c.value}</div>
-          <div className="text-[11px] opacity-75 mt-0.5">{c.hint}</div>
-        </div>
-      ))}
+    <div className={`rounded-xl border px-4 py-3 ${tone}`}>
+      <div className="text-[10.5px] uppercase tracking-wide opacity-80">{label}</div>
+      <div className="text-[24px] font-semibold leading-tight mt-0.5">{value}</div>
+      <div className="text-[11px] opacity-75 mt-0.5">{hint}</div>
     </div>
   );
 }
 
-function JourneyList({
-  title, action, rows, emptyTitle, emptyHint, tone,
+function Section({
+  icon, title, action, rows, tone, empty, hint,
 }: {
-  title: React.ReactNode; action?: React.ReactNode;
-  rows: BookingEntity[];
-  emptyTitle: string; emptyHint?: string;
-  tone: "primary" | "emerald" | "muted";
+  icon: React.ReactNode; title: string; action?: React.ReactNode;
+  rows: BookingEntity[]; tone: "primary" | "emerald" | "muted" | "amber";
+  empty: string; hint?: string;
 }) {
-  const railTone =
-    tone === "emerald" ? "bg-emerald-500"
-    : tone === "primary" ? "bg-primary"
-    : "bg-muted-foreground/40";
-
   return (
-    <Card title={title} action={action} padded={false}>
+    <Card title={<span className="flex items-center gap-2">{icon} {title}</span>} action={action} padded={false}>
       {rows.length === 0
-        ? <div className="p-5"><EmptyState icon={CalendarCheck} title={emptyTitle} description={emptyHint} /></div>
-        : rows.map(r => {
-            const state = bindStatus("booking", r.rawStatus);
-            return (
-              <Link key={r.id} to="/consumer/bookings/$bookingId" params={{ bookingId: r.id }}
-                className="flex items-stretch gap-3 border-b border-border last:border-0 hover:bg-muted/30">
-                <span className={`w-1 ${railTone}`} aria-hidden />
-                <div className="flex items-center gap-3 flex-1 py-3 pr-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium truncate">
-                      {r.patientName ?? "—"} · {r.service ?? "Service"}
-                    </div>
-                    <div className="text-[11.5px] text-muted-foreground truncate">
-                      #{r.id} · {r.area ?? "—"}{r.startedAt ? ` · ${r.startedAt}` : ""}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <StatusBadge workflow="booking" state={state} />
-                    <SLAIndicator workflow="booking" state={state} enteredAt={parseEnteredAt(r.startedAt)} />
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+        ? <div className="p-5"><EmptyState icon={CalendarCheck} title={empty} description={hint} /></div>
+        : rows.map((b) => <BookingRow key={b.id} b={b} tone={tone} />)}
     </Card>
   );
 }

@@ -3,7 +3,8 @@ import { Card } from "@/components/shared/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useAuth } from "@/lib/auth-context";
 import { useBookings } from "@/lib/domain";
-import { CreditCard, CheckCircle2, Clock, XCircle, AlertCircle, IndianRupee, Banknote } from "lucide-react";
+import { bookingRef, isPastBooking, whenParts } from "@/lib/booking-view";
+import { CreditCard, CheckCircle2, Clock, XCircle, AlertCircle, IndianRupee } from "lucide-react";
 import {
   toAmount,
   deriveAmount,
@@ -38,6 +39,8 @@ interface PaymentRow {
   paymentStatus: PaymentStatus;
   bookingState: string;
   date: string | null;
+  ref: string;
+  expired: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -50,15 +53,18 @@ const STATUS_CONFIG: Record<PaymentStatus, {
   classes: string;
 }> = {
   paid: { label: "Paid", icon: CheckCircle2, classes: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  processing: { label: "Processing", icon: Clock, classes: "text-blue-700 bg-blue-50 border-blue-200" },
+  processing: { label: "In progress", icon: Clock, classes: "text-blue-700 bg-blue-50 border-blue-200" },
   pending: { label: "Pending", icon: Clock, classes: "text-amber-700 bg-amber-50 border-amber-200" },
   refunded: { label: "Refunded", icon: XCircle, classes: "text-muted-foreground bg-muted border-border" },
   failed: { label: "Failed", icon: AlertCircle, classes: "text-rose-700 bg-rose-50 border-rose-200" },
-  cash_due: { label: "Confirmed", icon: Banknote, classes: "text-sky-700 bg-sky-50 border-sky-200" },
+  cash_due: { label: "Pending", icon: Clock, classes: "text-amber-700 bg-amber-50 border-amber-200" },
 };
 
-function PaymentBadge({ status }: { status: PaymentStatus }) {
-  const { label, icon: Icon, classes } = STATUS_CONFIG[status];
+function PaymentBadge({ status, expired }: { status: PaymentStatus; expired?: boolean }) {
+  const base = STATUS_CONFIG[status];
+  const { label, icon: Icon, classes } = expired
+    ? { label: "Expired", icon: XCircle, classes: "text-muted-foreground bg-muted border-border" }
+    : base;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-medium ${classes}`}>
       <Icon className="h-3 w-3" />
@@ -72,31 +78,26 @@ function PaymentBadge({ status }: { status: PaymentStatus }) {
 // ---------------------------------------------------------------------------
 
 function SummaryStrip({ rows }: { rows: PaymentRow[] }) {
-  const total = rows.reduce((s, r) => s + r.amount, 0);
-  const paid = rows.filter(r => r.paymentStatus === "paid").reduce((s, r) => s + r.amount, 0);
-  const pending = rows.filter(r => r.paymentStatus === "pending" || r.paymentStatus === "processing").reduce((s, r) => s + r.amount, 0);
-  const refunded = rows.filter(r => r.paymentStatus === "refunded").reduce((s, r) => s + r.amount, 0);
-  // Without its own bucket, cash_due money was counted in "Total charged"
-  // but in none of the itemized cells below it — the cells would never
-  // sum back to the total. Kept separate from "Pending / processing"
-  // because the booking IS confirmed; it's collection method, not status,
-  // that's still open.
-  const cashDue = rows.filter(r => r.paymentStatus === "cash_due").reduce((s, r) => s + r.amount, 0);
+  // Expired (never paid, slot over) is not money owed, so it is left out of every total.
+  const live = rows.filter((r) => !r.expired);
+  const total = live.reduce((s, r) => s + r.amount, 0);
+  const paid = live.filter((r) => r.paymentStatus === "paid").reduce((s, r) => s + r.amount, 0);
+  const pending = live.filter((r) => ["pending", "processing", "cash_due", "failed"].includes(r.paymentStatus)).reduce((s, r) => s + r.amount, 0);
+  const refunded = live.filter((r) => r.paymentStatus === "refunded").reduce((s, r) => s + r.amount, 0);
 
   const cells = [
-    { label: "Total charged", value: formatAmount(total), tone: "text-foreground bg-muted border-border" },
+    { label: "Total", value: formatAmount(total), tone: "text-foreground bg-muted border-border" },
     { label: "Paid", value: formatAmount(paid), tone: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { label: "Pending / processing", value: formatAmount(pending), tone: "text-amber-700 bg-amber-50 border-amber-200" },
-    { label: "Due at visit (cash)", value: formatAmount(cashDue), tone: "text-sky-700 bg-sky-50 border-sky-200" },
+    { label: "To pay", value: formatAmount(pending), tone: "text-amber-700 bg-amber-50 border-amber-200" },
     { label: "Refunded", value: formatAmount(refunded), tone: "text-muted-foreground bg-muted border-border" },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {cells.map(c => (
-        <div key={c.label} className={`rounded-lg border px-3 py-3 ${c.tone}`}>
+        <div key={c.label} className={`rounded-xl border px-4 py-3 ${c.tone}`}>
           <div className="text-[10.5px] uppercase tracking-wide opacity-75">{c.label}</div>
-          <div className="text-[18px] font-semibold leading-tight mt-0.5">{c.value}</div>
+          <div className="text-[20px] font-semibold leading-tight mt-0.5">{c.value}</div>
         </div>
       ))}
     </div>
@@ -123,28 +124,23 @@ function ConsumerPayments() {
     )
     : allBookings;
 
-  const rows: PaymentRow[] = myBookings.map((b: any) => ({
-    bookingId: b.id,
-    label: `${(b.data as any)?.service ?? (b.data as any)?.serviceType ?? b.service ?? b.serviceType ?? "Service"} — ${(b.data as any)?.patientName ?? (b.data as any)?.patient ?? b.patientName ?? b.patient ?? "Patient"}`,
-    service: b.service ?? b.serviceType ?? "",
-    patientName: b.patientName ?? b.patient ?? "—",
-    // Prefer the real backend amount/status (b.totalAmount / b.paymentStatus,
-    // populated from Booking.total_amount / Booking.payment_status). Only
-    // fall back to the service-name heuristic for demo/seed rows that predate
-    // a real payment record.
-    amount: toAmount(
-      b.totalAmount,
-      deriveAmount(
-        (b.data as any)?.service ??
-        (b.data as any)?.serviceType ??
-        b.service ??
-        b.serviceType ?? ""
-      )
-    ),
-    paymentStatus: mapRealPaymentStatus(b.paymentStatus) ?? derivePaymentStatus(b.state ?? b.status ?? "pending"),
-    bookingState: b.state ?? b.status ?? "pending",
-    date: (b.data as any)?.date ?? null,
-  }));
+  const rows: PaymentRow[] = myBookings.map((b: any) => {
+    const status = mapRealPaymentStatus(b.paymentStatus) ?? derivePaymentStatus(b.rawStatus ?? "pending");
+    const w = whenParts(b.startedAt);
+    return {
+      bookingId: b.id,
+      ref: bookingRef(b),
+      label: `${b.service ?? "Care visit"}${b.patientName && b.patientName !== "—" ? ` — ${b.patientName}` : ""}`,
+      service: b.service ?? "",
+      patientName: b.patientName ?? "—",
+      amount: toAmount(b.totalAmount, 0),
+      paymentStatus: status,
+      bookingState: b.rawStatus ?? "pending",
+      date: w ? `${w.date} · ${w.time}` : null,
+      // Slot is over and it was never paid: show "Expired", not "Pending".
+      expired: status !== "paid" && status !== "refunded" && isPastBooking(b) && b.rawStatus === "pending_payment",
+    };
+  });
 
   // Sort: failed → pending → processing → paid → refunded
   const ORDER: Record<PaymentStatus, number> = {
@@ -153,7 +149,7 @@ function ConsumerPayments() {
     // payment still in flight.
     failed: 0, pending: 1, cash_due: 2, processing: 3, paid: 4, refunded: 5,
   };
-  rows.sort((a, b) => ORDER[a.paymentStatus] - ORDER[b.paymentStatus]);
+  rows.sort((a, b) => (Number(a.expired) - Number(b.expired)) || (ORDER[a.paymentStatus] - ORDER[b.paymentStatus]));
 
   return (
     <div className="space-y-5">
@@ -195,21 +191,19 @@ function ConsumerPayments() {
                 {rows.map(r => (
                   <tr key={r.bookingId} className="border-t border-border hover:bg-muted/20 transition-colors">
                     <td className="px-5 py-3 font-mono text-[12px] text-muted-foreground">
-                      #{r.bookingId}
+                      {r.ref}
                     </td>
                     <td className="px-5 py-3 font-medium max-w-[260px] truncate">
                       {r.label}
                     </td>
                     <td className="px-5 py-3 text-muted-foreground text-[12px]">
-                      {r.date ? new Date(r.date).toLocaleDateString("en-IN", {
-                        day: "2-digit", month: "short", year: "numeric",
-                      }) : "—"}
+                      {r.date ?? "—"}
                     </td>
                     <td className="px-5 py-3 font-semibold text-right tabular-nums">
                       {formatAmount(r.amount)}
                     </td>
                     <td className="px-5 py-3">
-                      <PaymentBadge status={r.paymentStatus} />
+                      <PaymentBadge status={r.paymentStatus} expired={r.expired} />
                     </td>
                     <td className="px-5 py-3">
                       {r.paymentStatus === "paid" || r.paymentStatus === "refunded" ? (
@@ -235,23 +229,11 @@ function ConsumerPayments() {
         )}
       </Card>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-[11.5px] text-muted-foreground px-1">
-        {(Object.entries(STATUS_CONFIG) as [PaymentStatus, typeof STATUS_CONFIG[PaymentStatus]][]).map(([key, cfg]) => (
-          <span key={key} className="flex items-center gap-1.5">
-            <cfg.icon className="h-3.5 w-3.5" />
-            <span className="font-medium">{cfg.label}</span>
-            <span className="opacity-60">—</span>
-            <span>{
-              key === "paid" ? "Booking completed, settled" :
-                key === "processing" ? "Visit in progress, payment in-flight" :
-                  key === "pending" ? "Booking confirmed, awaiting completion" :
-                    key === "cash_due" ? "Booking confirmed, pay your care professional directly" :
-                      key === "refunded" ? "Booking cancelled, refund issued" :
-                        "Payment issue — escalation raised"
-            }</span>
-          </span>
-        ))}
+      <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-muted-foreground px-1">
+        <span><b className="font-medium text-foreground">Paid</b> — payment received</span>
+        <span><b className="font-medium text-foreground">Pending</b> — not paid yet; pay from the booking</span>
+        <span><b className="font-medium text-foreground">Expired</b> — slot passed without payment</span>
+        <span><b className="font-medium text-foreground">Refunded</b> — money returned to you</span>
       </div>
     </div>
   );

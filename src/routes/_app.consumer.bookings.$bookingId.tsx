@@ -19,6 +19,7 @@ import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError, apiFetch, apiErrorMessage } from "@/lib/api";
 import { payForBooking, refundBooking } from "@/lib/payments";
+import { BookingProgress } from "@/components/consumer/BookingProgress";
 import { VerificationPanel, type VerificationState } from "@/components/booking/VerificationPanel";
 import { StartVisitCodeButton } from "@/components/StartVisitCodeButton";
 import { TrackNurseMap } from "@/components/TrackNurseMap";
@@ -567,21 +568,8 @@ function ConsumerBookingDetail() {
       )}
 
       <RuntimeBoundary label="Booking history">
-        <Card title="Booking history" padded={false}>
-          <div className="px-5 py-4 space-y-0">
-            {history.length === 0 ? (
-              <TimelineRow label="Booking created" ts={record.enteredAt} isLast />
-            ) : (
-              history.map((entry, i) => (
-                <TimelineRow
-                  key={entry.id}
-                  label={(entry as any).label ?? TIMELINE_LABELS[entry.action ?? ""] ?? "Update"}
-                  ts={entry.created_at}
-                  isLast={i === history.length - 1}
-                />
-              ))
-            )}
-          </div>
+        <Card title="Booking progress" padded={false}>
+          <BookingProgress status={record.state} history={history as any} createdAt={record.enteredAt} />
         </Card>
       </RuntimeBoundary>
     </div>
