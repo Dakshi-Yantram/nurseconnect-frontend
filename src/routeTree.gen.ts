@@ -53,6 +53,7 @@ import { Route as AppTrainingReviewRouteImport } from './routes/_app.training-re
 import { Route as AppVisitsRouteImport } from './routes/_app.visits'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
+import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
 import { Route as AppBookingsBookingIdRouteImport } from './routes/_app.bookings.$bookingId'
 import { Route as AppCarePackagesPackageIdRouteImport } from './routes/_app.care-packages.$packageId'
 import { Route as AppClinicalEscalationCaseIdRouteImport } from './routes/_app.clinical-escalation.$caseId'
@@ -322,6 +323,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/auth/login',
   path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyTokenRoute = VerifyTokenRouteImport.update({
+  id: '/verify/$token',
+  path: '/verify/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppBookingsBookingIdRoute = AppBookingsBookingIdRouteImport.update({
@@ -628,6 +634,7 @@ export interface FileRoutesByFullPath {
   '/visits': typeof AppVisitsRouteWithChildren
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
+  '/verify/$token': typeof VerifyTokenRoute
   '/bookings/$bookingId': typeof AppBookingsBookingIdRoute
   '/care-packages/$packageId': typeof AppCarePackagesPackageIdRoute
   '/clinical-escalation/$caseId': typeof AppClinicalEscalationCaseIdRoute
@@ -719,6 +726,7 @@ export interface FileRoutesByTo {
   '/visits': typeof AppVisitsRouteWithChildren
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
+  '/verify/$token': typeof VerifyTokenRoute
   '/bookings/$bookingId': typeof AppBookingsBookingIdRoute
   '/care-packages/$packageId': typeof AppCarePackagesPackageIdRoute
   '/clinical-escalation/$caseId': typeof AppClinicalEscalationCaseIdRoute
@@ -814,6 +822,7 @@ export interface FileRoutesById {
   '/_app/visits': typeof AppVisitsRouteWithChildren
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
+  '/verify/$token': typeof VerifyTokenRoute
   '/_app/bookings/$bookingId': typeof AppBookingsBookingIdRoute
   '/_app/care-packages/$packageId': typeof AppCarePackagesPackageIdRoute
   '/_app/clinical-escalation/$caseId': typeof AppClinicalEscalationCaseIdRoute
@@ -910,6 +919,7 @@ export interface FileRouteTypes {
     | '/visits'
     | '/auth/forgot-password'
     | '/auth/login'
+    | '/verify/$token'
     | '/bookings/$bookingId'
     | '/care-packages/$packageId'
     | '/clinical-escalation/$caseId'
@@ -1001,6 +1011,7 @@ export interface FileRouteTypes {
     | '/visits'
     | '/auth/forgot-password'
     | '/auth/login'
+    | '/verify/$token'
     | '/bookings/$bookingId'
     | '/care-packages/$packageId'
     | '/clinical-escalation/$caseId'
@@ -1095,6 +1106,7 @@ export interface FileRouteTypes {
     | '/_app/visits'
     | '/auth/forgot-password'
     | '/auth/login'
+    | '/verify/$token'
     | '/_app/bookings/$bookingId'
     | '/_app/care-packages/$packageId'
     | '/_app/clinical-escalation/$caseId'
@@ -1153,6 +1165,7 @@ export interface RootRouteChildren {
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
+  VerifyTokenRoute: typeof VerifyTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1463,6 +1476,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/login'
       fullPath: '/auth/login'
       preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify/$token': {
+      id: '/verify/$token'
+      path: '/verify/$token'
+      fullPath: '/verify/$token'
+      preLoaderRoute: typeof VerifyTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/bookings/$bookingId': {
@@ -2188,6 +2208,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
+  VerifyTokenRoute: VerifyTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

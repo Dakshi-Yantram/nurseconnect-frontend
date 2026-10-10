@@ -67,7 +67,7 @@ export function isPayable(raw: string | undefined): boolean {
 export function paymentStatusLabel(status: PaymentStatus): string {
   switch (status) {
     case "paid": return "Paid";
-    case "cash_due": return "Pay at visit";
+    case "cash_due": return "Confirmed";
     case "processing": return "Processing";
     case "failed": return "Failed";
     case "refunded": return "Refunded";

@@ -28,7 +28,7 @@ export function CallButton({ bookingId, calleeLabel }: { bookingId: string; call
     <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2">
       <div className="flex flex-col">
         <span className="text-[12px] font-medium text-foreground">
-          {phase === "connecting" ? `Calling ${calleeLabel}…` : `On call with ${calleeLabel}`}
+          {phase === "connecting" ? `Connecting…` : phase === "ringing" ? `Ringing ${calleeLabel}…` : `On call with ${calleeLabel}`}
         </span>
         {phase === "in_call" && (
           <span className="text-[11px] text-muted-foreground tabular-nums">{formatDuration(durationSeconds)}</span>

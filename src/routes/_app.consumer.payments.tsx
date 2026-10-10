@@ -54,7 +54,7 @@ const STATUS_CONFIG: Record<PaymentStatus, {
   pending: { label: "Pending", icon: Clock, classes: "text-amber-700 bg-amber-50 border-amber-200" },
   refunded: { label: "Refunded", icon: XCircle, classes: "text-muted-foreground bg-muted border-border" },
   failed: { label: "Failed", icon: AlertCircle, classes: "text-rose-700 bg-rose-50 border-rose-200" },
-  cash_due: { label: "Pay at visit", icon: Banknote, classes: "text-sky-700 bg-sky-50 border-sky-200" },
+  cash_due: { label: "Confirmed", icon: Banknote, classes: "text-sky-700 bg-sky-50 border-sky-200" },
 };
 
 function PaymentBadge({ status }: { status: PaymentStatus }) {

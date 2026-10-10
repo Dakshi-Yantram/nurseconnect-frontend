@@ -63,7 +63,6 @@ export function SchemaForm({
       <header>
         <h3 className="text-[14px] font-semibold text-foreground">{schema.title}</h3>
         {schema.description && <p className="text-[12px] text-muted-foreground mt-0.5">{schema.description}</p>}
-        <p className="text-[11px] text-muted-foreground mt-1">v{schema.version}</p>
       </header>
 
       {schema.sections.map(section => {
