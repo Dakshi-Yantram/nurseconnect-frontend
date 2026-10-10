@@ -2,6 +2,18 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronRight, Home } from "lucide-react";
 import { routeMeta, portalHome } from "@/lib/rbac";
 import { useAuth } from "@/lib/auth-context";
+import { useBookings } from "@/lib/domain";
+import { bookingRef } from "@/lib/booking-view";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Never show a raw UUID in the breadcrumb: use the booking reference instead. */
+function DetailLabel({ id }: { id: string }) {
+  const bookings = useBookings();
+  if (!UUID.test(id)) return <>{id}</>;
+  const b = bookings.find((x) => x.id === id);
+  return <>{b ? bookingRef(b) : "Details"}</>;
+}
 
 /**
  * Route-derived breadcrumbs.
@@ -35,7 +47,7 @@ export function Breadcrumbs() {
       {isDetail && (
         <>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground font-medium truncate max-w-[180px]">{detail}</span>
+          <span className="text-foreground font-medium truncate max-w-[180px]"><DetailLabel id={detail!} /></span>
         </>
       )}
     </nav>
