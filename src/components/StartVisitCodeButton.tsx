@@ -55,9 +55,6 @@ export function StartVisitCodeButton({ bookingId, status }: { bookingId: string;
           <div>
             <p className="text-emerald-700">{message}</p>
             <p className="mt-1.5 text-[22px] font-bold tracking-[0.3em] text-primary font-mono">{otp}</p>
-            <button onClick={fetchCode} disabled={busy} className="mt-1 text-primary hover:underline disabled:opacity-40">
-              {busy ? "Refreshing…" : "Refresh code"}
-            </button>
             {error && <p className="mt-1 text-[12px] text-red-600">{error}</p>}
           </div>
         </div>

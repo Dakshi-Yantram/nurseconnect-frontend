@@ -7,7 +7,7 @@ interface GenerateOtpResponse {
   sent: boolean;
   sms_sent?: boolean;
   message: string;
-  expires_in_seconds: number;
+  expires_in_seconds: number | null;
 }
 
 interface VerifyOtpResponse {
@@ -63,10 +63,7 @@ export function GenerateVisitOtp({ bookingId, onGenerated }: GenerateVisitOtpPro
       {result ? (
         <div className="rounded-xl bg-green-50 border border-green-200 p-4 flex flex-col gap-1">
           <p className="text-sm font-medium text-green-800">{result.message}</p>
-          <p className="text-xs text-green-600">
-            Code expires in {Math.floor(result.expires_in_seconds / 60)} min{" "}
-            {result.expires_in_seconds % 60}s
-          </p>
+          <p className="text-xs text-green-600">This code stays the same for this booking.</p>
         </div>
       ) : (
         <button

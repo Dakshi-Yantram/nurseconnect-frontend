@@ -30,6 +30,8 @@ async function apiFetch(path: string, init?: RequestInit) {
 // ---------------------------------------------------------------- Entity types
 export interface BookingEntity {
   id: string;
+  /** Short human reference (e.g. NC261010AB12CD) — shown instead of the raw UUID. */
+  bookingRef?: string;
   patientId?: string;
   patientName: string;
   nurseName: string;
@@ -86,6 +88,13 @@ export interface PackageEntity {
   targetCondition?: string;
   minTier?: string;
   insuranceCovered?: boolean;
+  /** Platform supplies the kit (bundled package). */
+  materialIncluded?: boolean;
+  /** Doctor-prescribed service: prescription must be uploaded before payment. */
+  requiresPrescription?: boolean;
+  whatsIncluded?: string[];
+  serviceDetails?: string;
+  importantInfo?: string;
 }
 
 export interface ServiceEntity {
@@ -141,10 +150,23 @@ function mapBooking(
   patientMap: Map<string, string>,
   serviceMap: Map<string, string>,
 ): BookingEntity {
-  const patientName = patientMap.get(b.patient_id) ?? "—";
-  const service = serviceMap.get(b.service_id) ?? b.service_code ?? "Service";
+  const patientName = b.patient_name ?? patientMap.get(b.patient_id) ?? "—";
+  // The backend already resolves the real name of what was bought (the care
+  // package wins, then the service). Package bookings carry NO service_id, so
+  // looking the name up in the services map always fell through to the
+  // literal word "Service".
+  const service =
+    b.service_name ?? serviceMap.get(b.service_id) ?? b.service_code ?? "Care visit";
+  // Ignore placeholder words so a bad legacy snapshot can never render as
+  // "Unknown, Unknown" on screen.
+  const clean = (v: unknown) => {
+    const t = typeof v === "string" ? v.trim() : "";
+    return t && !/^(unknown|—|-|n\/a|null|undefined)$/i.test(t) ? t : "";
+  };
   const area = b.address_snapshot
-    ? [b.address_snapshot.line1, b.address_snapshot.city].filter(Boolean).join(", ")
+    ? [clean(b.address_snapshot.line1), clean(b.address_snapshot.line2), clean(b.address_snapshot.city), clean(b.address_snapshot.pincode)]
+        .filter(Boolean)
+        .join(", ") || "—"
     : "—";
   const startedAt = b.scheduled_date && b.scheduled_start_time
     ? `${b.scheduled_date} ${b.scheduled_start_time.slice(0, 5)}`
@@ -160,6 +182,7 @@ function mapBooking(
 
   return {
     id: b.id ?? "",
+    bookingRef: b.booking_ref ?? undefined,
     patientId: b.patient_id ?? undefined,
     patientName,
     nurseName: b.worker_name ?? "Unassigned",
@@ -409,6 +432,11 @@ export function DomainProvider({ children }: { children: ReactNode }) {
           targetCondition: p.target_condition ?? undefined,
           minTier: p.min_tier ?? undefined,
           insuranceCovered: p.insurance_covered ?? undefined,
+          materialIncluded: !!p.material_included,
+          requiresPrescription: !!p.requires_prescription,
+          whatsIncluded: Array.isArray(p.whats_included) ? p.whats_included : undefined,
+          serviceDetails: p.service_details_text ?? undefined,
+          importantInfo: p.important_information ?? undefined,
         }));
       } else {
         console.warn("Care-packages API failed — showing empty state instead of mock data:", packagesRes.reason);

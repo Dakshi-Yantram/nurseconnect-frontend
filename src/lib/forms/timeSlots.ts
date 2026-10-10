@@ -15,7 +15,7 @@ export interface TimeSlotOption {
 }
 
 /** Minutes of lead time required before a slot counts as bookable "now". */
-export const SLOT_LEAD_MINUTES = 60;
+export const SLOT_LEAD_MINUTES = 120;
 
 export function buildDaySlots(): TimeSlotOption[] {
   const out: TimeSlotOption[] = [];
