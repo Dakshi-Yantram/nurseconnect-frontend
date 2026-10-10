@@ -150,6 +150,14 @@ function PartnerVisitDetail() {
   }
 
 
+  async function goEnRoute() {
+    setError(null); setBusy("enroute");
+    try {
+      await apiFetch(`/api/bookings/${visitId}/en-route`, { method: "POST" });
+      await load();
+    } catch (e: any) { setError(parseErr(e)); } finally { setBusy(null); }
+  }
+
   async function startVisit() {
     setError(null); setBusy("start");
     try {
@@ -283,6 +291,19 @@ function PartnerVisitDetail() {
             />
           </>
         ) : !inProgress ? (
+          <>
+          {b.status === "assigned" && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4">
+              <p className="text-[13px] font-semibold text-foreground">Heading to the patient?</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5 mb-3">
+                Tap once you leave. The family can then follow your arrival, and the start code unlocks.
+              </p>
+              <button onClick={goEnRoute} disabled={busy !== null}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40">
+                {busy === "enroute" ? <Loader2 size={15} className="animate-spin" /> : <Navigation size={15} />} I'm on my way
+              </button>
+            </div>
+          )}
           <div className="rounded-xl border border-border bg-card px-5 py-4">
             <div className="flex items-center gap-2 mb-2">
               <KeyRound size={15} className="text-primary" />
@@ -299,6 +320,7 @@ function PartnerVisitDetail() {
               </button>
             </div>
           </div>
+          </>
         ) : (
           <ExecutionPanel bookingId={visitId} booking={b} vitals={vitals}
             busy={busy} setBusy={setBusy} setError={setError} parseErr={parseErr} reload={load} />
