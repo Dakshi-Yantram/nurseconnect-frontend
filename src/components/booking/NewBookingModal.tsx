@@ -3,6 +3,7 @@ import { Loader2, Package as PackageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/shared/Modal";
 import { AddressPicker } from "@/components/AddressPicker";
+import { forwardGeocode } from "@/lib/geocode";
 import { SlotPicker, type SlotChoice } from "@/components/booking/SlotPicker";
 import { ConsentForm } from "@/components/booking/ConsentForm";
 import { VerificationPanel, type VerificationState } from "@/components/booking/VerificationPanel";
@@ -157,12 +158,37 @@ export function NewBookingModal({
   const consentOk = !!consentOnFile || consentChecked;
   const canSubmit = !!addressId && !!pkg && !!patient && !!slot && consentOk && !busy;
 
+  // Saved addresses created before coordinates were captured have none. Resolve
+  // them from the typed text and store them, so the booking never depends on the
+  // customer pressing "Use current location".
+  async function ensureAddressHasLocation(id: string) {
+    let list: any[] = [];
+    try { list = await apiFetch("/api/consumers/me/addresses"); } catch { return; }
+    const a = list.find((x) => x.id === id);
+    if (!a) return;
+    const has = a.latitude != null && a.longitude != null && !(Number(a.latitude) === 0 && Number(a.longitude) === 0);
+    if (has) return;
+    const found = await forwardGeocode(a);
+    if (!found) return; // backend will try too, and show its own message
+    try {
+      await apiFetch(`/api/consumers/me/addresses/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          label: a.label, recipient_name: a.recipient_name, recipient_phone: a.recipient_phone,
+          line1: a.line1, line2: a.line2, city: a.city, state: a.state, pincode: a.pincode,
+          landmark: a.landmark, is_default: !!a.is_default, ...found,
+        }),
+      });
+    } catch { /* non-fatal: backend resolves from the address text as well */ }
+  }
+
   const submit = async () => {
     if (!canSubmit || !pkg || !patient || !slot) return;
     setBusy(true);
     try {
       let booking = created;
       if (!booking) {
+        await ensureAddressHasLocation(addressId!);
         booking = await apiFetch("/api/bookings/", {
           method: "POST",
           body: JSON.stringify({
