@@ -60,11 +60,10 @@ export function PaymentDialog({
   const materialsOk = materials.length === 0 || allMaterialsChecked(materials, matChecked);
 
   if (!open || !booking) return null;
+  // Customers see one total (all taxes & fees included) — no fee/GST split.
+  // A subsidy is the only extra line, and only when it actually applies.
   const rows = [
-    { label: "Base price", value: booking.base_amount },
-    { label: "Urgent surcharge", value: booking.surge_amount },
-    { label: "Subsidy", value: booking.subsidy_amount, negative: true },
-    { label: "Tax", value: booking.tax_amount },
+    { label: "Subsidy applied", value: booking.subsidy_amount, negative: true },
   ].filter((r) => Number(r.value) !== 0);
 
   async function pay() {
@@ -121,6 +120,7 @@ export function PaymentDialog({
             <span>Total</span>
             <span>{inr(booking.total_amount)}</span>
           </div>
+          <p className="px-4 py-2 text-[11.5px] text-muted-foreground">Inclusive of all taxes and fees.</p>
         </div>
 
         {materials.length > 0 && (

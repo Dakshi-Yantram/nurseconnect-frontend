@@ -97,6 +97,9 @@ function s(preset: keyof typeof STATUS_PRESETS, next: string[], extra: Partial<S
 const BOOKING_STATUS_PRESETS: Record<string, Omit<StatusMeta, "next">> = {
   draft:            { label: "Draft",              tone: "muted",   phase: "intake" },
   pending_payment:  { label: "Pending Payment",     tone: "warning", phase: "intake" },
+  prescription_pending: { label: "Prescription Review", tone: "warning", phase: "intake" },
+  searching_nurse:  { label: "Finding Your Nurse",  tone: "info",    phase: "intake" },
+  quality_discrepancy_alert: { label: "Safety Check", tone: "danger", phase: "review" },
   confirmed:        { label: "Confirmed",           tone: "info",    phase: "intake" },
   assigned:         { label: "Nurse Assigned",      tone: "primary", phase: "active" },
   worker_en_route:  { label: "Nurse On The Way",    tone: "primary", phase: "active" },
@@ -117,7 +120,10 @@ export const WORKFLOWS: Record<WorkflowKey, WorkflowDef> = {
     key: "booking", label: "Booking", portal: "shared", initial: "pending_payment",
     states: {
       draft:            bs("draft",            ["pending_payment", "cancelled"]),
-      pending_payment:  bs("pending_payment",   ["confirmed", "cancelled"], { slaMinutes: 30 }),
+      pending_payment:  bs("pending_payment",   ["confirmed", "prescription_pending", "searching_nurse", "cancelled"], { slaMinutes: 30 }),
+      prescription_pending: bs("prescription_pending", ["searching_nurse", "cancelled"], { slaMinutes: 120 }),
+      searching_nurse:  bs("searching_nurse",   ["assigned", "rematch_pending", "cancelled"], { slaMinutes: 60 }),
+      quality_discrepancy_alert: bs("quality_discrepancy_alert", ["completed", "cancelled"]),
       confirmed:        bs("confirmed",         ["assigned", "rematch_pending", "cancelled"], { slaMinutes: 60 }),
       assigned:         bs("assigned",          ["worker_en_route", "rematch_pending", "cancelled"], { slaMinutes: 60 }),
       worker_en_route:  bs("worker_en_route",   ["worker_arrived", "cancelled"]),

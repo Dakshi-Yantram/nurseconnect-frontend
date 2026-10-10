@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiErrorMessage, apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Send, MessageCircle, Lock, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,8 @@ export function ChatPanel({ scope, id }: { scope: "booking" | "package"; id: str
   const [thread, setThread] = useState<ThreadResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 409 = "no nurse yet" — a normal waiting state, not a failure to show in red.
+  const [notYet, setNotYet] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -42,8 +44,11 @@ export function ChatPanel({ scope, id }: { scope: "booking" | "package"; id: str
   const load = useCallback((silent = false) => {
     if (!silent) setLoading(true);
     apiFetch(endpoint)
-      .then(setThread)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load messages"))
+      .then((t) => { setThread(t); setNotYet(false); setError(null); })
+      .catch((e: unknown) => {
+        if (e instanceof ApiError && e.status === 409) { setNotYet(true); setError(null); return; }
+        setError(apiErrorMessage(e, "We couldn't load your messages."));
+      })
       .finally(() => setLoading(false));
   }, [endpoint]);
 
@@ -65,7 +70,7 @@ export function ChatPanel({ scope, id }: { scope: "booking" | "package"; id: str
       setDraft("");
       load(true);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to send message");
+      setError(apiErrorMessage(e, "We couldn't send your message."));
     } finally {
       setSending(false);
     }
@@ -75,6 +80,15 @@ export function ChatPanel({ scope, id }: { scope: "booking" | "package"; id: str
     return (
       <div className="rounded-xl border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground">
         Loading conversation…
+      </div>
+    );
+  }
+
+  if (notYet && !thread) {
+    return (
+      <div className="rounded-xl border border-border bg-card px-5 py-5 text-[13px] text-muted-foreground flex items-center gap-2">
+        <MessageCircle className="h-4 w-4 text-primary shrink-0" />
+        Chat opens as soon as a nurse is assigned to your visit.
       </div>
     );
   }

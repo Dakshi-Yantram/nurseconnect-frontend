@@ -251,7 +251,6 @@ export const NAV_REGISTRY: NavItem[] = [
   { to: "/consumer/bookings",       label: "Bookings",           icon: CalendarCheck,   section: "My Care",        permission: "consumer.bookings",         portal: "consumer" },
   { to: "/consumer/patients",       label: "Patients",           icon: HeartHandshake,  section: "My Care",        permission: "consumer.patients",         portal: "consumer" },
   { to: "/consumer/payments",       label: "Payments",           icon: CreditCard,      section: "Account",        permission: "consumer.payments",         portal: "consumer" },
-  { to: "/consumer/consents",       label: "Consents",           icon: FileSignature,   section: "Account",        permission: "consumer.consents",         portal: "consumer" },
   { to: "/consumer/notifications",  label: "Notifications",      icon: Bell,            section: "Account",        permission: "consumer.notifications",    portal: "consumer" },
   { to: "/consumer/profile",        label: "Profile",            icon: UserIcon,        section: "Account",        permission: "consumer.profile",          portal: "consumer" },
 

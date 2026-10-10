@@ -7,21 +7,20 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SLAIndicator } from "@/components/shared/SLAIndicator";
 import { Modal } from "@/components/shared/Modal";
 import { RuntimeBoundary } from "@/components/shared/RuntimeBoundary";
-import { SchemaForm } from "@/lib/forms/SchemaForm";
-import { BOOKING_REQUEST_SCHEMA } from "@/lib/forms/templates";
-import type { FormSchema } from "@/lib/forms/schema";
+import { NewBookingModal } from "@/components/booking/NewBookingModal";
+import { ReadMore } from "@/components/booking/ReadMore";
+import { searchItems } from "@/lib/package-search";
 import { useAuth } from "@/lib/auth-context";
 import {
   useBookings, useConsumerPatients, usePackages, useRefetchBookings, type PackageEntity,
 } from "@/lib/domain";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import {
-  CalendarCheck, ChevronRight, Clock, HeartPulse,
+  CalendarCheck, ChevronRight, Clock, HeartPulse, Search, X,
   History as HistoryIcon, AlertTriangle, Plus, ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
-import { AddressPicker } from "@/components/AddressPicker";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { VisitOtpChip } from "@/components/VisitOtpChip";
 import { MaterialsChecklist } from "@/components/MaterialsChecklist";
@@ -44,121 +43,6 @@ export const Route = createFileRoute("/_app/consumer/bookings")({
   }),
 });
 
-const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-
-// ── City → approximate coordinates map ──────────────────────────────────────
-// Used as a fallback when the consumer profile has no stored lat/lng.
-// Covers the major Indian cities NurseConnect operates in.
-const CITY_COORDS: Record<string, { lat: number; lng: number; state: string; pincode: string }> = {
-  "hyderabad": { lat: 17.3850, lng: 78.4867, state: "Telangana", pincode: "500001" },
-  "bangalore": { lat: 12.9716, lng: 77.5946, state: "Karnataka", pincode: "560001" },
-  "bengaluru": { lat: 12.9716, lng: 77.5946, state: "Karnataka", pincode: "560001" },
-  "chennai": { lat: 13.0827, lng: 80.2707, state: "Tamil Nadu", pincode: "600001" },
-  "mumbai": { lat: 19.0760, lng: 72.8777, state: "Maharashtra", pincode: "400001" },
-  "delhi": { lat: 28.6139, lng: 77.2090, state: "Delhi", pincode: "110001" },
-  "delhi ncr": { lat: 28.6139, lng: 77.2090, state: "Delhi", pincode: "110001" },
-  "kolkata": { lat: 22.5726, lng: 88.3639, state: "West Bengal", pincode: "700001" },
-  "kochi": { lat: 9.9312, lng: 76.2673, state: "Kerala", pincode: "682001" },
-  "thrissur": { lat: 10.5276, lng: 76.2144, state: "Kerala", pincode: "680001" },
-  "pune": { lat: 18.5204, lng: 73.8567, state: "Maharashtra", pincode: "411001" },
-  "coimbatore": { lat: 11.0168, lng: 76.9558, state: "Tamil Nadu", pincode: "641001" },
-  "jaipur": { lat: 26.9124, lng: 75.7873, state: "Rajasthan", pincode: "302001" },
-  "warangal": { lat: 17.9784, lng: 79.5941, state: "Telangana", pincode: "506001" },
-  "visakhapatnam": { lat: 17.6868, lng: 83.2185, state: "Andhra Pradesh", pincode: "530001" },
-  "vijayawada": { lat: 16.5062, lng: 80.6480, state: "Andhra Pradesh", pincode: "520001" },
-};
-
-// Resolve coordinates and address fields for a booking.
-// Priority: (1) browser Geolocation API, (2) consumer profile stored lat/lng,
-// (3) city name lookup, (4) Hyderabad default.
-async function resolveLocation(
-  consumerCity?: string | null,
-  consumerState?: string | null,
-  consumerPincode?: string | null,
-  consumerLat?: number | null,
-  consumerLng?: number | null,
-): Promise<{ latitude: number; longitude: number; state: string; pincode: string; city: string }> {
-
-  // 1) Try browser Geolocation (best accuracy, real-time)
-  const browserCoords = await new Promise<GeolocationCoordinates | null>((resolve) => {
-    if (!navigator.geolocation) { resolve(null); return; }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos.coords),
-      () => resolve(null),
-      { timeout: 4000, maximumAge: 60000 },
-    );
-  });
-
-  if (browserCoords) {
-    const cityKey = (consumerCity ?? "").toLowerCase().trim();
-    const cityData = CITY_COORDS[cityKey];
-    return {
-      latitude: browserCoords.latitude,
-      longitude: browserCoords.longitude,
-      state: consumerState ?? cityData?.state ?? "India",
-      pincode: consumerPincode ?? cityData?.pincode ?? "000000",
-      city: consumerCity ?? "Unknown",
-    };
-  }
-
-  // 2) Consumer profile stored coordinates
-  if (consumerLat && consumerLng) {
-    const cityKey = (consumerCity ?? "").toLowerCase().trim();
-    const cityData = CITY_COORDS[cityKey];
-    return {
-      latitude: consumerLat,
-      longitude: consumerLng,
-      state: consumerState ?? cityData?.state ?? "India",
-      pincode: consumerPincode ?? cityData?.pincode ?? "000000",
-      city: consumerCity ?? "Unknown",
-    };
-  }
-
-  // 3) City name lookup from consumer profile
-  const cityKey = (consumerCity ?? "").toLowerCase().trim();
-  if (cityKey && CITY_COORDS[cityKey]) {
-    const cityData = CITY_COORDS[cityKey];
-    return {
-      latitude: cityData.lat,
-      longitude: cityData.lng,
-      state: consumerState ?? cityData.state,
-      pincode: consumerPincode ?? cityData.pincode,
-      city: consumerCity ?? cityKey,
-    };
-  }
-
-  // 4) Hyderabad default (NurseConnect HQ city)
-  return {
-    latitude: 17.3850,
-    longitude: 78.4867,
-    state: "Telangana",
-    pincode: "500001",
-    city: consumerCity ?? "Hyderabad",
-  };
-}
-
-// Delegates to the shared client in @/lib/api so this screen gets token
-// refresh + consistent error text. Re-throws a plain Error whose .message is
-// already user-readable (callers here display e.message directly); the old
-// version could show "[object Object]" when `detail` was an object.
-async function apiPost(path: string, body: unknown) {
-  try {
-    return await sharedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
-  } catch (e) {
-    throw new Error(apiErrorMessage(e));
-  }
-}
-
-// Fetch the logged-in consumer's profile to get stored location fields.
-async function fetchConsumerProfile() {
-  if (!localStorage.getItem("access_token")) return null;
-  try {
-    return await sharedApiFetch(`/api/consumers/me`);
-  } catch {
-    return null;
-  }
-}
-
 function BookingsLayout() {
   const pathname = useRouterState({ select: s => s.location.pathname });
   if (pathname === "/consumer/bookings") return <ConsumerBookings />;
@@ -170,8 +54,6 @@ function ConsumerBookings() {
   const search = useSearch({ from: "/_app/consumer/bookings" });
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [addressId, setAddressId] = useState<string | null>(null);
   const [pendingBooking, setPendingBooking] = useState<any>(null);
   // Grouped catalogue (dropdown cards). null => feature off / not loaded: old flat list.
   const [groups, setGroups] = useState<PackageGroup[] | null>(null);
@@ -179,14 +61,8 @@ function ConsumerBookings() {
   const [matStep, setMatStep] = useState<{ booking: any; materials: PackageMaterial[] } | null>(null);
   const [matChecked, setMatChecked] = useState<Record<string, boolean>>({});
   const [matBusy, setMatBusy] = useState(false);
-  // Store consumer profile for location resolution
-  const [consumerProfile, setConsumerProfile] = useState<any>(null);
-  // Prefill notes + selection when arriving from a Care Package's "Book" button
-  const [prefillNotes, setPrefillNotes] = useState<string | undefined>(undefined);
   const [prefillPackageId, setPrefillPackageId] = useState<string | undefined>(undefined);
-  // Tracks the currently-selected package in the open form so the preview
-  // panel below the dropdown can show its visits/days/price live.
-  const [selectedPackageId, setSelectedPackageId] = useState<string | undefined>(undefined);
+  const [query, setQuery] = useState("");
 
   const bookings = useBookings();
   const patients = useConsumerPatients(user?.id);
@@ -197,97 +73,18 @@ function ConsumerBookings() {
     packageMaterialsApi.listGrouped().then(setGroups).catch(() => setGroups(null));
   }, []);
 
-  // Load consumer profile on mount for location fields
-  useEffect(() => {
-    fetchConsumerProfile().then(setConsumerProfile);
-  }, []);
-
-  // Auto-open "New booking" modal when navigated here with ?new=1
-  // (e.g. clicking "Book" on a Care Package card) — skips the extra click.
+  // Auto-open "New booking" when navigated here with ?new=1 (Care Package "Book").
   useEffect(() => {
     if (search.new) {
-      if (search.package) setPrefillNotes(`Package: ${search.package}`);
-      if (search.packageId) { setPrefillPackageId(search.packageId); setSelectedPackageId(search.packageId); }
+      if (search.packageId) setPrefillPackageId(search.packageId);
       setOpen(true);
-      // clean the URL so a refresh/back doesn't reopen the modal
       navigate({ to: "/consumer/bookings", search: {}, replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.new, search.package, search.packageId]);
 
-  // The only bookable unit is an admin-managed care package — no
-  // standalone services. Price shown here always matches what admin set,
-  // since it's read from the same /api/care-packages data admin writes to.
-  const packageOptions = useMemo(() => {
-    const activePackages = packages.filter(p => p.rawStatus === "active");
-    return activePackages.map(p => {
-      const price = p.packagePrice ?? p.perVisitPrice;
-      return {
-        label: `${p.name}${price != null ? ` — ₹${price.toLocaleString("en-IN")}` : ""}`,
-        value: p.id,
-      };
-    });
-  }, [packages]);
-
-  const selectedPackage = useMemo(
-    () => packages.find(p => p.id === selectedPackageId),
-    [packages, selectedPackageId],
-  );
-
-  // "+ New Booking" — blank modal, full package dropdown to choose from.
-  const openNewBooking = () => {
-    setPrefillNotes(undefined);
-    setPrefillPackageId(undefined);
-    setSelectedPackageId(undefined);
-    setOpen(true);
-  };
-
-  // A package card's "Book" button — same modal, pre-filled and narrowed
-  // to that one package so the choice made on the card carries through.
-  const openBookingForPackage = (pkg: PackageEntity) => {
-    setPrefillNotes(`Package: ${pkg.name}`);
-    setPrefillPackageId(pkg.id);
-    setSelectedPackageId(pkg.id);
-    setOpen(true);
-  };
-
-  // Grouped picker is used only if the backend returned groups; otherwise the
-  // old flat "service" select in the form is used unchanged.
-  const groupedOn = !!groups && groups.length > 0;
-
-  const liveSchema: FormSchema = useMemo(() => {
-    const patientField = BOOKING_REQUEST_SCHEMA.sections[0].fields[0];
-    const serviceField = BOOKING_REQUEST_SCHEMA.sections[0].fields[1];
-
-    return {
-      ...BOOKING_REQUEST_SCHEMA,
-      sections: BOOKING_REQUEST_SCHEMA.sections.map((section, i) => {
-        if (i !== 0) return section;
-        return {
-          ...section,
-          fields: section.fields.filter(f => !(groupedOn && f.key === serviceField.key)).map(f => {
-            if (f.key === patientField.key) {
-              return {
-                ...f,
-                kind: "select" as const,
-                options: patients.map(p => ({ label: p.name, value: p.id })),
-              };
-            }
-            if (f.key === serviceField.key) {
-              // Coming from a Care Package's "Book" button — narrow the
-              // dropdown to just that package so the choice made on the
-              // Care Packages page carries through unambiguously.
-              const filtered = prefillPackageId
-                ? packageOptions.filter(o => o.value === prefillPackageId)
-                : packageOptions;
-              return { ...f, options: filtered };
-            }
-            return f;
-          }),
-        };
-      }),
-    };
-  }, [patients, packageOptions, prefillPackageId, groupedOn]);
+  const openNewBooking = () => { setPrefillPackageId(undefined); setOpen(true); };
+  const openBookingForPackage = (pkg: PackageEntity) => { setPrefillPackageId(pkg.id); setOpen(true); };
 
   // Buckets match the real backend BookingStatus values (app/models/enums.py):
   // draft, pending_payment, confirmed, assigned, worker_en_route,
@@ -300,6 +97,9 @@ function ConsumerBookings() {
     all: bookings,
     upcoming: bookings.filter(b =>
       b.rawStatus === "pending_payment" ||
+      b.rawStatus === "prescription_pending" ||
+      b.rawStatus === "searching_nurse" ||
+      b.rawStatus === "quality_discrepancy_alert" ||
       b.rawStatus === "confirmed" ||
       b.rawStatus === "assigned" ||
       b.rawStatus === "worker_en_route" ||
@@ -315,71 +115,22 @@ function ConsumerBookings() {
     escalated: bookings.filter(b => b.rawStatus === "disputed"),
   };
 
-  const onCreate = async (values: Record<string, unknown>) => {
-    const patient = patients.find(p => p.id === values.patient_name);
-    if (!patient) {
-      toast.error("Select a patient");
-      return;
-    }
-    const packageId = groupedOn ? String(selectedPackageId ?? "") : String(values.service ?? "");
-    if (!packages.some(p => p.id === packageId)) {
-      toast.error("Select a care package");
-      return;
-    }
-
-    setSubmitting(true);
+  // Called by the booking modal once the booking exists and any prescription /
+  // medicine photo has been collected. Next: materials check, then payment.
+  const onReadyToPay = async (created: any) => {
+    setOpen(false);
+    let mats: PackageMaterial[] = [];
     try {
-      // ── PATCH 1: Resolve real location instead of hardcoded Bangalore ──
-      const location = await resolveLocation(
-        consumerProfile?.city,
-        consumerProfile?.state,
-        consumerProfile?.pincode,
-        consumerProfile?.latitude ? Number(consumerProfile.latitude) : null,
-        consumerProfile?.longitude ? Number(consumerProfile.longitude) : null,
-      );
-
-      const created = await apiPost("/api/bookings/", {
-        patient_id: patient.id,
-        // Prices from the package's own package_price/per_visit_price —
-        // always the same number shown in the dropdown above and set by admin.
-        package_id: packageId,
-        booking_type: "one_time",
-        scheduled_date: values.preferred_date,
-        scheduled_start_time: (() => {
-          const t = (values.preferred_time as string) || "10:00 AM";
-          const [time, period] = t.split(" ");
-          const [h, m] = time.split(":").map(Number);
-          const hours24 = period === "PM" && h !== 12 ? h + 12 : (period === "AM" && h === 12 ? 0 : h);
-          return `${String(hours24).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
-        })(),
-        is_urgent: false,
-        address_id: addressId || undefined,
-        // fallback inline address when no saved address selected
-        ...(!addressId ? {
-          address: { line1: location.city || "—", city: location.city, state: location.state, pincode: location.pincode },
-          latitude: location.latitude, longitude: location.longitude,
-        } : {}),
-        special_instructions: values.notes || undefined,
-      });
-
-      setOpen(false);
-      // Materials checklist, step 1 (booking). No list / feature off => straight to payment.
-      let mats: PackageMaterial[] = [];
-      try {
-        const m = await packageMaterialsApi.getForBooking(created.id);
-        mats = m && !m.acks?.booking ? (m.materials ?? []) : [];
-      } catch { /* optional; server payment gate still applies */ }
-      if (mats.length > 0) {
-        setMatChecked({});
-        setMatStep({ booking: created, materials: mats });
-      } else {
-        setPendingBooking(created);
-      }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to create booking");
-    } finally {
-      setSubmitting(false);
+      const m = await packageMaterialsApi.getForBooking(created.id);
+      mats = m && !m.acks?.booking ? (m.materials ?? []) : [];
+    } catch { /* optional; server payment gate still applies */ }
+    if (mats.length > 0) {
+      setMatChecked({});
+      setMatStep({ booking: created, materials: mats });
+    } else {
+      setPendingBooking(created);
     }
+    refetchBookings();
   };
 
   const isEmpty = care.all.length === 0;
@@ -402,7 +153,10 @@ function ConsumerBookings() {
           </button>
         </div>
 
-        <CarePackagesGrid packages={packages} groups={groups} onBook={openBookingForPackage} />
+        <CarePackagesGrid
+          packages={packages} groups={groups} onBook={openBookingForPackage}
+          query={query} onQuery={setQuery}
+        />
 
         {isEmpty ? (
           <Card><EmptyState icon={CalendarCheck} title="No bookings yet" description="Create your first booking to begin the care journey." /></Card>
@@ -441,49 +195,15 @@ function ConsumerBookings() {
         )}
       </div>
 
-      <Modal
+      <NewBookingModal
         open={open}
-        onClose={() => { setOpen(false); setSelectedPackageId(prefillPackageId); }}
-        title="New care booking"
-      >
-        <div className="space-y-4">
-          <AddressPicker value={addressId} onChange={setAddressId} />
-
-          {selectedPackage && (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-foreground truncate">{selectedPackage.name}</p>
-                <p className="text-[11.5px] text-muted-foreground">
-                  {[
-                    selectedPackage.visitsPerCycle != null ? `${selectedPackage.visitsPerCycle} visits` : null,
-                    selectedPackage.cycleDurationDays != null ? `${selectedPackage.cycleDurationDays} days` : null,
-                  ].filter(Boolean).join(" · ") || "Structured care package"}
-                </p>
-              </div>
-              {(selectedPackage.packagePrice ?? selectedPackage.perVisitPrice) != null && (
-                <p className="text-[15px] font-semibold text-primary shrink-0">
-                  ₹{(selectedPackage.packagePrice ?? selectedPackage.perVisitPrice)!.toLocaleString("en-IN")}
-                </p>
-              )}
-            </div>
-          )}
-
-          {groupedOn && (
-            <GroupedPackagePicker groups={groups!} value={selectedPackageId} onChange={setSelectedPackageId} />
-          )}
-
-          <SchemaForm
-            schema={liveSchema}
-            onSubmit={onCreate}
-            onValuesChange={(v) => { if (!groupedOn) setSelectedPackageId(typeof v.service === "string" ? v.service : undefined); }}
-            submitLabel="Request booking"
-            initialValues={{
-              ...(prefillNotes ? { notes: prefillNotes } : {}),
-              ...(prefillPackageId ? { service: prefillPackageId } : {}),
-            }}
-          />
-        </div>
-      </Modal>
+        onClose={() => { setOpen(false); refetchBookings(); }}
+        packages={packages}
+        groups={groups}
+        patients={patients}
+        initialPackageId={prefillPackageId}
+        onReadyToPay={onReadyToPay}
+      />
       <Modal
         open={matStep !== null}
         onClose={() => { /* must confirm to continue; booking stays in "pending payment" */ setMatStep(null); }}
@@ -564,7 +284,7 @@ function JourneySection({
             >
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-medium truncate">
-                  #{b.id.slice(0, 8)} · {b.service ?? "Service"} · {b.patientName ?? "—"}
+                  {b.bookingRef ? `${b.bookingRef} · ` : ""}{b.service ?? "Care visit"} · {b.patientName ?? "—"}
                 </div>
                 <div className="text-[11.5px] text-muted-foreground">
                   {b.area ?? "—"}{b.startedAt ? ` · ${b.startedAt}` : ""}
@@ -586,42 +306,6 @@ function JourneySection({
 
 // ── Care package cards — browse admin-managed packages, "Book" opens the
 // same booking modal above, pre-filled to that package. ─────────────────────
-// Two-step picker used in the New booking modal: service type (group) → option.
-function GroupedPackagePicker({
-  groups, value, onChange,
-}: { groups: PackageGroup[]; value: string | undefined; onChange: (id: string | undefined) => void }) {
-  const gi = Math.max(0, groups.findIndex(g => g.options.some(o => o.id === value)));
-  const hasValue = groups.some(g => g.options.some(o => o.id === value));
-  const group = groups[gi];
-  const select = "w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] outline-none focus:border-primary";
-  return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      <label className="block">
-        <span className="mb-1 block text-[12px] font-medium text-foreground">Care package *</span>
-        <select
-          className={select}
-          value={hasValue ? String(gi) : ""}
-          onChange={e => {
-            const g = groups[Number(e.target.value)];
-            onChange(g?.options[0]?.id);
-          }}
-        >
-          {!hasValue && <option value="">Select a care package</option>}
-          {groups.map((g, i) => <option key={`${g.heading}-${i}`} value={i}>{g.title || g.heading}</option>)}
-        </select>
-      </label>
-      {hasValue && group.type === "dropdown" && (
-        <label className="block">
-          <span className="mb-1 block text-[12px] font-medium text-foreground">{group.heading} *</span>
-          <select className={select} value={value} onChange={e => onChange(e.target.value)}>
-            {group.options.map(o => <option key={o.id} value={o.id}>{optionLabel(o)}</option>)}
-          </select>
-        </label>
-      )}
-    </div>
-  );
-}
-
 // One card per group: title, option dropdown (when it is a dropdown group), price, Book.
 function GroupCard({
   group, packages, onBook,
@@ -646,9 +330,23 @@ function GroupCard({
           {opts.map(o => <option key={o.id} value={o.id}>{optionLabel(o)}</option>)}
         </select>
       )}
-      <p className="mt-3 line-clamp-3 min-h-[36px] text-[12.5px] leading-relaxed text-muted-foreground">
-        {cur.description || cur.included_scope || "Structured visits from verified care professionals."}
-      </p>
+      <div className="mt-3 min-h-[36px]">
+        <ReadMore
+          text={cur.description || cur.included_scope || "Structured visits from verified care professionals."}
+          lines={3}
+          extra={(cur.included_scope && cur.description) || cur.scope_boundary || cur.dropdown_note ? (
+            <div className="mt-2 space-y-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
+              {cur.included_scope && cur.description && <p><span className="font-semibold text-foreground">Included: </span>{cur.included_scope}</p>}
+              {cur.scope_boundary && <p><span className="font-semibold text-foreground">Not included: </span>{cur.scope_boundary}</p>}
+              {cur.dropdown_note && <p>{cur.dropdown_note}</p>}
+            </div>
+          ) : undefined}
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {cur.requires_prescription && <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">Needs doctor's prescription</span>}
+        {cur.material_included && <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">Materials included</span>}
+      </div>
       <div className="mt-4 flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] text-muted-foreground">Package price</p>
@@ -668,16 +366,91 @@ function GroupCard({
 }
 
 function CarePackagesGrid({
-  packages, groups, onBook,
-}: { packages: PackageEntity[]; groups: PackageGroup[] | null; onBook: (pkg: PackageEntity) => void }) {
+  packages, groups, onBook, query, onQuery,
+}: {
+  packages: PackageEntity[]; groups: PackageGroup[] | null; onBook: (pkg: PackageEntity) => void;
+  query: string; onQuery: (q: string) => void;
+}) {
   const active = packages.filter(p => p.rawStatus === "active");
+
+  const useGroups = !!groups && groups.length > 0;
+  const textOfGroup = (g: PackageGroup) =>
+    [g.title, g.heading, g.category, ...g.options.flatMap(o => [o.name, o.dropdown_option, o.description, o.included_scope])]
+      .filter(Boolean).join(" ");
+  const textOfPkg = (p: PackageEntity) =>
+    [p.name, p.code, p.tagline, p.description, p.targetCondition].filter(Boolean).join(" ");
+
+  const groupRes = useMemo(
+    () => (useGroups ? searchItems(groups!, query, textOfGroup) : null),
+    [useGroups, groups, query],
+  );
+  const flatRes = useMemo(
+    () => (!useGroups ? searchItems(active, query, textOfPkg) : null),
+    [useGroups, active, query],
+  );
+  const visibleGroups = groupRes?.items ?? [];
+  const visibleFlat = flatRes?.items ?? [];
+  const noMatch = query.trim() !== "" && (useGroups ? visibleGroups.length === 0 : visibleFlat.length === 0);
+  const didYouMean = (groupRes ?? flatRes)?.didYouMean ?? null;
+  const examples = (useGroups
+    ? groups!.map(g => g.title || g.heading)
+    : active.map(p => p.name)
+  ).filter(Boolean).slice(0, 4);
+
   if (active.length === 0) return null;
 
-  if (groups && groups.length > 0) {
+  const searchBox = (
+    <div className="px-4 pt-4">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={query}
+          onChange={e => onQuery(e.target.value)}
+          placeholder="Search care packages — e.g. injection, wound dressing, elderly care"
+          className="w-full rounded-lg border border-border bg-background py-2.5 pl-9 pr-9 text-[13px] outline-none focus:border-primary"
+          aria-label="Search care packages"
+        />
+        {query && (
+          <button type="button" onClick={() => onQuery("")} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 grid h-6 w-6 place-items-center rounded-full hover:bg-muted">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const notFound = noMatch && (
+    <div className="m-4 rounded-xl border border-dashed border-border px-4 py-6 text-center">
+      <p className="text-[14px] font-semibold text-foreground">Package not found</p>
+      <p className="mt-1 text-[12.5px] text-muted-foreground">
+        We couldn't find "{query.trim()}". Try searching with different keywords.
+      </p>
+      {didYouMean && (
+        <p className="mt-2 text-[12.5px]">
+          Did you mean{" "}
+          <button type="button" onClick={() => onQuery(didYouMean)} className="font-semibold text-primary underline">{didYouMean}</button>?
+        </p>
+      )}
+      {examples.length > 0 && (
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {examples.map(ex => (
+            <button key={ex} type="button" onClick={() => onQuery(ex)} className="rounded-full border border-border px-3 py-1 text-[12px] hover:border-primary hover:text-primary">
+              {ex}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  if (useGroups) {
     return (
       <Card title="Care Packages" padded={false}>
+        {searchBox}
+        {notFound}
         <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
-          {groups.map((g, i) => <GroupCard key={`${g.heading}-${i}`} group={g} packages={packages} onBook={onBook} />)}
+          {visibleGroups.map((g, i) => <GroupCard key={`${g.heading}-${i}`} group={g} packages={packages} onBook={onBook} />)}
         </div>
       </Card>
     );
@@ -685,8 +458,10 @@ function CarePackagesGrid({
 
   return (
     <Card title="Care Packages" padded={false}>
+      {searchBox}
+      {notFound}
       <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
-        {active.map(pkg => {
+        {visibleFlat.map(pkg => {
           const price = pkg.packagePrice ?? pkg.perVisitPrice;
           return (
             <article key={pkg.id} className="rounded-lg border border-border bg-card p-4">
@@ -702,9 +477,13 @@ function CarePackagesGrid({
                 )}
               </div>
 
-              <p className="mt-3 line-clamp-2 min-h-[36px] text-[12.5px] leading-relaxed text-muted-foreground">
-                {pkg.tagline || pkg.description || pkg.targetCondition || "Structured visits from verified care professionals."}
-              </p>
+              <div className="mt-3 min-h-[36px]">
+                <ReadMore
+                  text={pkg.tagline || pkg.description || pkg.targetCondition || "Structured visits from verified care professionals."}
+                  lines={2}
+                  extra={pkg.description && pkg.tagline ? <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">{pkg.description}</p> : undefined}
+                />
+              </div>
 
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                 <PkgStat label="Visits" value={pkg.visitsPerCycle ?? "-"} />

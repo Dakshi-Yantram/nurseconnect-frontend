@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft, HeartPulse, MapPin, Clock, IndianRupee,
-  CheckCircle2, AlertCircle, XCircle, Ban, Loader2, Banknote,
+  CheckCircle2, AlertCircle, XCircle, Ban, Loader2,
   ClipboardList, Thermometer, Activity, FileText, ArrowRight,
 } from "lucide-react";
 import { useBooking, useRefetchBookings } from "@/lib/domain";
@@ -18,7 +18,8 @@ import { useEntity } from "@/lib/orchestration";
 import { bindStatus, parseEnteredAt } from "@/lib/workflow-bind";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError, apiFetch, apiErrorMessage } from "@/lib/api";
-import { payForBooking, refundBooking, fetchPaymentMethods, selectCashPayment, type PaymentMethodOption } from "@/lib/payments";
+import { payForBooking, refundBooking } from "@/lib/payments";
+import { VerificationPanel, type VerificationState } from "@/components/booking/VerificationPanel";
 import { StartVisitCodeButton } from "@/components/StartVisitCodeButton";
 import { TrackNurseMap } from "@/components/TrackNurseMap";
 import { VisitReportButton } from "@/components/shared/VisitReportButton";
@@ -47,14 +48,13 @@ const PAYMENT_CONFIG: Record<PaymentStatus, {
   classes: string;
   description: string;
 }> = {
-  paid: { label: "Paid", icon: CheckCircle2, classes: "text-emerald-700 bg-emerald-50 border-emerald-200", description: "Payment settled — visit completed successfully." },
-  processing: { label: "Processing", icon: Clock, classes: "text-blue-700 bg-blue-50 border-blue-200", description: "Visit is in progress — payment will settle on completion." },
-  pending: { label: "Pending", icon: Clock, classes: "text-amber-700 bg-amber-50 border-amber-200", description: "Booking confirmed — pay now, or it will be collected automatically on visit completion." },
+  paid: { label: "Paid", icon: CheckCircle2, classes: "text-emerald-700 bg-emerald-50 border-emerald-200", description: "Payment received. Thank you!" },
+  processing: { label: "Processing", icon: Clock, classes: "text-blue-700 bg-blue-50 border-blue-200", description: "Your visit is in progress." },
+  pending: { label: "Pending", icon: Clock, classes: "text-amber-700 bg-amber-50 border-amber-200", description: "Payment is required to confirm this booking." },
   refunded: { label: "Refunded", icon: XCircle, classes: "text-muted-foreground bg-muted border-border", description: "Booking cancelled — refund credited within 5–7 working days." },
   failed: { label: "Action needed", icon: AlertCircle, classes: "text-rose-700 bg-rose-50 border-rose-200", description: "Payment issue detected — your care team has been notified." },
-  // Booking confirmed and dispatchable; the customer pays the care
-  // professional directly at the visit, not through the app.
-  cash_due: { label: "Pay at visit", icon: Banknote, classes: "text-sky-700 bg-sky-50 border-sky-200", description: "Booking confirmed — pay your care professional directly when they arrive." },
+  // Legacy rows only — pay-at-visit is no longer offered (prepaid only).
+  cash_due: { label: "Confirmed", icon: CheckCircle2, classes: "text-emerald-700 bg-emerald-50 border-emerald-200", description: "Your booking is confirmed." },
 };
 
 // GET /api/visits/{id}/report/consumer — the family-facing, audited view.
@@ -143,9 +143,10 @@ function useVisitReport(bookingId: string, enabled: boolean) {
 const TIMELINE_LABELS: Record<string, string> = {
   "booking.create": "Booking created",
   "booking.accept": "Nurse assigned",
+  "booking.en_route": "Nurse is on the way",
+  "payment.verify": "Payment received",
   "booking.worker_cancel_rematch": "Nurse cancelled — finding a replacement",
   "booking.cancel": "Booking cancelled",
-  "visit.otp_generated": "Start code generated",
   "visit.checkin": "Nurse checked in",
   "visit.checkin_via_otp": "Nurse checked in",
   "visit.vitals": "Vitals recorded",
@@ -194,8 +195,7 @@ function ConsumerBookingDetail() {
   const { entries: history, loading: historyLoading } = useBookingHistory(bookingId);
   const [paying, setPaying] = useState(false);
   const [refunding, setRefunding] = useState(false);
-  const [cashOption, setCashOption] = useState<PaymentMethodOption | null>(null);
-  const [payingCash, setPayingCash] = useState(false);
+  const [verif, setVerif] = useState<VerificationState | null>(null);
 
   const record = domainBooking ? {
     id: domainBooking.id,
@@ -215,6 +215,15 @@ function ConsumerBookingDetail() {
     useVisitReport(record?.id ?? "", record?.state === "completed");
   const report = reportState.kind === "ready" ? reportState.data : null;
 
+  // Prescription / medicine-photo requirement (null when the package needs none).
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch(`/api/bookings/${bookingId}/verification`)
+      .then((v) => { if (!cancelled) setVerif(v); })
+      .catch(() => { if (!cancelled) setVerif(null); });
+    return () => { cancelled = true; };
+  }, [bookingId, domainBooking?.rawStatus]);
+
   if (!record) {
     return (
       <div className="space-y-4">
@@ -230,42 +239,24 @@ function ConsumerBookingDetail() {
   }
 
   const state = bindStatus("booking", record.state);
-  const service = domainBooking?.service ?? "Service";
+  const service = domainBooking?.service ?? "Care visit";
   const patientName = domainBooking?.patientName ?? "—";
   const area = domainBooking?.area ?? "—";
   const started = domainBooking?.startedAt ?? "—";
   const duration = domainBooking?.duration ?? "—";
   const nurse = domainBooking?.nurseName ?? "Unassigned";
+  const hasNurse = nurse !== "Unassigned" && nurse !== "—" && nurse.trim() !== "";
 
   const rawPaymentStatus = domainBooking?.paymentStatus;
   const payStatus = mapRealPaymentStatus(rawPaymentStatus) ?? derivePaymentStatus(record.state);
 
-  // Cash eligibility is server-driven (see /payments/methods/{id} and
-  // app/services/cash_payment.py::is_cash_eligible) rather than guessed
-  // from booking state here, so the rule lives in exactly one place and
-  // the web app can never drift from what the backend actually allows.
-  useEffect(() => {
-    let cancelled = false;
-    if (!isPayable(rawPaymentStatus)) {
-      setCashOption(null);
-      return;
-    }
-    fetchPaymentMethods(record.id)
-      .then((res) => {
-        if (cancelled) return;
-        setCashOption(res.methods.find((m) => m.method === "cash") ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setCashOption(null);
-      });
-    return () => { cancelled = true; };
-  }, [record.id, rawPaymentStatus]);
   const amount = domainBooking?.totalAmount != null
     ? Number(domainBooking.totalAmount)
     : deriveAmount(service);
 
   const payCfg = PAYMENT_CONFIG[payStatus];
   const PayIcon = payCfg.icon;
+  const verifBlocking = !!verif?.required && !verif.can_pay;
   const canPay = isPayable(rawPaymentStatus);
 
   const scheduledStart = (() => {
@@ -296,28 +287,6 @@ function ConsumerBookingDetail() {
       if (msg !== "Payment cancelled") toast.error(msg);
     } finally {
       setPaying(false);
-    }
-  };
-
-  // Cash path: no order, no gateway, no signature — the booking is simply
-  // confirmed with the amount due at the visit. Kept separate from
-  // handlePay for the same reason app/services/cash_payment.py is its own
-  // module rather than an `if` inside the Razorpay flow.
-  const handlePayCash = async () => {
-    setPayingCash(true);
-    try {
-      const result = await selectCashPayment(record.id);
-      if (result.cash_due) {
-        toast.success("Booking confirmed — pay your care professional at the visit.");
-        await refetchBookings();
-      } else {
-        toast.error("Couldn't switch this booking to cash. Please try again.");
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Couldn't select cash payment";
-      toast.error(msg);
-    } finally {
-      setPayingCash(false);
     }
   };
 
@@ -352,7 +321,7 @@ function ConsumerBookingDetail() {
         <div className="flex items-start justify-between gap-4 px-5 py-4 flex-wrap">
           <div>
             <div className="text-[15px] font-semibold">
-              #{record.id} · {service}
+              {domainBooking?.bookingRef ? `${domainBooking.bookingRef} · ` : ""}{service}
             </div>
             <div className="text-[12.5px] text-muted-foreground mt-0.5">
               {patientName} · {area}
@@ -380,7 +349,29 @@ function ConsumerBookingDetail() {
       {nurse !== "Unassigned" && ["assigned", "worker_en_route", "worker_arrived", "in_progress"].includes(record.state) && (
         <CallButton bookingId={record.id} calleeLabel={nurse} />
       )}
-      <ChatPanel scope="booking" id={record.id} />
+      {hasNurse ? (
+        <ChatPanel scope="booking" id={record.id} />
+      ) : !["completed", "cancelled", "missed"].includes(record.state) && (
+        <Card padded>
+          <div className="flex items-start gap-3">
+            <Loader2 className="h-4 w-4 mt-0.5 animate-spin text-primary shrink-0" />
+            <div>
+              <p className="text-[13px] font-semibold text-foreground">We're finding the right nurse for you</p>
+              <p className="text-[12.5px] text-muted-foreground">Chat and calling open as soon as a nurse accepts your booking.</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {verif?.required && (verifBlocking || verif.status === "rejected") && !["cancelled", "completed"].includes(record.state) && (
+        <Card padded>
+          <VerificationPanel
+            mode={{ kind: "booking", bookingId: record.id }}
+            onChange={setVerif}
+            heading="Prescription & medicines"
+          />
+        </Card>
+      )}
 
       <RuntimeBoundary label="Payment">
         <Card
@@ -403,11 +394,7 @@ function ConsumerBookingDetail() {
                 </div>
               </div>
 
-              <div className="mt-3 pt-3 border-t border-current/10 grid grid-cols-3 gap-2 text-[11.5px]">
-                <PayLine label="Service fee" value={formatINR(Math.round(amount * 0.85))} />
-                <PayLine label="Platform fee" value={formatINR(Math.round(amount * 0.12))} />
-                <PayLine label="GST (3%)" value={formatINR(Math.round(amount * 0.03))} />
-              </div>
+              <p className="mt-2 text-[11.5px] opacity-75">Total, inclusive of all taxes and fees.</p>
 
               {payStatus === "refunded" && (
                 <div className="mt-3 text-[11.5px] opacity-75 flex items-center gap-1.5">
@@ -420,19 +407,12 @@ function ConsumerBookingDetail() {
                   Your visit is underway. Payment will be confirmed once the nurse completes the visit.
                 </div>
               )}
-              {payStatus === "cash_due" && (
-                <div className="mt-3 text-[11.5px] opacity-75">
-                  This booking is confirmed. Pay {formatINR(amount)} directly to your care professional
-                  when they arrive — no online payment is needed.
-                </div>
-              )}
-
               {canPay && (
                 <div className="mt-3 pt-3 border-t border-current/10">
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={handlePay}
-                      disabled={paying || payingCash}
+                      disabled={paying || verifBlocking}
                       className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-[13px] font-medium hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {paying ? (
@@ -443,27 +423,10 @@ function ConsumerBookingDetail() {
                         <>Pay {formatINR(amount)} now</>
                       )}
                     </button>
-                    {/* Cash option only rendered when the backend says this
-                        booking qualifies (see /payments/methods/{id}) —
-                        never hardcoded here, so a rule change on the
-                        backend (e.g. a service that must be prepaid)
-                        applies immediately with no frontend release. */}
-                    {cashOption?.available && (
-                      <button
-                        onClick={handlePayCash}
-                        disabled={paying || payingCash}
-                        className="inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 text-sky-700 px-4 py-2 text-[13px] font-medium hover:bg-sky-100 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {payingCash ? (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Confirming…
-                          </>
-                        ) : (
-                          <>Pay cash at visit</>
-                        )}
-                      </button>
-                    )}
                   </div>
+                  {verifBlocking && (
+                    <div className="mt-2 text-[11.5px] opacity-80">Please add your prescription and medicine photo above to continue.</div>
+                  )}
                   {payStatus === "failed" && (
                     <div className="mt-2 text-[11.5px] opacity-75">
                       Your last payment attempt didn't go through — try again above.
@@ -607,18 +570,12 @@ function ConsumerBookingDetail() {
         <Card title="Booking history" padded={false}>
           <div className="px-5 py-4 space-y-0">
             {history.length === 0 ? (
-              <TimelineRow
-                label="Entity created"
-                note="Imported from operational seed"
-                ts={record.enteredAt}
-                isLast
-              />
+              <TimelineRow label="Booking created" ts={record.enteredAt} isLast />
             ) : (
               history.map((entry, i) => (
                 <TimelineRow
                   key={entry.id}
-                  label={TIMELINE_LABELS[entry.action ?? ""] ?? entry.action ?? "State change"}
-                  note={entry.changes ? JSON.stringify(entry.changes) : undefined}
+                  label={(entry as any).label ?? TIMELINE_LABELS[entry.action ?? ""] ?? "Update"}
                   ts={entry.created_at}
                   isLast={i === history.length - 1}
                 />
